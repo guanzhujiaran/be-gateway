@@ -1,0 +1,8 @@
+let a =$$(`.article-link`)
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(() => resolve(sleep), ms));
+}
+for(let i of a){
+    i.click();
+    await sleep(3e3);
+}
