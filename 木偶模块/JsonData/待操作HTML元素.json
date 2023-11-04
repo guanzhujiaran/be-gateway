@@ -18,7 +18,7 @@
     ],
     "op": [
         {
-            "url": "https://mall.bilibili.com/neul-next/index.html?page=purchase-by-lot_home&taskId=lti_h8mwolse49rl&noTitleBar=1",
+            "url": "https://mall.bilibili.com/neul-next/index.html?page=purchase-by-lot_home&taskId=lti_3wz9ekbdxwmu&noTitleBar=1",
             "ops": [
                 {
                     "ele": ".cart-button-light",
@@ -29,7 +29,7 @@
             "emulate_device": "Nexus 7"
         },
         {
-            "url": "https://mall.bilibili.com/act/aicms/lms18Ji9i.html?1=1&shareId=3493266594990768&taskId=lti_h8mwolse49rl",
+            "url": "https://mall.bilibili.com/act/aicms/lms18Ji9i.html?1=1&shareId=3493266594990768&taskId=lti_3wz9ekbdxwmu",
             "ops": [
                 {
                     "ele": ".machine-return-card-btn",
@@ -45,7 +45,7 @@
             "emulate_device": "Nexus 7"
         },
         {
-            "url": "https://mall.bilibili.com/act/aicms/lms18Ji9i.html?1=1&shareId=9295261&taskId=lti_h8mwolse49rl",
+            "url": "https://mall.bilibili.com/act/aicms/lms18Ji9i.html?1=1&shareId=9295261&taskId=lti_3wz9ekbdxwmu",
             "ops": [
                 {
                     "ele": ".machine-return-card-btn",
@@ -61,7 +61,7 @@
             "emulate_device": "Nexus 7"
         },
         {
-            "url": "https://mall.bilibili.com/act/aicms/lms18Ji9i.html?1=1&shareId=3493266567727250&taskId=lti_h8mwolse49rl",
+            "url": "https://mall.bilibili.com/act/aicms/lms18Ji9i.html?1=1&shareId=3493266567727250&taskId=lti_3wz9ekbdxwmu",
             "ops": [
                 {
                     "ele": ".machine-return-card-btn",
@@ -77,7 +77,7 @@
             "emulate_device": "Nexus 7"
         },
         {
-            "url": "https://mall.bilibili.com/act/aicms/lms18Ji9i.html?1=1&shareId=3493266529978563&taskId=lti_h8mwolse49rl",
+            "url": "https://mall.bilibili.com/act/aicms/lms18Ji9i.html?1=1&shareId=3493266529978563&taskId=lti_3wz9ekbdxwmu",
             "ops": [
                 {
                     "ele": ".machine-return-card-btn",
@@ -93,7 +93,7 @@
             "emulate_device": "Nexus 7"
         },
         {
-            "url": "https://mall.bilibili.com/act/aicms/lms18Ji9i.html?1=1&shareId=3493266578212994&taskId=lti_h8mwolse49rl",
+            "url": "https://mall.bilibili.com/act/aicms/lms18Ji9i.html?1=1&shareId=3493266578212994&taskId=lti_3wz9ekbdxwmu",
             "ops": [
                 {
                     "ele": ".machine-return-card-btn",
@@ -109,7 +109,114 @@
             "emulate_device": "Nexus 7"
         },
         {
-            "url": "https://mall.bilibili.com/act/aicms/lms18Ji9i.html?1=1&shareId=3493266546755731&taskId=lti_h8mwolse49rl",
+            "url": "https://mall.bilibili.com/act/aicms/lms18Ji9i.html?1=1&shareId=3493266546755731&taskId=lti_3wz9ekbdxwmu",
+            "ops": [
+                {
+                    "ele": ".machine-return-card-btn",
+                    "optype": "tap",
+                    "wait": "10000"
+                },
+                {
+                    "ele": "body > div.franky-popup > div.franky-popup_box.is-center > div > div.popup-assistance-content > div.popup-btn",
+                    "optype": "tap",
+                    "wait": "10000"
+                }
+            ],
+            "emulate_device": "Nexus 7"
+        },
+        {
+            "url": "https://mall.bilibili.com/neul-next/index.html?page=purchase-by-lot_home&taskId=lti_cvxci0oa2lzr&noTitleBar=1",
+            "ops": [
+                {
+                    "ele": ".cart-button-light",
+                    "optype": "tap",
+                    "wait": "10000"
+                }
+            ],
+            "emulate_device": "Nexus 7"
+        },
+        {
+            "url": "https://mall.bilibili.com/act/aicms/lms18Ji9i.html?1=1&shareId=3493266594990768&taskId=lti_cvxci0oa2lzr",
+            "ops": [
+                {
+                    "ele": ".machine-return-card-btn",
+                    "optype": "tap",
+                    "wait": "10000"
+                },
+                {
+                    "ele": "body > div.franky-popup > div.franky-popup_box.is-center > div > div.popup-assistance-content > div.popup-btn",
+                    "optype": "tap",
+                    "wait": "10000"
+                }
+            ],
+            "emulate_device": "Nexus 7"
+        },
+        {
+            "url": "https://mall.bilibili.com/act/aicms/lms18Ji9i.html?1=1&shareId=9295261&taskId=lti_cvxci0oa2lzr",
+            "ops": [
+                {
+                    "ele": ".machine-return-card-btn",
+                    "optype": "tap",
+                    "wait": "10000"
+                },
+                {
+                    "ele": "body > div.franky-popup > div.franky-popup_box.is-center > div > div.popup-assistance-content > div.popup-btn",
+                    "optype": "tap",
+                    "wait": "10000"
+                }
+            ],
+            "emulate_device": "Nexus 7"
+        },
+        {
+            "url": "https://mall.bilibili.com/act/aicms/lms18Ji9i.html?1=1&shareId=3493266567727250&taskId=lti_cvxci0oa2lzr",
+            "ops": [
+                {
+                    "ele": ".machine-return-card-btn",
+                    "optype": "tap",
+                    "wait": "10000"
+                },
+                {
+                    "ele": "body > div.franky-popup > div.franky-popup_box.is-center > div > div.popup-assistance-content > div.popup-btn",
+                    "optype": "tap",
+                    "wait": "10000"
+                }
+            ],
+            "emulate_device": "Nexus 7"
+        },
+        {
+            "url": "https://mall.bilibili.com/act/aicms/lms18Ji9i.html?1=1&shareId=3493266529978563&taskId=lti_cvxci0oa2lzr",
+            "ops": [
+                {
+                    "ele": ".machine-return-card-btn",
+                    "optype": "tap",
+                    "wait": "10000"
+                },
+                {
+                    "ele": "body > div.franky-popup > div.franky-popup_box.is-center > div > div.popup-assistance-content > div.popup-btn",
+                    "optype": "tap",
+                    "wait": "10000"
+                }
+            ],
+            "emulate_device": "Nexus 7"
+        },
+        {
+            "url": "https://mall.bilibili.com/act/aicms/lms18Ji9i.html?1=1&shareId=3493266578212994&taskId=lti_cvxci0oa2lzr",
+            "ops": [
+                {
+                    "ele": ".machine-return-card-btn",
+                    "optype": "tap",
+                    "wait": "10000"
+                },
+                {
+                    "ele": "body > div.franky-popup > div.franky-popup_box.is-center > div > div.popup-assistance-content > div.popup-btn",
+                    "optype": "tap",
+                    "wait": "10000"
+                }
+            ],
+            "emulate_device": "Nexus 7"
+        },
+        {
+            "url": "https://mall.bilibili.com/act/aicms/lms18Ji9i.html?1=1&shareId=3493266546755731&taskId=lti_cvxci0oa2lzr",
             "ops": [
                 {
                     "ele": ".machine-return-card-btn",
@@ -125,6 +232,5 @@
             "emulate_device": "Nexus 7"
         }
     ],
-    "//": "//不用的时候在末尾加上 \"op\": []",
-    "op": []
+    "//": "//不用的时候在末尾加上 \"op\": []"
 }

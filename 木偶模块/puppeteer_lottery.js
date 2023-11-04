@@ -3608,14 +3608,14 @@ class DO_Lottery {
                         }
                     }
                     catch (e) {
-                        console.warn("获取评论失败", reply_main_res, e);
+                        console.warn(`获取评论失败 ${dynamic_id_or_BVid}`, reply_main_res, e);
                         if (global_var.response.reply_main && global_var.response.reply_main.code == 0) {
                             reply_main_res = global_var.response.reply_main
                         }
                     }
                     let replies = reply_main_res.data.replies
                     if (replies.length < 7) {
-                        console.warn('评论数量过少，不抄了');
+                        console.warn(`评论数量过少，不抄了 ${dynamic_id_or_BVid}`);
                         return { ret_list, reply_count }
                     }
                     let replies_content = [...Array(replies.length)].map(x => undefined);
@@ -5387,7 +5387,8 @@ ${Dynamic_content}
                             await 必抽的预约抽奖();
                             break;
                         case "参加点击的活动":
-                            let op = require('./JsonData/待操作HTML元素.json');
+                            let op = JSON.parse(fs.readFileSync('./JsonData/待操作HTML元素.json', 'utf-8'))//require并不是同步地读取文件，如果这个JSON文件是动态变化的话可能无法读取到最新的JSON文件。
+                            // require('./JsonData/待操作HTML元素.json');
                             console.log(`${global_var.user_info.uname}\t开始执行任务：参加点击的活动`);
                             await HTMLOP(global_var.page, op.op)
                             console.log(`${global_var.user_info.uname}\t任务完成：参加点击的活动`);

@@ -6,15 +6,15 @@ async function main() {
     console.log(`开始新的一轮抽奖！${(new Date()).toLocaleString()}`)
     let start_time = new Date();
     let lottery_setting_filename_list = [//抽奖设置的名称
-        // 'lottery_setting3',
-        // 'lottery_setting2',
-        // 'lottery_setting5',
-        // 'lottery_setting8',
-        // 'lottery_setting9',
-        // 'lottery_setting10',
-        // 'lottery_setting11',
-        // 'lottery_setting12',
-        // 'lottery_setting13',
+        'lottery_setting3',
+        'lottery_setting2',
+        'lottery_setting5',
+        'lottery_setting8',
+        'lottery_setting9',
+        'lottery_setting10',
+        'lottery_setting11',
+        'lottery_setting12',
+        'lottery_setting13',
         //养成四级号再跑脚本
         // 'lottery_setting7',//G
         // 'lottery_setting6',//G
@@ -22,8 +22,8 @@ async function main() {
     let MYLOTLIST = [];
     let unfollow_mode = 0;//是否开启取关模式
     let auto_mode = 1;//是否开启全自动抽奖模式
-    let browser_mode = 1;//是否只打开浏览器，不进行抽奖
-    if (auto_mode && !browser_mode) {
+    let browser_mode = 0;//是否只打开浏览器，不进行抽奖
+    if (auto_mode && !browser_mode && !unfollow_mode) {
         try {
             console.log(`正在获取抽奖动态中！----${(new Date()).toLocaleString()}`)
             let latest_lot_dyn = fs.readFileSync('./木偶模块/一般的抽奖动态id.txt').toString();
