@@ -131,11 +131,7 @@ this.isAvailable = true;
             await this.chatpage.goto('https://chat.openai.com/', { waitUntil: 'networkidle0' });
             this.isAvailable = true;
         }
-        catch (e) {
-            console.warn(e);
-            this.isAvailable = true;
-            throw (e);
-        }
+        catch (e) { console.warn(e); }
     };
 
     async restart() {

@@ -119,8 +119,6 @@ class chatgptOP {
                 this.chatpage.screenshot({ path: `./ChatGPT/err_pic/ChatGPT_Error_${Date.now()}_${arguments[0].name}.jpg` })
                 console.warn(func.name, 'chatgpt_error', e, this, arguments);
                 await this.chatpage.goto('https://chat.openai.com/', { waitUntil: 'networkidle0' });
-this.isAvailable = true;
-                throw (e)
             }
         }
     }
@@ -131,11 +129,7 @@ this.isAvailable = true;
             await this.chatpage.goto('https://chat.openai.com/', { waitUntil: 'networkidle0' });
             this.isAvailable = true;
         }
-        catch (e) {
-            console.warn(e);
-            this.isAvailable = true;
-            throw (e);
-        }
+        catch (e) { console.warn(e); }
     };
 
     async restart() {

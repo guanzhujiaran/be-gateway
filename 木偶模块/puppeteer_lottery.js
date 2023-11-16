@@ -5387,7 +5387,7 @@ ${Dynamic_content}
                             await 必抽的预约抽奖();
                             break;
                         case "参加点击的活动":
-                            let op = JSON.parse(fs.readFileSync('./JsonData/待操作HTML元素.json', 'utf-8'))//require并不是同步地读取文件，如果这个JSON文件是动态变化的话可能无法读取到最新的JSON文件。
+                            let op = JSON.parse(fs.readFileSync(__dirpath + 'JsonData/待操作HTML元素.json', 'utf-8'))//require并不是同步地读取文件，如果这个JSON文件是动态变化的话可能无法读取到最新的JSON文件。
                             // require('./JsonData/待操作HTML元素.json');
                             console.log(`${global_var.user_info.uname}\t开始执行任务：参加点击的活动`);
                             await HTMLOP(global_var.page, op.op)
