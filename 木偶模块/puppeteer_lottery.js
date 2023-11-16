@@ -1321,7 +1321,7 @@ class DO_Lottery {
                     return await new Promise((resolve, reject) => {
                         superagent.get(api + (query ? '?' + query : ''))
                             .set({
-                                'User-Agent': "Mozilla/5.0",
+                                'User-Agent': "Mozilla/5.0",//这个ua不容易被风控
                                 'Accept': 'application/json, text/plain, */*',
                                 'accept-encoding': 'gzip, deflate',
                                 'origin': 'https://t.bilibili.com',
@@ -1409,6 +1409,27 @@ class DO_Lottery {
                             'plat': 1,
                             'type': type,
                             'web_location': 1315875,
+                        }
+                    )
+                },
+                /**
+                 * 获取评论区明细_翻页加载
+                 * @param {*} sort 默认为0
+                                    0：按时间
+                                    1：按点赞数
+                                    2：按回复数
+                 * @param {*} next 
+                 * @param {*} comment_id 
+                 * @param {*} type 
+                 * @returns 
+                 */
+                get_reply: (sort, pn, comment_id, type) => {
+                    return MYAPI.BiliAPI.get(`https://api.bilibili.com/x/v2/reply/wbi/main`,
+                        {
+                            'sort': sort,
+                            'pn': pn,
+                            'oid': comment_id,
+                            'type': type,
                         }
                     )
                 },
@@ -1534,7 +1555,7 @@ class DO_Lottery {
                         }
                         let comment_id_str = dynamic_detail_res_data.item.basic.comment_id_str
                         let comment_type = dynamic_detail_res_data.item.basic.comment_type
-                        let reply_res = await MYAPI.BiliAPI.get_reply_main(2, 0, comment_id_str, comment_type)
+                        let reply_res = await MYAPI.BiliAPI.get_reply(2, 0, comment_id_str, comment_type)
                         if (reply_res.code) {
                             console.warn("获取评论失败", reply_res);
                             return false
@@ -3592,7 +3613,7 @@ class DO_Lottery {
                     }
                     if (get_api_reply_resp_flag || global_var.response.reply_main == undefined || get_api_fail) {
                         get_comment_page = Math.floor(Math.ceil(reply_count * pn_percent) / 20)
-                        reply_main_res = await MYAPI.BiliAPI.get_reply_main(mode, get_comment_page, comment_id_str, comment_type)
+                        reply_main_res = await MYAPI.BiliAPI.get_reply(mode, get_comment_page, comment_id_str, comment_type)
                         up_mid = reply_main_res.data.upper.mid;
                     }
                     else {
