@@ -2663,7 +2663,7 @@ class DO_Lottery {
                     let manual_re25 = /.*说出/gmi.test(dynamic_content)
                     let manual_re26 = /.*为.{0,10}加油/gmi.test(dynamic_content)
                     let manual_re27 = /.*评论.{0,10}话|.*你中意的|.*评.{0,10}你.{0,5}的|.*写上.{0,10}你.{0,5}的|.*写下.{0,10}你.{0,5}的/gmi.test(dynamic_content)
-                    let manual_re28 = /.*评论.{0,15}最想做7的事|.*评.{0,15}最喜欢|.*评.{0,15}最.{0,7}的事|.*最想定制的画面/gmi.test(dynamic_content)
+                    let manual_re28 = /.*评论.{0,15}最想做7的事|.*评.{0,15}最喜欢|.*评.{0,15}最.{0,7}的事|.*最想定制的画面|最想.{0,20}\?|最想.{0,20}？/gmi.test(dynamic_content)
                     let manual_re29 = /.*分享.{0,20}经历|.*经历.{0,20}分享/gmi.test(dynamic_content)
                     let manual_re30 = /.*分享.{0,20}心情/gmi.test(dynamic_content)
                     let manual_re31 = /.*评论.{0,10}句/gmi.test(dynamic_content)
