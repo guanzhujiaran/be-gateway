@@ -3368,11 +3368,13 @@ class DO_Lottery {
                                     }
                                     console.log(`${global_var.user_info.uname}\t当前分享视频进度：${share_video_list.indexOf(video_elem) + 1}/${share_video_list.length}`);
                                     console.log(`${global_var.user_info.uname}\t休眠 ${st / 1e3}秒\t${(new Date()).toLocaleTimeString()}`);
+                                    await global_var.page.goto('about:blank')
                                     await sleep(st)
                                 }
                                 catch (e) {
                                     console.warn(`分享单个视频失败\n`, e);
                                     await sleep(1e3)
+                                    await global_var.page.goto('about:blank')
                                     continue;
                                 }
                             }
@@ -5586,6 +5588,10 @@ ${Dynamic_content}
                     if (await global_var.page.isClosed()) {
                     }//页面关了全都不管
                     else {
+                        if (!global_var.user_info.uid) {
+                            console.error(`${lottery_setting.CONFIG.COOKIENAME} 账号失效`);
+                            return
+                        }
                         await global_var.browser.close()//页面没关全部关掉
                     }
                 }

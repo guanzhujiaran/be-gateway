@@ -505,6 +505,7 @@ class LIVE_LOT {
     };
 
     main = async () => {
+        
 
     }
 
