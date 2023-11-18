@@ -1598,6 +1598,7 @@ class DO_Lottery {
                  * @param {*} opus_dynamic 是否通过opus动态操作
                  */
                 dynamic_thumb: async function (opus_dynamic = false) {//动态点赞
+                    global_var.Getter.check_login_status();
                     try {
                         if (typeof global_var.recorded_data == string) {
                             if (global_var.recorded_data.includes('动态评论失败，评论被隐藏')) {
@@ -1659,6 +1660,7 @@ class DO_Lottery {
                  * @param {*} opus_dynamic 是否通过opus动态操作
                  */
                 dynamic_repost: async function (opus_dynamic = false, repost_content = '') {//点击转发
+                    global_var.Getter.check_login_status();
                     let pageurl = await global_var.page.url();
                     if (pageurl.includes('opus')) {
                         opus_dynamic = true
@@ -1808,7 +1810,7 @@ class DO_Lottery {
                     }
 
 
-
+                    global_var.Getter.check_login_status();
                     let pageurl = await global_var.page.url();
                     if (pageurl.includes('opus')) {
                         opus_dynamic = true
@@ -1990,6 +1992,7 @@ class DO_Lottery {
                     }
                 },
                 comment_thumb: async function (opus_dynamic = false) {
+                    global_var.Getter.check_login_status();
                     let pageurl = await global_var.page.url();
                     if (pageurl.includes('opus')) {
                         opus_dynamic = true
@@ -2363,7 +2366,13 @@ class DO_Lottery {
                         try {
                             if (global_var.response.reply_main != undefined) {
                                 try {
-                                    1
+                                    if (global_var.response.reply_main.code == 12061) {
+                                        // code:
+                                        // 12061
+                                        // message:
+                                        // 'UP主已关闭评论区'
+                                        return ''
+                                    }
                                     let ret_msg = ''
                                     let upper_mid = global_var.response.reply_main.data.upper.mid
                                     let replies = global_var.response.reply_main.data.replies
@@ -4748,6 +4757,7 @@ ${Dynamic_content}
                         }
                         if (global_var.response.global_dynamic_data.item.modules.module_author.following == null) {//判断关注，为null则是没关注
                             for (let i = 0; i <= 5; i++) {
+                                global_var.Getter.check_login_status();
                                 if (pageurl.includes(`www.bilibili.com/opus/`)) {
                                     // try {
                                     //     await sleep(1e3)
@@ -4808,9 +4818,9 @@ ${Dynamic_content}
                                             if (global_var.response.relation_modify_response.code != 0) {
                                                 console.warn(`${goto_url}\t${global_var.user_info.uname}\t点击关注失败 https://space.bilibili.com/${global_var.response.global_dynamic_data.item.modules.module_author.mid}\n${JSON.stringify(global_var.response.relation_modify_response)}`);
                                                 if (global_var.response.relation_modify_response.code != 22002) {//{"code":22002,"message":"因对方隐私设置，你还不能关注","ttl":1}
-                                                    console.warn(`${goto_url}\t${global_var.user_info.uname}\t点击关注失败 https://space.bilibili.com/${global_var.response.global_dynamic_data.item.modules.module_author.mid}\n${JSON.stringify(global_var.response.relation_modify_response)}\t风控导致，休眠0.5小时！${(new Date()).toLocaleTimeString()}`);
-                                                    await utl.my_throw(`${goto_url}\t${global_var.user_info.uname}\t点击关注失败 https://space.bilibili.com/${global_var.response.global_dynamic_data.item.modules.module_author.mid}\n${JSON.stringify(global_var.response.relation_modify_response)}\t风控导致，休眠0.5小时！${(new Date()).toLocaleTimeString()}`);
-                                                    await sleep(0.5 * 3600e3)
+                                                    console.warn(`${goto_url}\t${global_var.user_info.uname}\t点击关注失败 https://space.bilibili.com/${global_var.response.global_dynamic_data.item.modules.module_author.mid}\n${JSON.stringify(global_var.response.relation_modify_response)}\t风控导致，休眠2小时！${(new Date()).toLocaleTimeString()}`);
+                                                    await utl.my_throw(`${goto_url}\t${global_var.user_info.uname}\t点击关注失败 https://space.bilibili.com/${global_var.response.global_dynamic_data.item.modules.module_author.mid}\n${JSON.stringify(global_var.response.relation_modify_response)}\t风控导致，休眠2小时！${(new Date()).toLocaleTimeString()}`);
+                                                    await sleep(2 * 3600e3)
                                                     if (!(await follow_pg.isClosed())) {
                                                         await follow_pg.close();
                                                     }

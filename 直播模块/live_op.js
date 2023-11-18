@@ -38,7 +38,7 @@ const live_op = {
             })
         }
 
-        if (pg.isClosed() || !pg) {
+        if ((await pg.browser().pages()).length === 0 || !pg) {
             DO_Lottery_class.broswer_mode = 1;
             await DO_Lottery_class.main();
             pg = DO_Lottery_class.global_page;
@@ -504,7 +504,9 @@ class LIVE_LOT {
 
     };
 
+    main = async () => {
 
-    
+    }
+
 
 };
