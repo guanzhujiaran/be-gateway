@@ -1927,6 +1927,8 @@ __args.push(
     '--ignore-certifcate-errors',
     '--ignore-certifcate-errors-spki-list',
 )
+
+
 browser = await puppeteer.launch(
     {
         executablePath: `C:\\Users\\Acer\\AppData\\Local\\Google\\Chrome SxS\\Application\\chrome.exe`,//浏览器路径
@@ -1949,4 +1951,4 @@ let page = await browser.newPage();
 await page.setExtraHTTPHeaders({
     'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6'
 });
-global_var.page = page
+global_var.page = page;

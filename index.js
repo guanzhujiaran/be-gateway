@@ -6,7 +6,7 @@ async function main() {
     console.log(`开始新的一轮抽奖！${(new Date()).toLocaleString()}`)
     let start_time = new Date();
     let lottery_setting_filename_list = [//抽奖设置的名称
-        'lottery_setting1',
+        // 'lottery_setting1',
         'lottery_setting3',
         'lottery_setting2',
         'lottery_setting5',
@@ -78,6 +78,8 @@ async function main() {
             }
         }
     }
+
+
 
     if (auto_mode && !browser_mode) {
         while (1) {
