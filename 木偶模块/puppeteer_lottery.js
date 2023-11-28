@@ -535,6 +535,11 @@ class DO_Lottery {
 								opus_init.module_stat;
 							break;
 						}
+						case "MODULE_TYPE_TITLE": {
+							polymer_detail_data.item.modules.module_dynamic.major.opus.title =
+								opus_init.module_title.text;
+							break;
+						}
 					}
 				}
 				return polymer_detail_data;
@@ -1380,7 +1385,11 @@ class DO_Lottery {
 						id_str: undefined,
 						modules: {
 							module_author: {},
-							module_dynamic: {},
+							module_dynamic: {
+								major:{
+									opus:undefined
+								}
+							},
 							module_stat: {},
 						},
 						type: undefined,
@@ -1454,6 +1463,11 @@ class DO_Lottery {
 						case "MODULE_TYPE_STAT": {
 							polymer_detail_data.item.modules.module_stat =
 								m.module_stat;
+							break;
+						}
+						case "MODULE_TYPE_TITLE": {
+							polymer_detail_data.item.modules.module_dynamic.major.opus.title =
+								m.module_title.text;
 							break;
 						}
 					}
@@ -3294,9 +3308,11 @@ class DO_Lottery {
 								dynmaic_content += dynamic_content4;
 							}
 						} else {
+							//图片动态或文字动态
 							let dynamic_content1;
 							let dynamic_content2;
 							let dynamic_content3;
+							let dynamic_content4;
 							try {
 								dynamic_content1 =
 									dynamic_data.item.modules.module_dynamic.major?.opus?.summary?.rich_text_nodes
@@ -3304,6 +3320,14 @@ class DO_Lottery {
 										.join("");
 							} catch {
 								dynamic_content1 = "";
+							}
+
+							try {
+								dynamic_content4 =
+									dynamic_data.item.modules.module_dynamic
+										?.major?.opus?.title;
+							} catch {
+								dynamic_content4 = "";
 							}
 							try {
 								dynamic_content2 =
@@ -3319,6 +3343,7 @@ class DO_Lottery {
 							} catch {
 								dynamic_content3 = "";
 							}
+
 							if (
 								dynamic_content1 != undefined &&
 								dynamic_content1 != null
@@ -3336,6 +3361,12 @@ class DO_Lottery {
 								dynamic_content3 != null
 							) {
 								dynmaic_content += dynamic_content3;
+							}
+							if (
+								dynamic_content4 != undefined &&
+								dynamic_content4 != null
+							) {
+								dynmaic_content += dynamic_content4;
 							}
 						}
 						let ret_dynamic_content = (
@@ -6441,7 +6472,7 @@ ${Dynamic_content}
 								// console.log(`${global_var.user_info.uname}\t我的消息响应：\n${JSON.stringify(global_var.response.msgfeed_unread)}`);
 							}
 						} catch (e) {
-							global_var.response.space_reservation = undefined;
+							global_var.response.msgfeed_unread = undefined;
 							//throw (`${global_var.user_info.uname}\t我的消息响应获取失败msgfeed/unread, ${e}`);
 						}
 					}
@@ -6454,9 +6485,7 @@ ${Dynamic_content}
 					console.warn(
 						`${
 							global_var.user_info.uname
-						}监听api响应失败\t${url}\n${e}\n${JSON.stringify(
-							response
-						)}`
+						}监听api响应失败\t${url}\n${e}\n${response.toString()}`
 					);
 				}
 			});
@@ -7224,7 +7253,7 @@ ${Dynamic_content}
 														}\n${JSON.stringify(
 															global_var.response
 																.relation_modify_response
-														)}\t风控导致，休眠2小时！${new Date().toLocaleTimeString()}`
+														)}\t风控导致，休眠1小时！${new Date().toLocaleTimeString()}`
 													);
 													await utl.my_throw(
 														`${goto_url}\t${
@@ -7239,9 +7268,9 @@ ${Dynamic_content}
 														}\n${JSON.stringify(
 															global_var.response
 																.relation_modify_response
-														)}\t风控导致，休眠2小时！${new Date().toLocaleTimeString()}`
+														)}\t风控导致，休眠1小时！${new Date().toLocaleTimeString()}`
 													);
-													await sleep(2 * 3600e3);
+													await sleep(1 * 3600e3);
 													if (
 														!(await follow_pg.isClosed())
 													) {
@@ -7587,7 +7616,6 @@ ${Dynamic_content}
 				try {
 					for (let i = 0; i < all_dynamic_id_list.length; i++) {
 						global_var.Getter.check_login_status();
-
 						if (
 							utl.checkAuditTime(
 								global_var.TIME.None_Lottery_Time[0],
@@ -7611,7 +7639,8 @@ ${Dynamic_content}
 										0,
 										2
 									)
-								) - new Date().getHours();
+								) -
+								(new Date().getHours() + 1);
 							await sleep(sleep_hour * 3600e3);
 						}
 						let opus_dynamic = global_var.FLAG.opus动态标志;
@@ -7942,6 +7971,7 @@ ${Dynamic_content}
 						e
 					);
 					global_var.Getter.check_login_status();
+					await sleep(30e3);
 				} finally {
 					global_var.response.global_dynamic_data = undefined; //全局的动态数据
 					global_var.response.create_dyn_response = undefined; //创建或转发动态的响应
@@ -8367,30 +8397,35 @@ ${Dynamic_content}
 				}
 
 				///////////////////////////////////开始防过滤操作
-				let clf = await global_var.page.isClosed();
-				if (clf) {
-					return;
-				}
-				if (
-					(lottery_setting.prevent_module.share_video_switch ||
-						lottery_setting.prevent_module
-							.create_word_dynamic_chp_switch) &&
-					!clf
-				) {
-					console.log(
-						`${global_var.user_info.uname}\t开始防过滤操作`
-					);
-					//await global_var.page.setDefaultNavigationTimeout(30);
-
-					await global_var.page.goto("https://www.bilibili.com");
-					await sleep(10e3);
-					if (global_var.user_info.uname) {
-						lottery_setting.FLAG.share_flag = true;
-						await my_operator.prevent_filter_module.prevent_filter_init();
-					} else {
-						console.warn("登陆失败" + JSON.stringify(global_var));
-						throw "登陆失败" + JSON.stringify(global_var);
+				try {
+					let clf = await global_var.page.isClosed();
+					if (clf) {
+						return;
 					}
+					if (
+						(lottery_setting.prevent_module.share_video_switch ||
+							lottery_setting.prevent_module
+								.create_word_dynamic_chp_switch) &&
+						!clf
+					) {
+						console.log(
+							`${global_var.user_info.uname}\t开始防过滤操作`
+						);
+						//await global_var.page.setDefaultNavigationTimeout(30);
+						await global_var.page.goto("https://www.bilibili.com");
+						await sleep(10e3);
+						if (global_var.user_info.uname) {
+							lottery_setting.FLAG.share_flag = true;
+							await my_operator.prevent_filter_module.prevent_filter_init();
+						} else {
+							console.warn(
+								"登陆失败" + JSON.stringify(global_var)
+							);
+							throw "登陆失败" + JSON.stringify(global_var);
+						}
+					}
+				} catch (e) {
+					console.error(`分享视频失败！`, e);
 				}
 				///////////////////////////////////开始防过滤操作
 

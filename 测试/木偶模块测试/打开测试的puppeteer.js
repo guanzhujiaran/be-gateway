@@ -1893,7 +1893,7 @@ let lottery_setting_file_reader = async function (filename) {
 
 
 
-let lottery_settingstr = await lottery_setting_file_reader('lottery_setting3')
+let lottery_settingstr = await lottery_setting_file_reader('lottery_setting1')
 let lottery_setting;
 eval(lottery_settingstr)
 

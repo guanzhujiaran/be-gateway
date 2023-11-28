@@ -4,7 +4,6 @@ let event_bus = require("../../lib/helper/event_bus"); //注册事件用的，�
 let axios = require("axios");
 let fs = require("fs");
 async function main() {
-	console.log(`开始新的一轮抽奖！${new Date().toLocaleString()}`);
 	let start_time = new Date();
 	let lottery_setting_filename_list = [
 		//抽奖设置的名称
@@ -16,6 +15,7 @@ async function main() {
 	let browser_mode = 1; //是否只打开浏览器，不进行抽奖
 	if (auto_mode && !browser_mode && !unfollow_mode) {
 		try {
+			console.log(`开始新的一轮抽奖！${new Date().toLocaleString()}`);
 			console.log(
 				`正在获取抽奖动态中！----${new Date().toLocaleString()}`
 			);

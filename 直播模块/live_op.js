@@ -8,7 +8,7 @@ const { BAPI } = require("../lib/helper/BAPI.js");
 const live_op = {
 	element_map: {
 		//存放元素路径
-		dm_send_btn: ".right-action.p-absolute.live-skin-coloration-area", //发送弹幕按钮
+		dm_send_btn: ".bl-button--primary.bl-button--small", //发送弹幕按钮
 		dm_input_box: ".chat-input.border-box", //弹幕输入框
 		like_btn: ".like-btn",
 		anchor_icon: ".anchor-lot-icon",
@@ -59,12 +59,16 @@ const live_op = {
 		return new_pg;
 	},
 	basic_op: {
+		/**
+		 * @param {Page} pg
+		 * @param {String} dm_msg
+		 */
 		input_dm: async (pg, dm_msg) => {
 			let msg_box;
 			await pg.waitForSelector(live_op.element_map.dm_input_box, {
 				timeout: 10e3,
 			});
-			msg_box = await pg.$(live_op.element_map.dm_input_box);
+			msg_box = (await pg.$$(live_op.element_map.dm_input_box))[-1];
 			await msg_box.click();
 			let msg_box_content = await pg.$eval(
 				live_op.element_map.dm_input_box,
@@ -81,10 +85,11 @@ const live_op = {
 				);
 				await msg_box.type(dm_msg, { delay: 20 });
 				await sleep(1e3);
-				msg_box_content = await pg.$eval(
-					live_op.element_map.dm_input_box,
-					(el) => el.value
-				);
+				msg_box_content = (
+					await pg.$$eval(live_op.element_map.dm_input_box, (els) =>
+						els.map((el) => el.value)
+					)
+				).join("");
 				if (
 					utl.remove_invisible_char(
 						msg_box_content.replaceAll(
@@ -127,7 +132,18 @@ const live_op = {
 		 * @param {Page} pg
 		 */
 		click_like: async (pg) => {
-			await pg.click(live_op.element_map.like_btn);
+			let like_btn;
+			try {
+				like_btn = await pg.$(live_op.element_map.like_btn);
+			} catch (e) {
+				console.error(click_like, e);
+			}
+			if (like_btn) {
+				await like_btn.click();
+				console.debug("点赞直播间");
+				return true;
+			}
+			return false;
 		},
 	},
 
@@ -170,6 +186,44 @@ const live_op = {
 				} else {
 					await sleep(500);
 				}
+			}
+		},
+		/**
+		 * 增加直播间贡献值
+		 * @param {Page} pg
+		 * @param {number} times
+		 */
+		increase_ContributionRank: async (pg, times = 10) => {
+			try {
+				if (times <= 0) {
+					return;
+				}
+				let click_like_flag = true;
+				for (let i = 0; i < times; i++) {
+					for (let j = 0; j < 20; j++) {
+						if (!(await live_op.basic_op.click_like(pg))) {
+							click_like_flag = false;
+							break;
+						} else {
+							await sleep(utl.random_choice([5, 6, 7, 8, 9, 10]));
+						}
+					}
+					await pg.waitForResponse(el=>el.url().includes('likeReportV3'))
+					if (!click_like_flag) {
+						break;
+					}
+				}
+				if (!click_like_flag) {
+					let dm_list = ["[dog]", "[妙]", "[哇]"];
+					//如果是发评论就只发送一半的次数
+					for (let i = 0; i < Math.ceil(times / 2); i++) {
+						let dm = utl.random_choice(dm_list);
+						await live_op.polymer_op.live_send_dm_single(pg, dm);
+						await sleep(5e3);
+					}
+				}
+			} catch (e) {
+				console.error(`increase_ContributionRank`, e);
 			}
 		},
 	},
@@ -237,6 +291,7 @@ class LOT_LOG {
 			console.error(`日志写入文件失败！${e}`);
 		}
 	};
+	
 }
 
 class LIVE_LOT {
@@ -455,19 +510,19 @@ class LIVE_LOT {
 						total_price / 1000
 					}元参与成功！\t${JSON.stringify(resp_data)}`
 				);
-				for (let j = 0; j < 15; j++) {
-					//先点一下赞
-					await live_op.basic_op.click_like(pg);
-					await sleep(50);
-				}
-				await sleep(5e3); //等待5秒钟之后查看贡献值
+				this.API.chatLog(`尝试点赞3次直播间`);
+				await live_op.polymer_op.increase_ContributionRank(pg, 3);
 				await this.#getOnlineGoldRank(pg).then(async (da) => {
 					if (da.code == 0) {
 						let onlineNum = da.data.count;
 						let score = da.data.own_info.score;
 						let rank = da.data.own_info.rank;
 						this.API.chatLog(
-							`【直播间电池道具】目前在线人数：${onlineNum}贡献值：${score}排名：${rank}`,
+							`【直播间电池道具】目前在线人数：${onlineNum}贡献值：${score}排名：${
+								rank == -1
+									? da?.data?.own_info?.rank_text
+									: rank
+							}`,
 							"success"
 						);
 						if (score == 0) {
@@ -492,26 +547,16 @@ class LIVE_LOT {
 							);
 						}
 
-						if (score < 3) {
+						if (score < 10) {
 							this.API.chatLog(
-								`【直播间电池道具】开始在直播间${room_id}间隔1秒发送${
+								`【直播间电池道具】开始在直播间${room_id}尝试增加${
 									10 - score
-								} * 15次点赞！`
+								}点贡献值`
 							);
-							for (let i = 0; i < 10 - score; i++) {
-								for (let j = 0; j < 15; j++) {
-									await live_op.basic_op.click_like(pg);
-									await sleep(50);
-								}
-								await sleep(1e3);
-							}
-							// for (let i = 0; i < 3 - score; i++) {
-							// 	await live_op.polymer_op.live_send_dm_single(
-							// 		pg,
-							// 		utl.random_choice(dmlist)
-							// 	);
-							// 	await sleep(5e3);
-							// }
+							await live_op.polymer_op.increase_ContributionRank(
+								pg,
+								10 - score
+							);
 						}
 					} else {
 						this.API.chatLog(
@@ -586,6 +631,7 @@ class LIVE_LOT {
 			let resp = await pg.waitForResponse((resp) =>
 				resp.url().includes("queryContributionRank")
 			);
+			await sleep(1e3);
 			await pg.click(live_op.element_map.contribution_btn);
 			return await resp.json();
 		} catch (e) {
@@ -649,7 +695,7 @@ class LIVE_LOT {
 					"天选抽奖"
 				);
 			}
-			anchor_join_btn.click();
+			await anchor_join_btn.click();
 			let anchor_join_resp = await pg.waitForResponse((resp) =>
 				resp.url().includes("xlive/lottery-interface/v1/Anchor/Join")
 			);
@@ -663,7 +709,8 @@ class LIVE_LOT {
 				return;
 			}
 			if (anchor_join_json.code == 0) {
-				await sleep(5000);
+				this.API.chatLog(`尝试点赞3次直播间`);
+				await live_op.polymer_op.increase_ContributionRank(pg, 3);
 				await this.#getOnlineGoldRank(pg).then(async (da) => {
 					if (da.code == 0) {
 						let onlineNum = da.data.count;
@@ -690,26 +737,16 @@ class LIVE_LOT {
 							}
 							return;
 						}
-						if (score < 3) {
+						if (score < 10) {
 							this.API.chatLog(
-								`【天选时刻】开始在直播间${room_id}间隔1秒发送${
+								`【天选时刻】开始在直播间${room_id}尝试增加${
 									10 - score
-								} * 15次点赞！`
+								}点贡献值！`
 							);
-							for (let i = 0; i < 10 - score; i++) {
-								for (let j = 0; j < 15; j++) {
-									await live_op.basic_op.click_like(pg);
-									await sleep(50);
-								}
-								await sleep(1e3);
-							}
-							// for (let i = 0; i < 3 - score; i++) {
-							// 	live_op.polymer_op.live_send_dm_single(
-							// 		pg,
-							// 		utl.random_choice(dmlist)
-							// 	);
-							// 	await sleep(5e3);
-							// }
+							await live_op.polymer_op.increase_ContributionRank(
+								pg,
+								10 - score
+							);
 						}
 					}
 				});
@@ -812,93 +849,107 @@ class LIVE_LOT {
 		}
 		let lot_data = await this.#get_data_from_server();
 		lot_data.sort((a, b) => a.end_time - b.end_time);
-		for (let da of lot_data) {
-			if (!this.live_pg || this.live_pg.isClosed()) {
-				await this.init();
-			}
-			if (!this.CONFIG.live_info.uname) {
-				this.API.chatLog(`账号登录状态出错！退出！`, "error");
-				return;
-			}
-			if (this.CONFIG.RECORDER.lot_id.includes(da.lot_id)) {
-				continue;
-			}
-			this.CONFIG.RECORDER.lot_id.push(da.lot_id);
-			if (this.CONFIG.RECORDER.lot_id.length > 200) {
-				this.CONFIG.RECORDER.lot_id =
-					this.CONFIG.RECORDER.lot_id.slice(-100);
-			}
-			if (da.end_time - Date.now() / 1000 < 30) {
-				this.API.chatLog(
-					`当前抽奖剩余时间小于30秒，跳过\t${JSON.stringify(
-						da
-					)} ${Math.ceil(da.end_time - Date.now() / 1000)}`
-				);
-				continue;
-			}
-			if (da.total_price) {
-				//如果是红包抽奖
-				if (
-					this.CONFIG.redpacket.max_joined_switch ||
-					this.CONFIG.redpacket.join_risk_mark
-				) {
-					this.API.chatLog(
-						`【直播间电池道具】可能已经风控！\t${JSON.stringify(
-							da
-						)}`,
-						"warning"
-					);
-					continue;
+		for (let da of lot_data)
+			try {
+				{
+					if (!this.live_pg || this.live_pg.isClosed()) {
+						await this.init();
+					}
+					if (!this.CONFIG.live_info.uname) {
+						this.API.chatLog(`账号登录状态出错！退出！`, "error");
+						return;
+					}
+					if (this.CONFIG.RECORDER.lot_id.includes(da.lot_id)) {
+						continue;
+					}
+					this.CONFIG.RECORDER.lot_id.push(da.lot_id);
+					if (this.CONFIG.RECORDER.lot_id.length > 200) {
+						this.CONFIG.RECORDER.lot_id =
+							this.CONFIG.RECORDER.lot_id.slice(-100);
+					}
+					if (da.end_time - Date.now() / 1000 < 30) {
+						this.API.chatLog(
+							`当前抽奖剩余时间小于30秒，跳过\t${JSON.stringify(
+								da
+							)} ${Math.ceil(da.end_time - Date.now() / 1000)}`
+						);
+						continue;
+					}
+					if (da.total_price) {
+						//如果是红包抽奖
+						if (
+							this.CONFIG.redpacket.max_joined_switch ||
+							this.CONFIG.redpacket.join_risk_mark
+						) {
+							this.API.chatLog(
+								`【直播间电池道具】可能已经风控！\t${JSON.stringify(
+									da
+								)}`,
+								"warning"
+							);
+							continue;
+						}
+						let url = `https://live.bilibili.com/${
+							da.room_id
+						}?live_from=71002&visit_id=${this.#getvisit_id(
+							this.CONFIG.live_info.uid
+						)}`;
+						this.API.chatLog(
+							`【直播间电池道具】开始红包抽奖 ${url} `
+						);
+						await this.live_pg.goto(url);
+						await this.#join_redpacket_lot(
+							this.live_pg,
+							da.room_id,
+							da.anchor_uid,
+							da.lot_id,
+							da.total_price
+						);
+						await sleep(
+							(da.end_time - Date.now() / 1000) * 1e3 + 5e3
+						); //同一时间只抽一个奖
+						await this.live_pg.goto(`about:blank`); //抽完了就进入空白页节省资源
+						await sleep(this.CONFIG.TIME.lot_sep_time);
+						continue;
+					} else {
+						//天选抽奖
+						if (
+							this.CONFIG.anchor.join_risk_mark ||
+							this.CONFIG.anchor.max_joined_switch
+						) {
+							this.API.chatLog(
+								`【天选时刻】可能已经风控！`,
+								"warning"
+							);
+							continue;
+						}
+						let url = `https://live.bilibili.com/${
+							da.room_id
+						}?live_from=71002&visit_id=${this.#getvisit_id(
+							this.CONFIG.live_info.uid
+						)}`;
+						this.API.chatLog(`开始天选抽奖 ${url} `);
+						await this.live_pg.goto(url);
+						await this.#join_anchor_lot(
+							this.live_pg,
+							da.lot_id,
+							da.gift_num,
+							da.gift_price,
+							da.anchor_uid,
+							da.room_id,
+							da.require_type
+						);
+						await sleep(
+							(da.end_time - Date.now() / 1000) * 1e3 + 5e3
+						); //同一时间只抽一个奖
+						await this.live_pg.goto(`about:blank`); //抽完了就进入空白页节省资源
+						await sleep(this.CONFIG.TIME.lot_sep_time);
+						continue;
+					}
 				}
-				let url = `https://live.bilibili.com/${
-					da.room_id
-				}?live_from=71002&visit_id=${this.#getvisit_id(
-					this.CONFIG.live_info.uid
-				)}`;
-				this.API.chatLog(`【直播间电池道具】开始红包抽奖 ${url} `);
-				await this.live_pg.goto(url);
-				await this.#join_redpacket_lot(
-					this.live_pg,
-					da.room_id,
-					da.anchor_uid,
-					da.lot_id,
-					da.total_price
-				);
-				await sleep((da.end_time - Date.now() / 1000) * 1e3 + 5e3); //同一时间只抽一个奖
-				await this.live_pg.goto(`about:blank`); //抽完了就进入空白页节省资源
-				await sleep(this.CONFIG.TIME.lot_sep_time);
-				continue;
-			} else {
-				//天选抽奖
-				if (
-					this.CONFIG.anchor.join_risk_mark ||
-					this.CONFIG.anchor.max_joined_switch
-				) {
-					this.API.chatLog(`【天选时刻】可能已经风控！`, "warning");
-					continue;
-				}
-				let url = `https://live.bilibili.com/${
-					da.room_id
-				}?live_from=71002&visit_id=${this.#getvisit_id(
-					this.CONFIG.live_info.uid
-				)}`;
-				this.API.chatLog(`开始天选抽奖 ${url} `);
-				await this.live_pg.goto(url);
-				await this.#join_anchor_lot(
-					this.live_pg,
-					da.lot_id,
-					da.gift_num,
-					da.gift_price,
-					da.anchor_uid,
-					da.room_id,
-					da.require_type
-				);
-				await sleep((da.end_time - Date.now() / 1000) * 1e3 + 5e3); //同一时间只抽一个奖
-				await this.live_pg.goto(`about:blank`); //抽完了就进入空白页节省资源
-				await sleep(this.CONFIG.TIME.lot_sep_time);
-				continue;
+			} catch (e) {
+				this.API.chatLog(`处理数据失败！`, "error");
 			}
-		}
 		setTimeout(this.main, 1e3);
 	};
 }
