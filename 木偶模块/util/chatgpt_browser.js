@@ -162,7 +162,7 @@ class chatgptOP {
 		}
 	}
 	async __submit_click() {
-		await this.chatpage.click(".absolute.p-1", { delay: 20 });
+		await this.chatpage.click("button.absolute.transition-colors", { delay: 20 });
 	}
 
 	async __get_answer() {

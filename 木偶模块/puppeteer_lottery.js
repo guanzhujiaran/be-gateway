@@ -1386,9 +1386,9 @@ class DO_Lottery {
 						modules: {
 							module_author: {},
 							module_dynamic: {
-								major:{
-									opus:undefined
-								}
+								major: {
+									opus: {},
+								},
 							},
 							module_stat: {},
 						},
@@ -2531,7 +2531,12 @@ class DO_Lottery {
 							break;
 						} catch (e) {
 							bt++;
-							console.error(e);
+							console.error(
+								global_var.user_info.uname,
+								global_var.page.url(),
+								`第${i+1}次尝试输入动态评论！`,
+								e
+							);
 							if (bt >= 5) {
 								throw e;
 							}
@@ -3087,7 +3092,7 @@ class DO_Lottery {
 						);
 					} catch (e) {
 						console.warn(
-							`评论获取失败\n${global_var.response.global_dynamic_data}\t${pageurl}\t${global_var.user_info.uname}`
+							`评论获取失败\n${JSON.stringify(global_var.response.global_dynamic_data)}\t${pageurl}\t${global_var.user_info.uname}`
 						);
 						return await utl.my_throw(
 							`评论获取失败， only_comment，${e}`
@@ -4646,8 +4651,8 @@ class DO_Lottery {
 					}
 					try {
 						if (
-							lottery_setting.prevent_module
-								.create_word_dynamic_chp_switch
+							lottery_setting?.prevent_module
+								?.create_word_dynamic_chp_switch
 						) {
 							await my_operator.prevent_filter_module.create_word_dynamic_from_dynamic_main_page(
 								lottery_setting.prevent_module
@@ -5295,6 +5300,8 @@ class DO_Lottery {
 					"真棒",
 					"坚持不懈，迎难而上",
 					"谢谢宠粉祝粉丝越来越多发展越来越好",
+					"大家注意看，这是",
+					"他真是太宠粉了，请多点点关注"
 				],
 				/**
 				 *
@@ -6279,25 +6286,19 @@ ${Dynamic_content}
 						url.includes("dynamic_repost/reply")
 					) {
 						let req = await response.request();
-						if ((await req.method()).toLowerCase() != "post") {
-							console.log(
-								await (await response.request()).method()
-							);
-							return;
-						}
 						try {
 							global_var.response.create_dyn_response =
-								JSON.parse(await response.text());
+								await response.json();
 							console.log(
 								`${
 									global_var.user_info.uname
 								}\t转发动态response：\n${JSON.stringify(
 									global_var.response.create_dyn_response
 								)}\n转发生成的动态链接：https://t.bilibili.com/${
-									global_var.response.create_dyn_response.data
-										.dynamic_id_str ||
-									global_var.response.create_dyn_response.data
-										.dyn_id_str
+									global_var.response.create_dyn_response?.data
+										?.dynamic_id_str ||
+									global_var.response.create_dyn_response?.data
+										?.dyn_id_str
 								}`
 							);
 						} catch (e) {
@@ -6485,7 +6486,9 @@ ${Dynamic_content}
 					console.warn(
 						`${
 							global_var.user_info.uname
-						}监听api响应失败\t${url}\n${e}\n${response.toString()}`
+						}监听api响应失败\t${url}\n${e}\n${JSON.stringify(
+							response
+						)}`
 					);
 				}
 			});
@@ -7077,10 +7080,12 @@ ${Dynamic_content}
 							global_var.response.global_dynamic_data.item.modules
 								?.module_author?.official_verify?.type;
 						if (author_official_verify != 1) {
+							//非官方的动态少于30个评论不参加
 							await utl.my_throw("评论人数过少，需要人工判断");
 							return;
 						} else {
 							if (dynamic_comment_count <= 10) {
+								//官方的动态少于10个评论不参加
 								//如果官方的评论人数过少了，就不转发
 								await utl.my_throw(
 									"评论人数过少，需要人工判断"
@@ -7554,6 +7559,9 @@ ${Dynamic_content}
 					if (global_var.page.isClosed()) {
 						return false;
 					}
+					await utl.my_throw(
+						`发生未知错误，不可避免！${e.toString()}`
+					);
 				}
 			}
 			/**
@@ -7878,6 +7886,9 @@ ${Dynamic_content}
 										!record.includes("无需评论动态") &&
 										!record.includes("点过赞的动态") &&
 										!record.includes("过期的官方抽奖") &&
+										!record.includes(
+											"发生未知错误，不可避免"
+										) &&
 										(record.includes("undefined") ||
 											record.includes(
 												`评论被阿瓦隆吞掉了`
@@ -8421,8 +8432,10 @@ ${Dynamic_content}
 							console.warn(
 								"登陆失败" + JSON.stringify(global_var)
 							);
+							await global_var.page.goto('about:blank');
 							throw "登陆失败" + JSON.stringify(global_var);
 						}
+						await global_var.page.goto('about:blank');
 					}
 				} catch (e) {
 					console.error(`分享视频失败！`, e);

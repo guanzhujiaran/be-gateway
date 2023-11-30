@@ -1,9 +1,9 @@
 let { DO_Lottery, sleep } = require("./木偶模块/puppeteer_lottery.js");
+let { LIVE_LOT } = require("./直播模块/live_op.js");
 let event_bus = require("./lib/helper/event_bus"); //注册事件用的，每一轮都要重新注册！
 let axios = require("axios");
 let fs = require("fs");
 async function main() {
-	console.log(`开始新的一轮抽奖！${new Date().toLocaleString()}`);
 	let start_time = new Date();
 	let lottery_setting_filename_list = [
 		//抽奖设置的名称
@@ -23,10 +23,11 @@ async function main() {
 	];
 	let MYLOTLIST = [];
 	let unfollow_mode = 0; //是否开启取关模式
-	let auto_mode = 0; //是否开启全自动抽奖模式
+	let auto_mode = 1; //是否开启全自动抽奖模式
 	let browser_mode = 0; //是否只打开浏览器，不进行抽奖
 	if (auto_mode && !browser_mode && !unfollow_mode) {
 		try {
+			console.log(`开始新的一轮抽奖！${new Date().toLocaleString()}`);
 			console.log(
 				`正在获取抽奖动态中！----${new Date().toLocaleString()}`
 			);
@@ -65,33 +66,55 @@ async function main() {
 			await sleep((9 - new Date().getHours()) * 3600e3);
 		}
 	}
-	let opus动态标志 = true; //是否使用新版动
+	let opus动态标志 = true; //是否使用新版动，默认开启!
 	for (let i of lottery_setting_filename_list) {
 		console.log(i);
 		if (unfollow_mode) {
 			let lot = new DO_Lottery(i, browser_mode, opus动态标志);
-			let event_name = `lot_${i}`;
-			event_bus.on(event_name, async () => {
-				await lot.unfollow_module();
-			});
+			let event_name = `lot_unfollow_${i}`;
+			if (event_bus.event_list.indexOf(event_name) == -1) {
+				event_bus.on(event_name, async () => {
+					await lot.unfollow_module();
+				});
+			}
 			event_bus.emit(event_name);
 			await sleep(600e3 * 3.0);
 		} else {
 			if (!browser_mode) {
+				//抽奖模式
 				let lot = new DO_Lottery(i, browser_mode, opus动态标志);
 				MYLOTLIST.push(lot);
 				let event_name = `lot_${i}`;
-				event_bus.on(event_name, async () => {
-					await lot.main();
-				});
+				if (event_bus.event_list.indexOf(event_name) == -1) {
+					event_bus.on(event_name, async () => {
+						await lot.main();
+					});
+				}
 				event_bus.emit(event_name);
 				await sleep(600e3 * 3.0);
 			} else {
+				let lot = new DO_Lottery(i, browser_mode, opus动态标志);
+				MYLOTLIST.push(lot);
 				setTimeout(async () => {
-					let lot = new DO_Lottery(i, browser_mode, opus动态标志);
+					//浏览器模式
 					lot.main();
 				}, 1000);
 				await sleep(30e3); //短时间内最好不要一口气打开多个账号！
+			}
+		}
+	}
+
+	for (let do_lottery of MYLOTLIST) {
+		if (do_lottery.lottery_setting.CONFIG.LIVE_LOT) {
+			let event_name = `live_lot_${do_lottery.lottery_name}`;
+			let live_lot = new LIVE_LOT(do_lottery);
+			if (event_bus.event_list.indexOf(event_name) == -1) {
+				event_bus.on(event_name, async () => {
+					live_lot.main();
+				});
+				event_bus.emit(event_name);
+			} else {
+				console.log(`${do_lottery.lottery_name} 直播抽奖进行中`);
 			}
 		}
 	}

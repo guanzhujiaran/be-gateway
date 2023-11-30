@@ -27,6 +27,7 @@
     "puppeteer-extra-plugin-adblocker": "^2.13.6",
     "puppeteer-extra-plugin-fingerprinter": "^1.1.8",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "puppeteer-interceptor": "^2.2.0",
     "superagent": "^8.1.2",
     "superagent-proxy": "^3.0.0",
     "supervisor": "^0.12.0",
