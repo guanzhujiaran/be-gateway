@@ -1,3 +1,11 @@
+/*
+ * @Author: 星瞳 1944637830@qq.com
+ * @Date: 2023-01-27 08:51:16
+ * @LastEditors: 星瞳 1944637830@qq.com
+ * @LastEditTime: 2023-12-02 21:27:24
+ * @FilePath: \tampermonkey\测试\木偶模块测试\打开浏览器代码.js
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+ */
 (async () => {
 
     const puppeteer = require('puppeteer-extra')
@@ -31,7 +39,7 @@
                 "--disable-features=IsolateOrigins,site-per-process",
                 `--start-maximized`,
             ],
-            userDataDir: "UserData\\" + `cookie3`,
+            userDataDir: "UserData\\" + `cookie1`,
             ignoreDefaultArgs: [
                 '--enable-automation',
                 '--disable-extensions'

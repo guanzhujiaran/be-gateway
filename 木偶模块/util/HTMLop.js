@@ -1,10 +1,4 @@
-/**
- * 执行给定页面上的操作
- * @param {object} page - Puppeteer 页面对象
- * @param {array} operations - 要执行的操作数组
- */
 
-const { resolve } = require("synonyms/dictionary");
 
 const devices = [
     {
@@ -1012,6 +1006,12 @@ const devices = [
 function sleep(ms) {
     return new Promise(resolve => setTimeout(() => resolve(sleep), ms));
 }
+/**
+ * 执行给定页面上的操作
+ * @param {object} page - Puppeteer 页面对象
+ * @param {array} operations - 要执行的操作数组
+ * @param {string} init_url - 操作网页
+ */
 async function performOperations(page, operations, init_url) {
 
     for (let retry_times = 0; retry_times < 3; retry_times++) {

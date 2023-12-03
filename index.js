@@ -3,11 +3,17 @@ let { LIVE_LOT } = require("./直播模块/live_op.js");
 let event_bus = require("./lib/helper/event_bus"); //注册事件用的，每一轮都要重新注册！
 let axios = require("axios");
 let fs = require("fs");
+
+/**
+ * @type {{event_name:String,lot:DO_Lottery}[]}
+ */
+const MYLOTLIST = []; // 全局变量，存放所有的抽奖实例{event_name:event_name,lot:lot}
+
 async function main() {
 	let start_time = new Date();
 	let lottery_setting_filename_list = [
 		//抽奖设置的名称
-		"lottery_setting1",
+		// "lottery_setting1",
 		"lottery_setting3",
 		"lottery_setting2",
 		"lottery_setting5",
@@ -17,13 +23,13 @@ async function main() {
 		"lottery_setting11",
 		"lottery_setting12",
 		"lottery_setting13",
+		"lottery_setting14",
 		//养成四级号再跑脚本
 		// 'lottery_setting7',//G
 		// 'lottery_setting6',//G
 	];
-	let MYLOTLIST = [];
 	let unfollow_mode = 0; //是否开启取关模式
-	let auto_mode = 1; //是否开启全自动抽奖模式
+	let auto_mode = 0; //是否开启全自动抽奖模式
 	let browser_mode = 0; //是否只打开浏览器，不进行抽奖
 	if (auto_mode && !browser_mode && !unfollow_mode) {
 		try {
@@ -80,21 +86,19 @@ async function main() {
 			event_bus.emit(event_name);
 			await sleep(600e3 * 3.0);
 		} else {
+			let event_name = `lot_${i}`;
 			if (!browser_mode) {
 				//抽奖模式
-				let lot = new DO_Lottery(i, browser_mode, opus动态标志);
-				MYLOTLIST.push(lot);
-				let event_name = `lot_${i}`;
 				if (event_bus.event_list.indexOf(event_name) == -1) {
+					let lot = new DO_Lottery(i, browser_mode, opus动态标志);
+					MYLOTLIST.push({ event_name: event_name, lot: lot });
 					event_bus.on(event_name, async () => {
 						await lot.main();
 					});
 				}
-				event_bus.emit(event_name);
-				await sleep(600e3 * 3.0);
 			} else {
 				let lot = new DO_Lottery(i, browser_mode, opus动态标志);
-				MYLOTLIST.push(lot);
+				MYLOTLIST.push({ event_name: event_name, lot: lot });
 				setTimeout(async () => {
 					//浏览器模式
 					lot.main();
@@ -105,10 +109,13 @@ async function main() {
 	}
 
 	for (let do_lottery of MYLOTLIST) {
-		if (do_lottery.lottery_setting.CONFIG.LIVE_LOT) {
-			let event_name = `live_lot_${do_lottery.lottery_name}`;
-			let live_lot = new LIVE_LOT(do_lottery);
+		if (!do_lottery.lot.lottery_setting) {
+			await do_lottery.lot.variable_init();
+		}
+		if (do_lottery.lot.lottery_setting.CONFIG.LIVE_LOT) {
+			let event_name = `live_lot_${do_lottery.lot.lottery_name}`;
 			if (event_bus.event_list.indexOf(event_name) == -1) {
+				let live_lot = new LIVE_LOT(do_lottery.lot);
 				event_bus.on(event_name, async () => {
 					live_lot.main();
 				});
@@ -119,11 +126,23 @@ async function main() {
 		}
 	}
 
+	await sleep(10e3);
+
+	for (let i of lottery_setting_filename_list) {
+		let event_name = `lot_${i}`;
+		if (event_bus.event_list.indexOf(event_name) != -1) {
+			event_bus.emit(event_name);
+			await sleep(600e3 * 3.0);
+		} else {
+			console.error(`未找到${event_name}事件！`);
+		}
+	}
+
 	if (auto_mode && !browser_mode) {
 		while (1) {
 			let all_end = true;
 			for (let lot of MYLOTLIST) {
-				if (!lot.lotFlag) {
+				if (!lot.lot?.lotFlag) {
 					//如果抽完了判断准备开启下一轮
 				} else {
 					all_end = false;
@@ -156,9 +175,9 @@ async function main() {
 					  );
 				await sleep(10e3);
 				setTimeout(async () => {
-					event_bus.flush(); //将事件清空！
+					// event_bus.flush(); //事件不清空，复用事件！
 					for (let lot of MYLOTLIST) {
-						await lot.global_page.browser().close();
+						await lot.lot?.global_page.browser().close();
 					}
 					await main();
 				}, tomorrow - now);
