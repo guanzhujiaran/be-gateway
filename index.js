@@ -13,7 +13,7 @@ async function main() {
 	let start_time = new Date();
 	let lottery_setting_filename_list = [
 		//抽奖设置的名称
-		// "lottery_setting1",
+		"lottery_setting1",
 		"lottery_setting3",
 		"lottery_setting2",
 		"lottery_setting5",

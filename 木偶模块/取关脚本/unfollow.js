@@ -20,7 +20,6 @@ async function generate_unfollow_file(pg, uid) {
 				console.log(
 					`${uid} 全部关注数：【${data.data.list.length}】个`
 				);
-				this.CONFIG.live_info.ALLFollowingList = data.data.list;
 				return await MYAPI.get_unlot_following(data.data.list);
 			} else {
 				console.error(`获取关注列表失败！${data}`);
@@ -48,98 +47,113 @@ async function generate_unfollow_file(pg, uid) {
  * @param {Page} pg
  */
 async function do_unfollow(pg, uid) {
-	let nav_stat = await BAPI.web_interface_nav_stat();
-	if (nav_stat.code) {
-		console.error(`${uid} 获取关注数失败！${nav_stat}`);
-		return;
-	}
-	if (
-		!nav_stat?.data?.following &&
-		nav_stat?.data?.following <= global_config.unfollow.max_follow_num
-	) {
-		console.log(
-			`${uid} 当前关注数${nav_stat?.data?.following}个 不满足取关条件（大于${global_config.unfollow.max_follow_num}个）`
-		);
-		return;
-	}
-	await generate_unfollow_file(pg, uid);
-	let bili_cookie = await pg.cookies("https://www.bilibili.com");
-	let csrf = bili_cookie.filter((el) => el.name == "bili_jct").shift().value;
-	let unfollow_data = fs
-		.readFileSync(
-			__dir_path + `${uid}_取关脚本/取关对象.csv`,
-			function (err) {
-				if (err) {
-					console.error(err);
-					throw err;
-				}
-				//console.log(data.toString());
-			}
-		)
-		.toString();
-	let unfollow_arr = unfollow_data.split("\n");
-	let all_times = unfollow_arr.length;
-	let now_time = 0;
-	for (let unfollow_raw of unfollow_arr) {
-		if(!pg.url().includes('bilibili.com')){
-			await pg.goto('https://www.bilibili.com')
+	try {
+		if (!pg.url().includes("bilibili.com")) {
+			await pg.goto("https://www.bilibili.com");
 		}
-		let unfollow_arr_trim = unfollow_raw.trim();
-		if (unfollow_arr_trim) {
-			let unfollow_mid = unfollow_arr_trim
-				.split("\t")[0]
-				.split("/")
-				.slice(-1)
-				.join("");
-			let resp_json = await pg.evaluate(
-				(post_data) => {
-					return fetch("https://api.bilibili.com/x/relation/modify", {
-						credentials: "include",
-						method: "POST",
-						body: new URLSearchParams(post_data),
-					})
-						.then((resp) => {
-							return resp.json();
-						})
-						.catch((e) => {
-							return e;
-						});
-				},
-				{
-					fid: unfollow_mid,
-					act: 2,
-					re_src: 11,
-					spmid: "333.999.0.0",
-					extend_content: JSON.stringify({
-						entity: "user",
-						entity_id: unfollow_mid,
-					}),
-					csrf: csrf,
-				}
+		let nav_stat = await BAPI.web_interface_nav_stat(pg);
+
+		if (nav_stat.code) {
+			await pg.goto("about:blank");
+			console.error(`${uid} 获取关注数失败！${nav_stat}`);
+			return;
+		}
+		if (
+			!nav_stat?.data?.following ||
+			nav_stat?.data?.following <= global_config.unfollow.max_follow_num
+		) {
+			console.log(
+				`${uid} 当前关注数${nav_stat?.data?.following}个 不满足取关条件（大于${global_config.unfollow.max_follow_num}个）`
 			);
-			if (resp_json.code != 0) {
-				console.error(
-					`${JSON.stringify(
-						unfollow_arr_trim
-					)}\n取关失败，原因：${JSON.stringify(
-						resp_json,
-						"",
-						"\t"
-					)}\n休息2小时`
-				);
-				await sleep(2 * 3600 * 1e3);
-			} else {
-				now_time++;
-				console.log(
-					`当前进度【${now_time}/${all_times}】\t${unfollow_mid}\t取关成功！${JSON.stringify(
-						resp_json,
-						"",
-						"\t"
-					)}\t${new Date().toLocaleString()}`
-				);
-			}
-			await sleep(20e3);
+			return;
 		}
+		await generate_unfollow_file(pg, uid);
+		let bili_cookie = await pg.cookies("https://www.bilibili.com");
+		let csrf = bili_cookie
+			.filter((el) => el.name == "bili_jct")
+			.shift().value;
+		let unfollow_data = fs
+			.readFileSync(
+				__dir_path + `${uid}_取关脚本/取关对象.csv`,
+				function (err) {
+					if (err) {
+						console.error(err);
+						throw err;
+					}
+					//console.log(data.toString());
+				}
+			)
+			.toString();
+		let unfollow_arr = unfollow_data.split("\n");
+		let all_times = unfollow_arr.length;
+		let now_time = 0;
+		for (let unfollow_raw of unfollow_arr) {
+			if (!pg.url().includes("bilibili.com")) {
+				await pg.goto("https://www.bilibili.com");
+			}
+			let unfollow_arr_trim = unfollow_raw.trim();
+			if (unfollow_arr_trim) {
+				let unfollow_mid = unfollow_arr_trim
+					.split("\t")[0]
+					.split("/")
+					.slice(-1)
+					.join("");
+				let resp_json = await pg.evaluate(
+					(post_data) => {
+						return fetch(
+							"https://api.bilibili.com/x/relation/modify",
+							{
+								credentials: "include",
+								method: "POST",
+								body: new URLSearchParams(post_data),
+							}
+						)
+							.then((resp) => {
+								return resp.json();
+							})
+							.catch((e) => {
+								return e;
+							});
+					},
+					{
+						fid: unfollow_mid,
+						act: 2,
+						re_src: 11,
+						spmid: "333.999.0.0",
+						extend_content: JSON.stringify({
+							entity: "user",
+							entity_id: unfollow_mid,
+						}),
+						csrf: csrf,
+					}
+				);
+				if (resp_json.code != 0) {
+					console.error(
+						`${JSON.stringify(
+							unfollow_arr_trim
+						)}\n取关失败，原因：${JSON.stringify(
+							resp_json,
+							"",
+							"\t"
+						)}\n休息2小时`
+					);
+					await sleep(2 * 3600 * 1e3);
+				} else {
+					now_time++;
+					console.log(
+						`当前进度【${now_time}/${all_times}】\t${unfollow_mid}\t取关成功！${JSON.stringify(
+							resp_json,
+							"",
+							"\t"
+						)}\t${new Date().toLocaleString()}`
+					);
+				}
+				await sleep(20e3);
+			}
+		}
+		await pg.goto("about:blank");
+	} catch (e) {
+		console.error(`取关模块执行失败！${e}`);
 	}
 }
 

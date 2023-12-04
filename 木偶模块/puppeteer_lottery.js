@@ -1,23 +1,21 @@
-
 /**
- 		 * @typedef {Object} TYPE_global_var 类型
-		 * @property {Page|undefined} page - 创建的网页
-		 * @property {string} pageurl - 抽奖网址
-		 * @property {number} dynamic_id - 动态ID
-		 * @property {Object} TIME - 时间相关属性
-		 * @property {Date} TIME.Init_Time - 初始化时间
-		 * @property {Array<string>} TIME.None_Lottery_Time - 非抽奖时间段
-		 * @property {number} TIME.Reserve_Lottery_time - 参加x秒以内必须参加的预约抽奖时间(单位：秒)
-		 * @property {{global_dynamic_data: undefined, create_dyn_response: undefined, comment_dyn_response: undefined, relation_modify_response: undefined, dynamic_thumb_response: undefined, space_reservation: undefined, reply_main: undefined, msgfeed_unread: undefined}} response - 所有的响应类
-		 * @property {{吃饭休息标志： boolean, 评论响应标志： boolean, opus动态标志： boolean}} FLAG
-		 * @property {{uid: undefined, uname: undefined}} user_info - 用户信息
-		 * @property {boolean} fengkong_flag - 风控标志
-		 * @property {string} recorded_data - 抽奖反馈信息
-		 * @property {boolean} Pause - 抽奖暂停标志
-		 * @property {{access_token: undefined, API_Key: string, Secret_key: string, access_token_api: string, paraphrase_api: string, get_result_api: string}} Baidu_wenxin - 百度文心相关属性
-		 * @property {{check_login_status: function(): void}} Getter
-		 */
-
+ * @typedef {Object} TYPE_global_var 类型
+ * @property {Page|undefined} page - 创建的网页
+ * @property {string} pageurl - 抽奖网址
+ * @property {number} dynamic_id - 动态ID
+ * @property {Object} TIME - 时间相关属性
+ * @property {Date} TIME.Init_Time - 初始化时间
+ * @property {Array<string>} TIME.None_Lottery_Time - 非抽奖时间段
+ * @property {number} TIME.Reserve_Lottery_time - 参加x秒以内必须参加的预约抽奖时间(单位：秒)
+ * @property {{global_dynamic_data: undefined, create_dyn_response: undefined, comment_dyn_response: undefined, relation_modify_response: undefined, dynamic_thumb_response: undefined, space_reservation: undefined, reply_main: undefined, msgfeed_unread: undefined}} response - 所有的响应类
+ * @property {{吃饭休息标志： boolean, 评论响应标志： boolean, opus动态标志： boolean}} FLAG
+ * @property {{uid: undefined, uname: undefined}} user_info - 用户信息
+ * @property {boolean} fengkong_flag - 风控标志
+ * @property {string} recorded_data - 抽奖反馈信息
+ * @property {boolean} Pause - 抽奖暂停标志
+ * @property {{access_token: undefined, API_Key: string, Secret_key: string, access_token_api: string, paraphrase_api: string, get_result_api: string}} Baidu_wenxin - 百度文心相关属性
+ * @property {{check_login_status: function(): void}} Getter
+ */
 
 const puppeteer = require("puppeteer-extra");
 const StealthPlugin = require("puppeteer-extra-plugin-stealth");
@@ -111,9 +109,6 @@ class DO_Lottery {
 		 * @property {JSON} login_status - 抽奖账号登录的状态
 		 */
 		this.login_status = undefined;
-		/**
-		 * @property {JSON} utl - 通用的工具，在初始化抽奖设置时会使用到
-		 */
 		this.utl = undefined;
 		/**
 		 * @type {TYPE_global_var}
@@ -860,9 +855,8 @@ class DO_Lottery {
 						},
 					},
 			  };
-		let my_operator = this.my_operator
-			? this.my_operator
-			: {
+		let my_operator = !this.my_operator
+			? {
 					basic_operator: {
 						/**
 						 * 返回一个bool判断是否评论存在 true:存在；false：不存在，被隐藏了
@@ -1310,7 +1304,7 @@ class DO_Lottery {
 								} catch (e) {
 									console.warn("无需验证码", e);
 								}
-								if(comment_dyn_response_code ==12051){
+								if (comment_dyn_response_code == 12051) {
 									//重复评论code
 									return true;
 								}
@@ -1328,8 +1322,6 @@ class DO_Lottery {
 								}
 								await sleep(3e3);
 							}
-
-
 
 							global_var.Getter.check_login_status();
 							let pageurl = await global_var.page.url();
@@ -1580,8 +1572,10 @@ class DO_Lottery {
 										`第${i + 1}次尝试输入动态评论！`,
 										e
 									);
-									if(global_var.response.comment_dyn_response?.code==12051)
-									{
+									if (
+										global_var.response.comment_dyn_response
+											?.code == 12051
+									) {
 										break;
 									}
 									if (bt >= 5) {
@@ -2259,7 +2253,10 @@ class DO_Lottery {
 										try {
 											if (
 												global_var.response.reply_main
-													.code == 12061
+													.code == 12061 ||
+												global_var.response.reply_main
+													?.data?.control
+													?.input_disable //无法评论
 											) {
 												// code:
 												// 12061
@@ -2306,8 +2303,11 @@ class DO_Lottery {
 												}
 											}
 											return ret_msg;
-										} catch {
-											console.log("up置顶的回复获取失败");
+										} catch (e) {
+											console.error(
+												`up置顶的回复获取失败`,
+												e
+											);
 											await utl.my_throw(
 												"up置顶的回复获取失败"
 											);
@@ -2319,7 +2319,7 @@ class DO_Lottery {
 										return "";
 									}
 								} catch (e) {
-									console.log("up置顶的回复获取失败");
+									console.error(`up置顶的回复获取失败`, e);
 									await utl.my_throw("up置顶的回复获取失败");
 									return "";
 								}
@@ -5536,8 +5536,8 @@ ${Dynamic_content}
 							return !(manual_re67 || manual_re76 || manual_re77);
 						},
 					},
-			  };
-
+			  }
+			: this.my_operator;
 		/**
 		 * @type {TYPE_global_var}
 		 */
@@ -6124,21 +6124,7 @@ ${Dynamic_content}
 		opus动态标志
 	) => {
 		/**
-		 * @property {Page|undefined} page - 创建的网页
-		 * @property {string} pageurl - 抽奖网址
-		 * @property {number} dynamic_id - 动态ID
-		 * @property {Object} TIME - 时间相关属性
-		 * @property {Date} TIME.Init_Time - 初始化时间
-		 * @property {Array<string>} TIME.None_Lottery_Time - 非抽奖时间段
-		 * @property {number} TIME.Reserve_Lottery_time - 参加x秒以内必须参加的预约抽奖时间(单位：秒)
-		 * @property {{global_dynamic_data: undefined, create_dyn_response: undefined, comment_dyn_response: undefined, relation_modify_response: undefined, dynamic_thumb_response: undefined, space_reservation: undefined, reply_main: undefined, msgfeed_unread: undefined}} response - 所有的响应类
-		 * @property {{吃饭休息标志： boolean, 评论响应标志： boolean, opus动态标志： boolean}} FLAG
-		 * @property {{uid: undefined, uname: undefined}} user_info - 用户信息
-		 * @property {boolean} fengkong_flag - 风控标志
-		 * @property {string} recorded_data - 抽奖反馈信息
-		 * @property {boolean} Pause - 抽奖暂停标志
-		 * @property {{access_token: undefined, API_Key: string, Secret_key: string, access_token_api: string, paraphrase_api: string, get_result_api: string}} Baidu_wenxin - 百度文心相关属性
-		 * @property {{check_login_status: function(): void}} Getter
+		 * @type {TYPE_global_var}
 		 */
 		const global_var = this.global_var;
 		let utl = this.utl;
@@ -6286,9 +6272,11 @@ ${Dynamic_content}
 								global_var.response.comment_dyn_response =
 									response_json;
 								global_var.FLAG.评论响应标志 = true;
-								if(response_json.code==12051)
-								{//重复评论
-									console.warn(`${global_var.user_info.uname} ${url} 重复评论！${response_json} `);
+								if (response_json.code == 12051) {
+									//重复评论
+									console.warn(
+										`${global_var.user_info.uname} ${url} 重复评论！${response_json} `
+									);
 									return;
 								}
 								let oid;
@@ -8652,7 +8640,7 @@ ${Dynamic_content}
 			this._setLotFlag(false);
 			if (global_var.user_info.uid) {
 				//查看是否需要取关！
-				await do_unfollow(global_var.page, global_var.user_info.uid);
+				await unfollow_op(global_var.page, global_var.user_info.uid);
 			}
 			if (!browser_mode && global_var.user_info.uid) {
 				//全部任务完成之后
@@ -8727,7 +8715,3 @@ ${Dynamic_content}
  * @todo 增加自动获取色图并且发送的功能或者是转发色图up的动态？
  */
 module.exports = { DO_Lottery, sleep };
-
-
-
-

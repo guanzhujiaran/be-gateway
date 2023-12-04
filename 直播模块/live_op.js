@@ -253,10 +253,13 @@ const live_op = {
 						csrf
 					);
 					await sleep(2e3);
-					if (!resp.code) {
+					if (resp.code) {
 						console.error(`点赞失败！${JSON.stringify(resp)}`);
 						click_like_flag = false;
 						break;
+					}
+					else{
+						console.log(`点赞成功！${JSON.stringify(resp)}`);
 					}
 				}
 				if (!click_like_flag) {
@@ -412,6 +415,9 @@ class LIVE_LOT {
 				},
 			});
 			await live_op.basic_op.bringToFront(this.live_pg);
+			await this.live_pg.goto(
+				"https://live.bilibili.com/?spm_id_from=333.1296.0.0"
+			);
 			let response = await BAPI.get_user_info(this.live_pg);
 			if (response.code == 0) {
 				this.CONFIG.live_info.uname = response?.data?.uname;
@@ -438,7 +444,6 @@ class LIVE_LOT {
 	 * 初始化关注人数
 	 */
 	#init_following_list = async () => {
-		await BAPI.get_user_info(this.live_pg);
 		if (!this.live_pg.url().includes("bilibili")) {
 			await live_op.basic_op.bringToFront(this.live_pg);
 			await this.live_pg.goto(
@@ -566,15 +571,11 @@ class LIVE_LOT {
 				await this.#getOnlineGoldRank(pg, anchor_uid, room_id).then(
 					async (da) => {
 						if (da.code == 0) {
-							let onlineNum = da.data.count;
-							let score = da.data.own_info.score;
-							let rank = da.data.own_info.rank;
+							let onlineNum = da.data.onlineNum;
+							let score = da.data.ownInfo.score;
+							let rank = da.data.ownInfo.rank;
 							this.API.chatLog(
-								`【直播间电池道具】目前在线人数：${onlineNum}贡献值：${score}排名：${
-									rank == -1
-										? da?.data?.own_info?.rank_text
-										: rank
-								}`,
+								`【直播间电池道具】目前在线人数：${onlineNum}贡献值：${score}排名：${rank}`,
 								"success"
 							);
 							if (score == 0) {
@@ -771,8 +772,8 @@ class LIVE_LOT {
 			// 	resp.url().includes("xlive/lottery-interface/v1/Anchor/Join")
 			// );
 			// let anchor_join_json = await anchor_join_resp.json();
-			
-			let anchor_join_json = await BAPI.anchor_join(pg,lot_id,room_id)
+
+			let anchor_join_json = await BAPI.anchor_join(pg, lot_id, room_id);
 
 			if ((anchor_join_json.code == 400) & (gift_num * gift_price != 0)) {
 				console.log(
@@ -795,9 +796,9 @@ class LIVE_LOT {
 				await this.#getOnlineGoldRank(pg, anchor_uid, room_id).then(
 					async (da) => {
 						if (da.code == 0) {
-							let onlineNum = da.data.count;
-							let score = da.data.own_info.score;
-							let rank = da.data.own_info.rank;
+							let onlineNum = da.data.onlineNum;
+							let score = da.data.ownInfo.score;
+							let rank = da.data.ownInfo.rank;
 							this.API.chatLog(
 								`【天选时刻】目前在线人数：${onlineNum} 贡献值：${score} 排名：${rank}`
 							);
