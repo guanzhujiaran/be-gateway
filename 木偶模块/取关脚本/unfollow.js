@@ -27,7 +27,7 @@ async function generate_unfollow_file(pg, uid) {
 			}
 		}
 	);
-	let write_string = all_unfollowing_list
+	let write_string = all_unfollowing_list.join('\n')
 		.map((el) => `https://space.bilibili.com/${el}`)
 		.join("\n");
 	fs.writeFileSync(

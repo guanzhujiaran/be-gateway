@@ -63,6 +63,8 @@ async function main() {
 			console.error(e, "获取最新抽奖信息失败！");
 			return;
 		}
+	}else if (browser_mode){
+		console.log(`浏览模式，不抽奖！`);
 	} else {
 		console.log(`未开启全自动模式！使用本地文件内容进行抽奖！`);
 	}

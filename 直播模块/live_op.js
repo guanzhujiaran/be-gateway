@@ -773,9 +773,9 @@ class LIVE_LOT {
 			// );
 			// let anchor_join_json = await anchor_join_resp.json();
 
-			let anchor_join_json = await BAPI.anchor_join(pg, lot_id, room_id);
+			let anchor_join_resp = await BAPI.anchor_join(pg, lot_id, room_id);
 
-			if ((anchor_join_json.code == 400) & (gift_num * gift_price != 0)) {
+			if ((anchor_join_resp.code == 400) & (gift_num * gift_price != 0)) {
 				console.log(
 					`【天选抽奖 ${
 						this.CONFIG.live_info.uname
@@ -783,7 +783,7 @@ class LIVE_LOT {
 				);
 				return;
 			}
-			if (anchor_join_json.code == 0) {
+			if (anchor_join_resp.code == 0) {
 				this.API.chatLog(`尝试点赞3次直播间`);
 				await live_op.polymer_op.increase_ContributionRank(
 					pg,
@@ -847,7 +847,7 @@ class LIVE_LOT {
 					if (data.code == 0) {
 						if (!data.data.follow) {
 							//参加抽奖后还是未关注状态判断为异常
-							unusual_stop = true;
+							this.CONFIG.anchor.join_risk_mark = true;
 							console.log(
 								`【天选时刻 ${
 									this.CONFIG.live_info.uname
