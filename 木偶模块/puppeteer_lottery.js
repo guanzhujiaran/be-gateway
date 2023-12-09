@@ -2285,13 +2285,11 @@ class DO_Lottery {
 									console.log(
 										`${global_var.user_info.uname}\t触发间隔分享视频`
 									);
-									lottery_setting.FLAG.share_flag = true;
 									await my_operator.prevent_filter_module.share_video(
 										1,
 										1,
 										1
 									);
-									lottery_setting.FLAG.share_flag = false;
 									repost_counter = 0;
 								}
 							}
@@ -3027,7 +3025,9 @@ class DO_Lottery {
 				try {
 					let clf = global_var.page.isClosed();
 					if (clf) {
-						console.debug(`${global_var.user_info.uname}\t页面已关闭，停止分享视频操作！`);
+						console.debug(
+							`${global_var.user_info.uname}\t页面已关闭，停止分享视频操作！`
+						);
 						return;
 					}
 					if (
@@ -3043,7 +3043,6 @@ class DO_Lottery {
 						await global_var.page.goto("https://www.bilibili.com");
 						await sleep(10e3);
 						if (global_var.user_info.uname) {
-							lottery_setting.FLAG.share_flag = true;
 							await my_operator.prevent_filter_module.prevent_filter_init();
 						} else {
 							console.warn(
@@ -3052,13 +3051,22 @@ class DO_Lottery {
 							await global_var.page.goto("about:blank");
 							throw "登陆失败" + JSON.stringify(global_var);
 						}
+						console.log(
+							`${global_var.user_info.uname}\t防过滤操作完成！`
+						);
 						await global_var.page.goto("about:blank");
 					}
 				} catch (e) {
 					console.error(`分享视频失败！`, e);
 				}
 				///////////////////////////////////开始防过滤操作
-
+				if (global_var.user_info.uid) {
+					//查看是否需要取关！
+					await unfollow_op(
+						global_var.page,
+						global_var.user_info.uid
+					);
+				}
 				lottery_setting.FLAG.do_lottery_flag = false;
 				// try {
 				//     await MYAPI.cookieSetting.saveCookie(lottery_setting.CONFIG.COOKIENAME)//结束保存cookie
@@ -3141,10 +3149,6 @@ class DO_Lottery {
 			this._setGlobalPage(global_var.page);
 			await sleep(60e3);
 			this._setLotFlag(false);
-			if (global_var.user_info.uid) {
-				//查看是否需要取关！
-				await unfollow_op(global_var.page, global_var.user_info.uid);
-			}
 			if (!browser_mode && global_var.user_info.uid) {
 				//全部任务完成之后
 				if (global_var.response.msgfeed_unread) {
@@ -3160,9 +3164,7 @@ class DO_Lottery {
 						if (await global_var.page.isClosed()) {
 						} //页面关了全都不管
 						else {
-							await global_var.page.goto(
-								`https://message.bilibili.com/#/love`
-							);
+							await global_var.page.goto(`about:blank`);
 						}
 						return;
 					}
@@ -3172,8 +3174,8 @@ class DO_Lottery {
 						(await global_var.page.isClosed()) ||
 						lottery_setting.CONFIG.LIVE_LOT
 					) {
-					} //页面关了全都不管
-					else {
+						//页面关了全都不管
+					} else {
 						if (!global_var.user_info.uid) {
 							console.error(
 								`${lottery_setting.CONFIG.COOKIENAME} 账号失效`

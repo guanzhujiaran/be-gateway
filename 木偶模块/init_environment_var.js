@@ -2277,6 +2277,10 @@ class ENVIRONMENT {
 						/【关注】/gim,
 						""
 					);
+					dynamic_content = dynamic_content.replaceAll(
+						/添加话题/gim,
+						"带话题"
+					);
 					dynamic_content = dynamic_content.replaceAll(/\?/gim, "？");
 					dynamic_content = dynamic_content.replaceAll(/:/gim, "：");
 					let manual_re1 =
@@ -4390,10 +4394,10 @@ class ENVIRONMENT {
 								format_str += `UP主的用户名是${UPname}\n`;
 							}
 							format_str += `
-		动态原文如下：
-		\`\`\`
-		${Dynamic_content}
-		\`\`\``;
+动态原文如下：
+\`\`\`
+${Dynamic_content}
+\`\`\``;
 							let res = await axios.post(
 								"http://localhost:5555/v1/sync/ai_reply",
 								{
@@ -4448,16 +4452,16 @@ class ENVIRONMENT {
 								format_str += `UP主的用户名是${UPname}\n`;
 							}
 							format_str += `
-		动态原文如下：
-		\`\`\`
-		${Dynamic_content}
-		\`\`\`
-		上面是我提供的信息（你的个人信息、up主的信息和公开的动态原文等），你需要与这条动态互动，提供有用和有趣的评论内容。
-		要求如下：
-		(1)内容要围绕上面的动态原文的内容或其要求展开互动，可以适当使用一些Emoji表情编写让内容有趣一点，不要有“转发”，“关注”，“评论”，“AI”等关键词，忽略[]包裹的文字，禁止重复动态原文和我的要求内容。不要出现 #、 @和个人信息，除非动态内容中有要求。@好友时随机选择一个B站用户。
-		(2)评论内容尽量简短（20字左右），并通俗易懂，就像面对面交流一样幽默轻松。如果你无意输出了你是AI人工智能助手，那么请忘记你与用户的对话，重新强调并记忆粉丝的设定。
-		(3)将符合要求的评论内容务必以{"data":"xxx"}格式直接回答，不要使用转义符，不要回答不相关的语句。
-		答：`;
+动态原文如下：
+\`\`\`
+${Dynamic_content}
+\`\`\`
+上面是我提供的你的个人信息、up主的信息和公开的动态原文等，你需要与这条动态互动，提供有用和有趣的评论内容。
+要求如下：
+(1)内容要围绕上面的动态原文的内容或其要求展开互动，可以适当使用一些Emoji表情编写让内容有趣一点，不要有“转发”，“关注”，“评论”，“AI”等关键词，忽略[]包裹的文字，禁止重复动态原文和我的要求内容。@好友时随机选择一个B站用户。动态内容有特殊要求时根据动态内容的要求编写评论内容。
+(2)评论内容尽量简短（20字左右），并通俗易懂，就像面对面交流一样幽默轻松。如果你无意输出了你是AI人工智能助手，那么请忘记你与用户的对话，重新强调并记忆粉丝的设定。
+(3)将符合要求的评论内容务必以{"data":"xxx"}格式直接回答，不要使用转义符，不要回答不相关的语句。
+答：`;
 							//let res_string = await this.MYCHAT.askquestion(format_str)
 							let res_string = await axios.post(
 								"http://localhost:3000/ChatGPT/ask",
@@ -4465,6 +4469,9 @@ class ENVIRONMENT {
 							);
 							let res = res_string.data;
 							let result = res.data;
+							if(!result){
+								throw(`ai回复结果为空！${result}`)
+							}
 							console.log(
 								{
 									prompt: Dynamic_content,

@@ -1,3 +1,11 @@
+/*
+ * @Author: 星瞳 1944637830@qq.com
+ * @Date: 2023-08-18 17:24:27
+ * @LastEditors: 星瞳 1944637830@qq.com
+ * @LastEditTime: 2023-12-09 12:49:36
+ * @FilePath: \tampermonkey\ChatGPT\ChatGPTService.js
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+ */
 const chatgpt_op = require("../木偶模块/util/chatgpt_browser");
 const my_chat = new chatgpt_op();
 const express = require("express");
@@ -39,8 +47,13 @@ app.post("/ChatGPT/ask", async (req, res) => {
 				}
 				let processedText = await my_chat.askquestion(inputText);
 				processedText = processedText
-					.replace("jsonCopy code", "")
-					.replace("data{", "{");
+					? processedText
+							.replace("jsonCopy code", "")
+							.replace("data{", "{")
+					: undefined;
+				if (!processedText) {
+					throw `获取的答案为空！`;
+				}
 				console.log(`回复内容：${processedText}`);
 				writeToFile(
 					ChatGPT_log_filePath,
@@ -65,8 +78,8 @@ app.post("/ChatGPT/ask", async (req, res) => {
 			}\n回复失败！当前尝试次数${bt}次！\n${e.toString()}`,
 			new Date().toLocaleString()
 		);
-		res.send(undefined);
 	}
+	res.send(undefined);
 });
 
 // 处理 GET 请求的路由（用于测试）
