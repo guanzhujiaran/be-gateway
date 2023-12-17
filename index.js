@@ -1,9 +1,37 @@
 let { DO_Lottery, sleep } = require("./木偶模块/puppeteer_lottery.js");
-let { LIVE_LOT } = require("./直播模块/live_op.js");
+let { LIVE_LOT_Service } = require("./直播模块/live_op.js");
 let event_bus = require("./lib/helper/event_bus"); //注册事件用的，每一轮都要重新注册！
 let axios = require("axios");
 let fs = require("fs");
 
+/**
+ * 生成抽奖文件
+ * @param {Date} start_time 
+ */
+async function gen_lot_file(start_time) {
+	console.log(`开始新的一轮抽奖！${new Date().toLocaleString()}`);
+	console.log(`正在获取抽奖动态中！----${new Date().toLocaleString()}`);
+	let latest_lot_dyn = fs
+		.readFileSync("./木偶模块/一般的抽奖动态id.txt")
+		.toString();
+	let latest_lot_dyn_data = latest_lot_dyn.split("\n");
+	let get_lot_dyn = await axios.get(
+		"http://127.0.0.1:23333/get_others_lot_dyn/"
+	);
+	let lot_dyn_data = get_lot_dyn.data;
+	if (
+		latest_lot_dyn_data.length === lot_dyn_data.length &&
+		latest_lot_dyn_data.every((v, i) => v === lot_dyn_data[i])
+	) {
+		fs.writeFileSync("./木偶模块/一般的抽奖动态id.txt", "");
+	} else {
+		fs.writeFileSync(
+			"./木偶模块/一般的抽奖动态id.txt",
+			lot_dyn_data.join("\n")
+		);
+		console.log(`获取完成。写入文件 ./木偶模块/一般的抽奖动态id.txt 共计${lot_dyn_data.length}条抽奖！\n抽奖，启动！--${start_time.toLocaleString()}`);
+	}
+}
 /**
  * @type {{event_name:String,lot:DO_Lottery}[]}
  */
@@ -29,41 +57,20 @@ async function main() {
 		// 'lottery_setting6',//G
 	];
 	let unfollow_mode = 0; //是否开启取关模式
-	let auto_mode = 0; //是否开启全自动抽奖模式
+	let auto_mode = 1; //是否开启全自动抽奖模式
 	let browser_mode = 0; //是否只打开浏览器，不进行抽奖
+
+	let gen_lot_file_mark = false; //抽奖文件获取完成
 	if (auto_mode && !browser_mode && !unfollow_mode) {
 		try {
-			console.log(`开始新的一轮抽奖！${new Date().toLocaleString()}`);
-			console.log(
-				`正在获取抽奖动态中！----${new Date().toLocaleString()}`
-			);
-			let latest_lot_dyn = fs
-				.readFileSync("./木偶模块/一般的抽奖动态id.txt")
-				.toString();
-			let latest_lot_dyn_data = latest_lot_dyn.split("\n");
-			let get_lot_dyn = await axios.get(
-				"http://127.0.0.1:23333/get_others_lot_dyn/"
-			);
-			let lot_dyn_data = get_lot_dyn.data;
-			if (
-				latest_lot_dyn_data.length === lot_dyn_data.length &&
-				latest_lot_dyn_data.every((v, i) => v === lot_dyn_data[i])
-			) {
-				fs.writeFileSync("./木偶模块/一般的抽奖动态id.txt", "");
-			} else {
-				fs.writeFileSync(
-					"./木偶模块/一般的抽奖动态id.txt",
-					lot_dyn_data.join("\n")
-				);
-				console.log(
-					`获取完成。\n抽奖，启动！--${start_time.toLocaleString()}`
-				);
-			}
+			gen_lot_file(start_time).then(() => {
+				gen_lot_file_mark = true;
+			});
 		} catch (e) {
 			console.error(e, "获取最新抽奖信息失败！");
 			return;
 		}
-	}else if (browser_mode){
+	} else if (browser_mode) {
 		console.log(`浏览模式，不抽奖！`);
 	} else {
 		console.log(`未开启全自动模式！使用本地文件内容进行抽奖！`);
@@ -75,6 +82,9 @@ async function main() {
 		}
 	}
 	let opus动态标志 = true; //是否使用新版动，默认开启!
+
+
+
 	for (let i of lottery_setting_filename_list) {
 		console.log(i);
 		if (unfollow_mode) {
@@ -110,34 +120,39 @@ async function main() {
 		}
 	}
 
-	for (let do_lottery of MYLOTLIST) {
-		if (!do_lottery.lot.lottery_setting) {
-			await do_lottery.lot.variable_init();
+	if(event_bus.event_list.indexOf('ALL_LIVE_LOT')){
+		let ALL_DO_Lottery = MYLOTLIST.map(el=>el.lot)
+		let ALL_LIVE_LOT = new LIVE_LOT_Service(ALL_DO_Lottery)
+		event_bus.on('ALL_LIVE_LOT',async()=>{
+			await ALL_LIVE_LOT.main()
+		})
+	}
+	event_bus.emit('ALL_LIVE_LOT')
+	
+
+	await sleep(10e3);//防止启动浏览器时和直播抽奖启动的浏览器冲突报错！
+
+	while (1) {
+		//触发动态抽奖事件
+		if (!gen_lot_file_mark && auto_mode) {
+			await sleep(1e3);
+			continue;
 		}
-		if (do_lottery.lot.lottery_setting.CONFIG.LIVE_LOT) {
-			let event_name = `live_lot_${do_lottery.lot.lottery_name}`;
-			if (event_bus.event_list.indexOf(event_name) == -1) {
-				let live_lot = new LIVE_LOT(do_lottery.lot);
-				event_bus.on(event_name, async () => {
-					live_lot.main();
-				});
+		for (let i of lottery_setting_filename_list) {
+			//动态抽奖文件
+			let event_name = `lot_${i}`;
+			if (event_bus.event_list.indexOf(event_name) != -1) {
+				if (new Date().getHours() >= 2 && new Date().getHours() <= 9) {
+					console.log("启动时间太晚，优先睡眠");
+					await sleep((9 - new Date().getHours()) * 3600e3);
+				}
 				event_bus.emit(event_name);
+				await sleep(600e3 * 1.0);
 			} else {
-				console.log(`${do_lottery.lottery_name} 直播抽奖进行中`);
+				console.error(`未找到动态抽奖${event_name}事件！`);
 			}
 		}
-	}
-
-	await sleep(10e3);
-
-	for (let i of lottery_setting_filename_list) {
-		let event_name = `lot_${i}`;
-		if (event_bus.event_list.indexOf(event_name) != -1) {
-			event_bus.emit(event_name);
-			await sleep(600e3 * 3.0);
-		} else {
-			console.error(`未找到${event_name}事件！`);
-		}
+		break;
 	}
 
 	if (auto_mode && !browser_mode) {
@@ -178,9 +193,9 @@ async function main() {
 				await sleep(10e3);
 				setTimeout(async () => {
 					// event_bus.flush(); //事件不清空，复用事件！
-					for (let lot of MYLOTLIST) {
-						await lot.lot?.global_page.browser().close();
-					}
+					// for (let lot of MYLOTLIST) {
+					// 	await lot.lot?.global_page.browser().close();
+					// }//不需要关闭浏览器
 					await main();
 				}, tomorrow - now);
 				return;

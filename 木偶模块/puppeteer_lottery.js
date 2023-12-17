@@ -1135,15 +1135,6 @@ class DO_Lottery {
 		this.lottery_setting = lottery_setting;
 		///////////////////////////////////////////////////////////////
 		(async () => {
-			async function browser_Disconnected(br) {
-				//浏览器断开连接时返回false
-				while (1) {
-					if (!br.disconnect()) {
-						return false;
-					}
-					await sleep(100e3);
-				}
-			}
 			///////////////////抽预约抽奖
 			/**
 			 * 预约抽奖循环程序，返回参加失败的列表
@@ -1580,7 +1571,7 @@ class DO_Lottery {
 					if (global_var.response.reply_main) {
 						if (global_var.response.reply_main?.code == 12061) {
 							console.warn(
-								`${global_var.uname} ${pageurl} UP主已关闭评论区！ 只进行转发和点赞操作！`
+								`${global_var.user_info.uname} ${pageurl} UP主已关闭评论区！ 只进行转发和点赞操作！`
 							);
 							comment_forbidden_mark = true;
 							//UP主已关闭评论区
@@ -1700,13 +1691,13 @@ class DO_Lottery {
 						return undefined;
 					}
 					// console.log(global_var.response.global_dynamic_data)
-					if (goto_url.includes("tab=1") || comment_forbidden_mark) {
-						//如果是只转发或者评论区关闭了的动态则不生成评论内容
+					if (goto_url.includes("tab=1")) {
+						//如果是只转发的动态则不生成评论内容
 					} else {
 						comment_msg =
 							await my_operator.dynamic_comment_operator.reply_comment_generator(
 								dynamic_content,
-								MYAPI.BiliAPI.draw_dynamic_id(goto_url)
+								MYAPI.BiliAPI.draw_dynamic_id(goto_url),
 							);
 					}
 					if (
@@ -1728,7 +1719,7 @@ class DO_Lottery {
 							global_var.response.global_dynamic_data.item.modules
 								.module_author.following == null
 						) {
-							//判断关注，为null则是没关注
+							//判断关注，为null则是没关注 总共尝试5次关注
 							for (let i = 0; i <= 5; i++) {
 								global_var.Getter.check_login_status();
 								if (
@@ -1866,9 +1857,7 @@ class DO_Lottery {
 														)}\t风控导致，休眠1小时！${new Date().toLocaleTimeString()}`
 													);
 													await sleep(1 * 3600e3);
-													if (
-														!(await follow_pg.isClosed())
-													) {
+													if (!follow_pg.isClosed()) {
 														await follow_pg.close();
 													}
 													break;
@@ -1876,9 +1865,7 @@ class DO_Lottery {
 													await utl.my_throw(
 														`${goto_url}\t${global_var.user_info.uname}\t因为被拉黑导致点击关注失败 https://space.bilibili.com/${global_var.response.global_dynamic_data.item.modules.module_author.mid}`
 													);
-													if (
-														!(await follow_pg.isClosed())
-													) {
+													if (!follow_pg.isClosed()) {
 														await follow_pg.close();
 													} //因为被拉黑了所以直接跳过
 													return true;
@@ -1890,7 +1877,7 @@ class DO_Lottery {
 											}
 										}
 										await sleep(5e3);
-										if (!(await follow_pg.isClosed())) {
+										if (!follow_pg.isClosed()) {
 											await follow_pg.close();
 										}
 										break;
@@ -1906,7 +1893,7 @@ class DO_Lottery {
 											}\t关注失败，${JSON.stringify(e)}`
 										);
 										await sleep(3e3);
-										if (!(await follow_pg.isClosed())) {
+										if (!follow_pg.isClosed()) {
 											await follow_pg.close();
 										}
 										continue;
@@ -2077,8 +2064,7 @@ class DO_Lottery {
 
 						// console.log(global_var.response.global_dynamic_data)
 						if (
-							goto_url.includes("tab=1") ||
-							comment_forbidden_mark
+							goto_url.includes("tab=1") //|| comment_forbidden_mark
 						) {
 							//只转发
 							if (lottery_setting.official_lottery_switch) {
@@ -2111,22 +2097,22 @@ class DO_Lottery {
 						if (goto_url.indexOf("tab=2") > -1) {
 							//评论加转发
 							if (
-								(Math.random() < lottery_setting.repostchance ||
-									dynamic_content.length > 200) &&
-								comment_msg.includes("#")
+								Math.random()*0.6 < lottery_setting.repostchance ||
+								comment_msg.includes("#") ||
+								global_var.response.reply_main.code == 12061
+								// 	dynamic_content.length > 200) &&
 							) {
-								//comment_msg.includes('#')
-								if (pageurl.includes("opus")) {
-									await my_operator.comment_repost_dynamic_with_content(
-										comment_msg,
-										opus_dynamic
-									);
-								} else {
-									await my_operator.comment_repost_dynamic_without_content(
-										comment_msg,
-										opus_dynamic
-									);
-								}
+								// if (pageurl.includes("opus")) {
+								await my_operator.comment_repost_dynamic_with_content(
+									comment_msg,
+									opus_dynamic
+								);
+								// } else {
+								// 	await my_operator.comment_repost_dynamic_without_content(
+								// 		comment_msg,
+								// 		opus_dynamic
+								// 	);
+								// }
 							} else {
 								await my_operator.comment_repost_dynamic_without_content(
 									comment_msg,
@@ -2182,7 +2168,7 @@ class DO_Lottery {
 			 * @param {Array} all_dynamic_id_list
 			 * @returns
 			 */
-			async function lottery_loop(all_dynamic_id_list) {
+			let lottery_loop = async (all_dynamic_id_list) => {
 				//对抽奖队列进行循环
 				all_dynamic_id_list = utl.part_shuffle(
 					parseInt(0.1 * all_dynamic_id_list.length),
@@ -2370,6 +2356,10 @@ class DO_Lottery {
 										all_dynamic_id_list[i]
 									} ${d.toLocaleTimeString()}`
 								);
+								if (global_var.page.isClosed()) {
+									//每次抽奖循环时检测页面是否关闭，如果关闭则重新打开浏览器页面！
+									await account_init(); //重新设置global_var.page
+								}
 								lottery_setting.FLAG.do_lottery_flag = true;
 								global_var.response.global_dynamic_data =
 									undefined; //全局的动态数据
@@ -2573,7 +2563,7 @@ class DO_Lottery {
 							);
 							if (
 								!global_var.user_info.uname ||
-								(await global_var.page.isClosed())
+								global_var.page.isClosed()
 							) {
 								//没登录或者浏览器页面关了
 								break;
@@ -2581,7 +2571,8 @@ class DO_Lottery {
 							if (
 								JSON.stringify(record)
 									.toLowerCase()
-									.includes("timeout")
+									.includes("timeout") ||
+								JSON.stringify(record).toLowerCase() == "{}"
 							) {
 								await sleep(2 * 60 * 1e3);
 							}
@@ -2656,7 +2647,7 @@ class DO_Lottery {
 					);
 					return lottery_success;
 				}
-			}
+			};
 
 			/**
 			 * 检查每天是否投币经验满了
@@ -3210,7 +3201,7 @@ class DO_Lottery {
 				opus动态标志
 			);
 		} catch (e) {
-			console.log(e, lottery_setting_filename, Date());
+			console.error(e, lottery_setting_filename,(new Date()).toLocaleString());
 		}
 	};
 }
@@ -3219,4 +3210,5 @@ class DO_Lottery {
  * @todo 增加chatgpt类似的AI回复 √ （已实现使用pptr获取chatgpt自动回复功能）
  * @todo 增加自动获取色图并且发送的功能或者是转发色图up的动态？
  */
+
 module.exports = { DO_Lottery, sleep };

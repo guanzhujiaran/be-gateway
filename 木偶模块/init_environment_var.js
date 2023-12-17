@@ -2,6 +2,8 @@ const superagent = require("superagent");
 const axios = require("axios");
 const fs = require("fs");
 const QueryWbiEnc = require("../lib/helper/encbiliWbiQuery");
+const { Page } = require("puppeteer-core");
+const { fun } = require("synonyms/dictionary");
 const __dirpath = "./木偶模块/";
 if (!fs.existsSync(__dirpath)) {
 	//创建文件目录
@@ -38,8 +40,7 @@ if (!fs.existsSync(__dirpath + "JsonData")) {
 function sleep(ms) {
 	return new Promise((resolve) => setTimeout(() => resolve(sleep), ms));
 }
-
-let lottery_setting_file_reader = async function (filename) {
+let lottery_setting_file_reader = async (filename) => {
 	let path = `${__dirpath}lottery_setting/${filename}.txt`;
 	let data = fs
 		.readFileSync(path, function (err) {
@@ -53,7 +54,6 @@ let lottery_setting_file_reader = async function (filename) {
 	return data;
 };
 //这个文件的环境配置完成！
-
 class ENVIRONMENT {
 	constructor(lottery_name) {
 		this.lottery_name = lottery_name;
@@ -63,19 +63,18 @@ class ENVIRONMENT {
 		this.MYAPI = undefined;
 		this.lottery_setting = undefined;
 	}
-
 	main = async () => {
 		if (this.lottery_setting) {
 			return;
 		}
-		const utl = {
+		let utl = {
 			/**
 			 * 检查是否在时间段内，加上一点随机数[doge]
 			 * @param {string} beginTime xx:xx格式的开始时间
 			 * @param {string} endTime xx:xx格式的结束时间
 			 * @returns
 			 */
-			checkAuditTime: function (beginTime, endTime) {
+			checkAuditTime: (beginTime, endTime) => {
 				var nowDate = new Date();
 				var beginDate = new Date(nowDate);
 				var endDate = new Date(nowDate);
@@ -129,6 +128,11 @@ class ENVIRONMENT {
 				}
 				return arr.filter((item) => item % step == 0);
 			},
+			/**
+			 * 随机选一个，等同于Python的random.choice()
+			 * @param {any[]} input_list
+			 * @returns {any}
+			 */
 			random_choice: function (input_list) {
 				let index = Math.floor(Math.random() * input_list.length);
 				return input_list[index];
@@ -397,8 +401,49 @@ class ENVIRONMENT {
 				return origin_str.replaceAll(reg, "");
 			},
 		};
-		const global_var = {
-			/**@type {Page|undefined} */
+		/**
+		 * @type {Object} global_var - 全局变量
+		 * @property {Page|undefined} page - 浏览器页面
+		 * @property {string} pageurl - 抽奖网址
+		 * @property {number} dynamic_id - 动态ID
+		 * @property {Object} TIME - 时间相关
+		 * @property {Date} TIME.Init_Time - 初始化时间
+		 * @property {Array.<string>} TIME.None_Lottery_Time - 非抽奖时间段
+		 * @property {number} TIME.Reserve_Lottery_time - 参加x秒以内必须参加的预约抽奖
+		 * @property {Object} response - 所有的响应类
+		 * @property {Object|undefined} response.global_dynamic_data - 全局的动态数据
+		 * @property {Object|undefined} response.create_dyn_response - 创建或转发动态的响应
+		 * @property {Object|undefined} response.comment_dyn_response - 自己评论动态的响应
+		 * @property {Object|undefined} response.relation_modify_response - 关注响应
+		 * @property {Object|undefined} response.dynamic_thumb_response - 点赞动态响应
+		 * @property {Object|undefined} response.space_reservation - 空间预约响应
+		 * @property {Object|undefined} response.reply_main - 评论区响应
+		 * @property {Object|undefined} response.msgfeed_unread - 我的消息响应
+		 * @property {Object} FLAG - 标志位
+		 * @property {boolean} FLAG.吃饭休息标志 - 吃饭休息标志
+		 * @property {boolean} FLAG.评论响应标志 - 评论响应标志
+		 * @property {boolean} FLAG.opus动态标志 - opus动态标志
+		 * @property {Object|undefined} user_nav - 用户导航
+		 * @property {boolean} fengkong_flag - 风控标志
+		 * @property {string} recorded_data - 抽奖反馈信息
+		 * @property {Object} user_info - 用户信息
+		 * @property {number|undefined} user_info.uid - 用户ID
+		 * @property {string|undefined} user_info.uname - 用户名
+		 * @property {boolean} Pause - 抽奖暂停标志
+		 * @property {Object} Baidu_wenxin - 百度文心相关
+		 * @property {string|undefined} Baidu_wenxin.access_token - 百度文心的access_token
+		 * @property {string} Baidu_wenxin.API_Key - 百度文心的API_Key
+		 * @property {string} Baidu_wenxin.Secret_key - 百度文心的Secret_key
+		 * @property {string} Baidu_wenxin.access_token_api - 百度文心的access_token_api
+		 * @property {string} Baidu_wenxin.paraphrase_api - 百度文心的paraphrase_api
+		 * @property {string} Baidu_wenxin.get_result_api - 百度文心的get_result_api
+		 * @property {Object} Getter - 获取器
+		 * @property {function} Getter.check_login_status - 检查登录状态
+		 */
+		let global_var = {
+			/**
+			 * @type {Page|undefined} page - 浏览器页面
+			 */
 			page: undefined, //创建的网页
 			pageurl: "", //抽奖网址
 			dynamic_id: 0,
@@ -450,7 +495,7 @@ class ENVIRONMENT {
 				get_result_api: `https://wenxin.baidu.com/moduleApi/portal/api/rest/1.0/ernie/v1/getResult`,
 			},
 			Getter: {
-				check_login_status: () => {
+				check_login_status: function () {
 					if (!global_var.user_info.uname) {
 						console.warn(
 							`登陆失败\n${lottery_setting.CONFIG.COOKIENAME}`
@@ -461,7 +506,7 @@ class ENVIRONMENT {
 				},
 			},
 		};
-		const my_operator = {
+		let my_operator = {
 			basic_operator: {
 				/**
 				 * 返回一个bool判断是否评论存在 true:存在；false：不存在，被隐藏了
@@ -469,7 +514,7 @@ class ENVIRONMENT {
 				 * @param {} dynamic_id 动态ID
 				 * @returns
 				 */
-				check_reply: async function (response_json, dynamic_id) {
+				check_reply: async (response_json, dynamic_id) => {
 					if (response_json) {
 						try {
 							let type = response_json.data.reply.type;
@@ -550,9 +595,7 @@ class ENVIRONMENT {
 				 * 获取opus动态的转发框里的内容
 				 * @param {*} msg_box_node
 				 */
-				get_opus_dynamic_repost_area_content: async function (
-					msg_box_node
-				) {
+				get_opus_dynamic_repost_area_content: async (msg_box_node) => {
 					return (
 						await msg_box_node.$eval(
 							`.bili-rich-textarea__inner`,
@@ -577,7 +620,7 @@ class ENVIRONMENT {
 				 * 点赞动态
 				 * @param {*} opus_dynamic 是否通过opus动态操作
 				 */
-				dynamic_thumb: async function (opus_dynamic = false) {
+				dynamic_thumb: async (opus_dynamic = false) => {
 					//动态点赞
 					global_var.Getter.check_login_status();
 					try {
@@ -588,9 +631,9 @@ class ENVIRONMENT {
 								)
 							) {
 								console.warn(
-									`${
-										global_var.user_info.uname
-									}\t动态评论失败，评论被隐藏，不进行动态点赞！\t${new Date().toLocaleTimeString()}`
+									`${global_var.user_info.uname}\t${
+										global_var.pageurl
+									}动态评论失败，评论被隐藏，不进行动态点赞！\t${new Date().toLocaleTimeString()}`
 								);
 								return;
 							}
@@ -672,12 +715,28 @@ class ENVIRONMENT {
 				},
 				/**
 				 * 点击转发
-				 * @param {*} opus_dynamic 是否通过opus动态操作
+				 * @param {boolean} opus_dynamic
+				 * @param {string} repost_content
+				 * @returns
 				 */
-				dynamic_repost: async function (
+				dynamic_repost: async (
 					opus_dynamic = false,
 					repost_content = ""
-				) {
+				) => {
+					if (typeof global_var.recorded_data == "string") {
+						if (
+							global_var.recorded_data.includes(
+								"动态评论失败，评论被隐藏"
+							)
+						) {
+							console.error(
+								`${global_var.user_info.uname}\t${
+									global_var.pageurl
+								}动态评论失败，评论被隐藏，不进行动态转发！\t${new Date().toLocaleTimeString()}`
+							);
+							return;
+						}
+					}
 					//点击转发
 					global_var.Getter.check_login_status();
 					let pageurl = await global_var.page.url();
@@ -796,7 +855,10 @@ class ENVIRONMENT {
 							let repost_btn = await global_var.page.$(
 								".bili-dyn-forward-publishing__action__btn"
 							);
-							if (repost_btn) {
+							let repost_text_area = await global_var.page.$(
+								".bili-rich-textarea"
+							);
+							if (repost_btn && repost_text_area) {
 							} else {
 								//如果没有等待元素，则尝试前往转发页面
 								await global_var.page.click(
@@ -806,12 +868,40 @@ class ENVIRONMENT {
 								repost_btn = await global_var.page.$(
 									".bili-dyn-forward-publishing__action__btn"
 								);
+								repost_text_area = await global_var.page.$(
+									".bili-rich-textarea"
+								);
 							}
-
+							if (repost_content) {
+								//旧版动态页（非opus） 面如果有评论需要转发，就直接在转发页面输入
+								await repost_text_area.type(repost_content, {
+									delay: 20,
+								});
+								let textContent =
+									await repost_text_area.evaluate(
+										(el) => el.textContent
+									);
+								if (textContent && textContent.length > 950) {
+									await repost_text_area.focus();
+									await global_var.page.keyboard.down(
+										"Control"
+									);
+									await global_var.page.keyboard.press("A");
+									await global_var.page.keyboard.up(
+										"Control"
+									);
+									await sleep(1e3);
+									await global_var.page.keyboard.press(
+										"Backspace"
+									);
+									await repost_text_area.type(
+										textContent.slice(0, 950)
+									);
+								}
+							}
 							await sleep(1e3);
-							await repost_btn.click(
-								".bili-dyn-forward-publishing__action__btn"
-							);
+							await repost_btn.click();
+
 							// let bt = 0
 							// while (!global_var.response.create_dyn_response) {
 							//     if (bt > 5) { break }
@@ -837,7 +927,7 @@ class ENVIRONMENT {
 							// }
 						}
 					} catch (e) {
-						console.warn(`动态转发失败，dynamic_repost，${e}`);
+						console.error(`动态转发失败，dynamic_repost，${e}`);
 						await utl.my_throw(
 							`动态转发失败，dynamic_repost，${e}`
 						);
@@ -849,10 +939,7 @@ class ENVIRONMENT {
 				 * @param {String} comment_msg 回复内容
 				 * @returns {}
 				 */
-				comment_submit: async function (
-					comment_msg,
-					opus_dynamic = false
-				) {
+				comment_submit: async (comment_msg, opus_dynamic = false) => {
 					//点击回复
 					/**
 					 * 检查评论是否被风控
@@ -897,15 +984,17 @@ class ENVIRONMENT {
 						}
 						await sleep(3e3);
 					}
-
 					global_var.Getter.check_login_status();
 					let pageurl = await global_var.page.url();
+					if (global_var.response.reply_main.code == 12061) {
+						//UP主已关闭评论区
+						return;
+					}
 					if (pageurl.includes("opus")) {
 						opus_dynamic = true;
 					} else {
 						opus_dynamic = false;
 					}
-
 					if (pageurl.includes("read/cv")) {
 						opus_dynamic = false;
 						await global_var.page.goto(
@@ -1210,7 +1299,7 @@ class ENVIRONMENT {
 						throw e;
 					}
 				},
-				comment_thumb: async function (opus_dynamic = false) {
+				comment_thumb: async (opus_dynamic = false) => {
 					global_var.Getter.check_login_status();
 					let pageurl = await global_var.page.url();
 					if (pageurl.includes("opus")) {
@@ -1401,7 +1490,7 @@ class ENVIRONMENT {
 					await sleep(3e3);
 				},
 			},
-			fast_repost: async function (opus_dynamic) {
+			fast_repost: async (opus_dynamic) => {
 				//直接转发
 				try {
 					//直接点转发
@@ -1441,10 +1530,10 @@ class ENVIRONMENT {
 			 * @param {*} comment_msg
 			 * @returns
 			 */
-			comment_repost_dynamic_with_content: async function (
+			comment_repost_dynamic_with_content: async (
 				comment_msg,
 				opus_dynamic = false
-			) {
+			) => {
 				//转评带上回复内容
 				let pageurl = await global_var.page.url();
 				if (pageurl.includes("opus")) {
@@ -1478,67 +1567,72 @@ class ENVIRONMENT {
 					}
 				} else {
 					try {
-						let bt = 0;
-						while (1) {
-							if (bt > 5) {
-								//多次尝试点击勾选，超过次数则退出
-								break;
-							}
-							try {
-								await global_var.page.click(
-									`.reply-box-textarea`
-								);
-								await global_var.page
-									.waitForSelector(`.forward-input`, {
-										timeout: 5e3,
-									})
-									.then(async (checkbox) => {
-										await checkbox.click();
-									}); //勾选同时转发到我的动态
-								//  await global_var.page.click('.dynamic-repost-checkbox')
-								await sleep(1e3);
-								if (
-									await global_var.page.$eval(
-										".forward-input",
-										(el) => el.checked
-									)
-								) {
-									await sleep(3e3);
-									break;
-								}
-							} catch (e) {
-								await sleep(1e3);
-								await global_var.page.reload();
-								await sleep(3e3);
-								await global_var.page.evaluate(() => {
-									this.scrollTo(0, 1500);
-								});
-							}
-							bt += 1;
-						}
-						if (
-							await global_var.page.$eval(
-								".forward-input",
-								(el) => el.checked
-							)
-						) {
-							await sleep(1e3);
-						} else {
-							console.log(
-								`勾选同时转发到我的动态转发失败\t${global_var.pageurl}\t${global_var.user_info.uname}`
-							);
-							await utl.my_throw(
-								"勾选同时转发到我的动态转发失败"
-							);
-							throw `勾选同时转发到我的动态转发失败，comment_repost_dynamic_with_content，${e}`;
-						}
+						// let bt = 0;
+						// while (1) {
+						// 	if (bt > 5) {
+						// 		//多次尝试点击勾选，超过次数则退出
+						// 		break;
+						// 	}
+						// 	try {
+						// 		await global_var.page.click(
+						// 			`.reply-box-textarea`
+						// 		);
+						// 		await global_var.page
+						// 			.waitForSelector(`.forward-input`, {
+						// 				timeout: 5e3,
+						// 			})
+						// 			.then(async (checkbox) => {
+						// 				await checkbox.click();
+						// 			}); //勾选同时转发到我的动态
+						// 		//  await global_var.page.click('.dynamic-repost-checkbox')
+						// 		await sleep(1e3);
+						// 		if (
+						// 			await global_var.page.$eval(
+						// 				".forward-input",
+						// 				(el) => el.checked
+						// 			)
+						// 		) {
+						// 			await sleep(3e3);
+						// 			break;
+						// 		}
+						// 	} catch (e) {
+						// 		await sleep(1e3);
+						// 		await global_var.page.reload();
+						// 		await sleep(3e3);
+						// 		await global_var.page.evaluate(() => {
+						// 			this.scrollTo(0, 1500);
+						// 		});
+						// 	}
+						// 	bt += 1;
+						// }
+						// if (
+						// 	await global_var.page.$eval(
+						// 		".forward-input",
+						// 		(el) => el.checked
+						// 	)
+						// ) {
+						// 	await sleep(1e3);
+						// } else {
+						// 	console.log(
+						// 		`勾选同时转发到我的动态转发失败\t${global_var.pageurl}\t${global_var.user_info.uname}`
+						// 	);
+						// 	await utl.my_throw(
+						// 		"勾选同时转发到我的动态转发失败"
+						// 	);
+						// 	throw `勾选同时转发到我的动态转发失败，comment_repost_dynamic_with_content，${e}`;
+						// }
 						if (comment_msg != null && comment_msg != undefined) {
 							await my_operator.basic_operator.comment_submit(
 								comment_msg,
 								opus_dynamic
 							);
+							await sleep(3e3);
+							await my_operator.basic_operator.dynamic_repost(
+								opus_dynamic,
+								comment_msg
+							);
 						} else {
-							console.log(
+							console.error(
 								`评论获取失败，comment_repost_dynamic_with_content\t${global_var.pageurl}\t${global_var.user_info.uname}`
 							);
 							return await utl.my_throw(
@@ -1597,10 +1691,10 @@ class ENVIRONMENT {
 			 * @param {*} comment_msg
 			 * @returns
 			 */
-			comment_repost_dynamic_without_content: async function (
+			comment_repost_dynamic_without_content: async (
 				comment_msg,
 				opus_dynamic
-			) {
+			) => {
 				//转评不带回复内容
 				let pageurl = await global_var.page.url();
 				if (pageurl.includes("opus")) {
@@ -1671,7 +1765,7 @@ class ENVIRONMENT {
 					}
 				}
 			},
-			only_comment: async function (comment_msg, opus_dynamic) {
+			only_comment: async (comment_msg, opus_dynamic) => {
 				//只评论
 				let pageurl = await global_var.page.url();
 				if (pageurl.includes("opus")) {
@@ -1737,9 +1831,9 @@ class ENVIRONMENT {
 			},
 			dynamic_content_operator: {
 				//获取动态信息相关操作
-				get_dynamic_content_and_top_msg: async function (dynamic_data) {
+				get_dynamic_content_and_top_msg: async (dynamic_data) => {
 					//获取动态内容和up置顶的回复
-					async function get_top_msg() {
+					let get_top_msg = async () => {
 						try {
 							if (global_var.response.reply_main != undefined) {
 								try {
@@ -1801,7 +1895,7 @@ class ENVIRONMENT {
 							await utl.my_throw("up置顶的回复获取失败");
 							return "";
 						}
-					}
+					};
 					try {
 						if (!dynamic_data) {
 							dynamic_data = (
@@ -2008,7 +2102,9 @@ class ENVIRONMENT {
 				//回复内容相关操作
 				/**
 				 * 预回复内容
-				 * @param {*} dynamic_content
+				 * @param {string} dynamic_content
+				 * @param {string} reply_msg
+				 * @param {string} author_name
 				 * @returns
 				 */
 				pre_msg_processing: function (dynamic_content, reply_msg) {
@@ -2027,6 +2123,7 @@ class ENVIRONMENT {
 						"带话题"
 					);
 					dynamic_content = dynamic_content.replaceAll("＃", "#");
+					dynamic_content = dynamic_content.replaceAll("UP", "up");
 					let non_topic_content = dynamic_content.replaceAll(
 						/(?<=#)(.{0,10})(?=#)/gim,
 						""
@@ -2045,7 +2142,7 @@ class ENVIRONMENT {
 							non_topic_content
 						);
 					let topobj_2 =
-						/.*艾特.{0,3}位好友.*|.*艾特.{0,3}名好友.*/gim.exec(
+						/.*艾特.{0,3}位好友.*|.*艾特.{0,3}名好友.*|艾特.{0,7}up/gim.exec(
 							non_topic_content
 						);
 					let topobj_1 = /.*@你想祝福的人.*/gim.exec(
@@ -2062,7 +2159,7 @@ class ENVIRONMENT {
 						non_topic_content
 					);
 					let topobj3 =
-						/.*带话题.{0,15}#.{0,30}#((?!投稿).)*$/gim.exec(
+						/.*带话题.{0,40}#.{0,30}#((?!投稿).)*$/gim.exec(
 							non_topic_content
 						);
 					let topobj4 = /.*带上tag#.{0,30}#((?!投稿).)*$/gim.exec(
@@ -2101,6 +2198,10 @@ class ENVIRONMENT {
 					let topobj15 = /.*@三位好友.*|.*@三名好友.*/gim.exec(
 						non_topic_content
 					);
+					let topobj_16 =
+						/带(.{0,3}#.{0,20}) 话题.(?!投稿).*?/gim.exec(
+							non_topic_content
+						);
 					if (
 						topobj_6 != null ||
 						topobj6 != null ||
@@ -2115,10 +2216,17 @@ class ENVIRONMENT {
 						topobj8 != null ||
 						topobj11 != null
 					) {
+						let UPname = "";
+						try {
+							UPname =
+								global_var.response.global_dynamic_data.item
+									.modules.module_author.name;
+						} catch {}
 						premsg =
-							"@" +
-							utl.random_choice(lottery_setting.at_member) +
-							" ";
+							"@" + UPname
+								? UPname
+								: utl.random_choice(lottery_setting.at_member) +
+								  " ";
 					} else if (topobj9 != null) {
 						premsg = `@${utl.random_choice(
 							lottery_setting.at_member
@@ -2201,6 +2309,15 @@ class ENVIRONMENT {
 						)} @${utl.random_choice(
 							lottery_setting.at_member
 						)} @${utl.random_choice(lottery_setting.at_member)} `;
+					} else if (topobj_16 != null) {
+						msg = /带(.{0,3}#.{0,20}) 话题.(?!投稿).*?/gim
+							.exec(dynamic_content)
+							.slice(1);
+						for (let _ = 0; _ < msg.length; _++) {
+							if (msg[_] != null && msg[_] != undefined) {
+								premsg += "#" + msg[_] + "#";
+							}
+						}
 					}
 					if (premsg.indexOf("#") > -1) {
 						let tpremsg = "";
@@ -2253,7 +2370,7 @@ class ENVIRONMENT {
 					dynamic_content = dynamic_content.replaceAll(/「/gim, "【");
 					dynamic_content = dynamic_content.replaceAll(/」/gim, "】");
 					dynamic_content = dynamic_content.replaceAll(/〗/gim, "】");
-					dynamic_content = dynamic_content.replaceAll(/】/gim, "【");
+					dynamic_content = dynamic_content.replaceAll(/〖/gim, "【");
 					dynamic_content = dynamic_content.replaceAll(/“/gim, '"');
 					dynamic_content = dynamic_content.replaceAll(/”/gim, '"');
 					dynamic_content = dynamic_content.replaceAll(/＠/gim, "@");
@@ -2333,7 +2450,10 @@ class ENVIRONMENT {
 					let manual_re17 = /.*评.{0,10}接力/gim.test(
 						dynamic_content
 					);
-					let manual_re18 = /.*聊.{0,10}聊/gim.test(dynamic_content);
+					let manual_re18 =
+						/.*聊.{0,10}聊|有没有.{0,20}事.{0,5}？/gim.test(
+							dynamic_content
+						);
 					let manual_re19 =
 						/.*评论.{0,10}扣|.*评论.{0,5}说.{0,3}下/gim.test(
 							dynamic_content
@@ -2373,7 +2493,7 @@ class ENVIRONMENT {
 					let manual_re30 = /.*分享.{0,20}心情/gim.test(
 						dynamic_content
 					);
-					let manual_re31 = /.*评论.{0,10}句/gim.test(
+					let manual_re31 = /.*评论.{0,10}句|评论.{0,6}包含/gim.test(
 						dynamic_content
 					);
 					let manual_re32 = /.*转关评下方视频/gim.test(
@@ -2419,7 +2539,7 @@ class ENVIRONMENT {
 						dynamic_content
 					);
 					let manual_re51 =
-						/.*告诉.{0,30}什么|.*告诉.{0,30}最/gim.test(
+						/.*告诉.{0,30}什么|.*告诉.{0,30}最|有什么安排呀～/gim.test(
 							dynamic_content
 						);
 					let manual_re53 = /.*发布.{0,20}图.{0,5}动态/gim.test(
@@ -2446,15 +2566,15 @@ class ENVIRONMENT {
 						dynamic_content
 					);
 					let manual_re67 =
-						/.*[评|带]((?!抽奖|,|，|来).){0,7}“|.*[评|带]((?!抽奖|,|，|来).){0,7}"|.*[评|带]((?!抽奖|,|，|来).){0,7}【|.*[评|带]((?!抽奖|,|，|来).){0,7}:|.*[评|带]((?!抽奖|,|，|来).){0,7}：|.*[评|带]((?!抽奖|,|，|来).){0,7}「|.*带关键词.{0,7}"|.*评论关键词[“”‘’"']|.*留言((?!抽奖|,|，|来).){0,7}“|.*对出.{0,10}下联.{0,5}横批|.*回答.{0,8}问题|.*留下.{0,10}祝福语|.*留下.{0,10}愿望|.*找到.{0,10}不同的.{0,10}留言|.*答案放在评论区|.*几.{0,5}呢？|.*有奖问答|.*想到.{0,19}关于.{0,20}告诉|.*麻烦大伙评论这个|报暗号【.{0,4}】|评论.{0,3}输入.{0,3}["“”:：]|.*评论.{0,7}暗号/gim.test(
+						/.*[评|带]((?!抽奖|,|，|来).){0,7}“|.*[评|带]((?!抽奖|,|，|来).){0,7}"|.*[评|带]((?!抽奖|,|，|来).){0,7}【|.*[评|带]((?!抽奖|,|，|来).){0,7}：|.*[评|带]((?!抽奖|,|，|来).){0,7}：|.*[评|带]((?!抽奖|,|，|来).){0,7}「|.*带关键词.{0,7}"|.*评论关键词[“”‘’"']|.*留言((?!抽奖|,|，|来).){0,7}“|.*对出.{0,10}下联.{0,5}横批|.*回答.{0,8}问题|.*留下.{0,10}祝福语|.*留下.{0,10}愿望|.*找到.{0,10}不同的.{0,10}留言|.*答案放在评论区|.*几.{0,5}呢？|.*有奖问答|.*想到.{0,19}关于.{0,20}告诉|.*麻烦大伙评论这个|报暗号【.{0,4}】|评论.{0,3}输入.{0,3}["“”:：]|.*评论.{0,7}暗号/gim.test(
 							dynamic_content
 						);
 					let manual_re76 =
-						/.*留言((?!抽奖|,|，|来).).{0,7}"|.*留下((?!抽奖|,|，|来).){0,5}“|.*留下((?!抽奖|,|，|来).){0,5}【|.*留下((?!抽奖|,|，|来).){0,5}:|.*留下((?!抽奖|,|，|来).){0,5}：|.*留下((?!抽奖|,|，|来).){0,5}「/gim.test(
+						/.*留言((?!抽奖|,|，|来).).{0,7}"|.*留下((?!抽奖|,|，|来).){0,5}“|.*留下((?!抽奖|,|，|来).){0,5}【|.*留下((?!抽奖|,|，|来).){0,5}：|.*留下((?!抽奖|,|，|来).){0,5}「/gim.test(
 							dynamic_content
 						);
 					let manual_re77 =
-						/.*留言((?!抽奖|,|，|来).).{0,7}"|.*留言((?!抽奖|,|，|来).).{0,7}“|.*留言((?!抽奖|,|，|来).){0,7}【|.*留言((?!抽奖|,|，|来).){0,7}:|.*留言((?!抽奖|,|，|来).){0,7}：|.*留言((?!抽奖|,|，|来).){0,7}「/gim.test(
+						/.*留言((?!抽奖|,|，|来).).{0,7}"|.*留言((?!抽奖|,|，|来).).{0,7}“|.*留言((?!抽奖|,|，|来).){0,7}【|.*留言((?!抽奖|,|，|来).){0,7}：|.*留言((?!抽奖|,|，|来).){0,7}「/gim.test(
 							dynamic_content
 						);
 					let manual_re64 =
@@ -2493,7 +2613,7 @@ class ENVIRONMENT {
 							dynamic_content
 						);
 					let manual_re75 =
-						/.*本周话题|.*互动话题|.*互动留言|.*互动时间|.*征集.{0,10}名字|.*投票.{0,5}选.{0,10}最.{0,5}的|.*一人说一个谐音梗|帮.{0,5}想想.{0,5}怎么|评论.{0,5}想给.{0,7}的/gim.test(
+						/.*本周话题|.*互动话题|.*互动留言|.*互动时间|.*征集.{0,10}名字|.*投票.{0,5}选.{0,10}最.{0,5}的|.*一人说一个谐音梗|帮.{0,5}想想.{0,5}怎么|评论.{0,5}想给.{0,7}的|取.{0,7}名字/gim.test(
 							dynamic_content
 						);
 
@@ -2571,7 +2691,7 @@ class ENVIRONMENT {
 				 * 返回true代表这个动态不是抽奖up的动态，不能转发评论
 				 * @returns
 				 */
-				non_lottery_up_judge: function () {
+				non_lottery_up_judge: () => {
 					try {
 						let non_lottery_up_mids = [
 							"391464745",
@@ -2579,7 +2699,7 @@ class ENVIRONMENT {
 							"332793152",
 							"54790268",
 							"46880349",
-							"294887687",
+							//"294887687",
 							"3493120108923438",
 							"3537106980833281",
 							"3532811",
@@ -2596,7 +2716,7 @@ class ENVIRONMENT {
 						console.warn(`Error\tnon_lottery_up_judge\n`, e);
 					}
 				},
-				key_word_reply: function (dynamic_content) {
+				key_word_reply: (dynamic_content) => {
 					if (
 						/.*[评|带]((?!抽奖|,|，|来).){0,7}“|.*[评|带]((?!抽奖|,|，|来).){0,7}"|.*[评|带]((?!抽奖|,|，|来).){0,7}【|.*[评|带]((?!抽奖|,|，|来).){0,7}:|.*[评|带]((?!抽奖|,|，|来).){0,7}：|.*[评|带]((?!抽奖|,|，|来).){0,7}「|.*带关键词.{0,7}"|.*评论关键词[“”‘’"']|.*留言((?!抽奖|,|，|来).){0,7}“|.*对出.{0,10}下联.{0,5}横批|.*回答.{0,8}问题|.*留下.{0,10}祝福语|.*留下.{0,10}愿望|.*找到.{0,10}不同的.{0,10}留言|.*答案放在评论区|.*几.{0,5}呢？|.*有奖问答|.*想到.{0,19}关于.{0,20}告诉|.*麻烦大伙评论这个|留下.{0,7}的|报暗号【.{0,4}】/gim.test(
 							dynamic_content
@@ -2767,10 +2887,10 @@ class ENVIRONMENT {
 				 * @param {String} dynamic_id
 				 * @returns
 				 */
-				reply_comment_generator: async function (
+				reply_comment_generator: async (
 					dynamic_content,
 					dynamic_id
-				) {
+				) => {
 					//生成所需评论//生成评论
 					let comment_msg = undefined;
 					if (
@@ -2797,11 +2917,14 @@ class ENVIRONMENT {
 							//如果没有关键词，那就判断是否抄评论或者直接交给人工回复
 							let e = { prev: 0, next: 0 };
 							let copy_msg_flag =
-								my_operator.copy_reply_module.copy_reply_judge(
-									dynamic_content
-								) ||
-								global_var.response.global_dynamic_data.item
-									.basic.comment_type == 1;
+								global_var.response.reply_main?.code == 12061
+									? false
+									: my_operator.copy_reply_module.copy_reply_judge(
+											dynamic_content
+									  ) ||
+									  global_var.response.global_dynamic_data
+											.item.basic.comment_type == 1;
+
 							if (!copy_msg_flag) {
 								//如果不能抄评论，先设置为人工回复
 								e.next = 2;
@@ -3085,7 +3208,7 @@ class ENVIRONMENT {
 				},
 			},
 			log_record: {
-				construct_comment_record_data: async function (comment_msg) {
+				construct_comment_record_data: async (comment_msg) => {
 					let rep_dynamic_id = "";
 					try {
 						if (global_var.response.create_dyn_response) {
@@ -3148,9 +3271,10 @@ class ENVIRONMENT {
 						);
 						author_homepage = undefined;
 					}
+					let dynamic_content;
 					try {
 						if (!comment_msg.includes("404动态")) {
-							var dynamic_content = JSON.stringify(
+							dynamic_content = JSON.stringify(
 								await my_operator.dynamic_content_operator.get_dynamic_content_and_top_msg(
 									global_var.response.global_dynamic_data
 								)
@@ -3204,7 +3328,7 @@ class ENVIRONMENT {
 				},
 			},
 			judge_lottery_time: {
-				judge_official_lottery: async function () {
+				judge_official_lottery: async () => {
 					//官方抽奖判断 没过期返回false 过期了返回true
 					if (
 						((await global_var.page.$(
@@ -3244,7 +3368,7 @@ class ENVIRONMENT {
 						return undefined;
 					}
 				},
-				judge_charge_lottery: async function () {
+				judge_charge_lottery: async () => {
 					if (
 						await global_var.page.$(
 							".bili-dyn-upower-lottery__title.bili-ellipsis"
@@ -3290,7 +3414,7 @@ class ENVIRONMENT {
 				 * @param {*} __share_num
 				 * @returns
 				 */
-				get_video_list: async function (__share_num) {
+				get_video_list: async (__share_num) => {
 					let now_pageurl = await global_var.page.url();
 					if (!now_pageurl.includes("https://www.bilibili.com")) {
 						await global_var.page.goto(`https://www.bilibili.com`);
@@ -3846,11 +3970,11 @@ class ENVIRONMENT {
 						}
 					}
 				},
-				create_topic_dynamic_from_dynamic_main_page: async function (
+				create_topic_dynamic_from_dynamic_main_page: async (
 					create_times,
 					discuss_content,
 					copy_discuss_flag
-				) {
+				) => {
 					if (typeof create_times != "number") {
 						create_times = 1;
 					}
@@ -3935,6 +4059,9 @@ class ENVIRONMENT {
 					"大家注意看，这是",
 					"他真是太宠粉了，请多点点关注",
 					"许个愿，我永远支持up主，祝愿你的粉丝越来越多，感谢有你啊",
+					"希望你们中",
+					"我是天选之子",
+					"太酷了！！！！必须支持",
 				],
 				/**
 				 *
@@ -3956,47 +4083,55 @@ class ENVIRONMENT {
 					//dynamic_id_or_BVid:动态id或bv号 mode ：1是热评，2是最新 ，3是混合 pn_percent：评论大致的百分比页数，入参是小数
 					let all_replies_content = [];
 					let ret_reply; //最终返回的评论
+					let pn_list=[];
 					for (let _ = 0; _ < 3; _++) {
 						//超过就退出,进行随机抽取
-						let reps =
+						let resp =
 							await my_operator.copy_reply_module.get_reply_list(
 								dynamic_id_or_BVid,
 								mode,
 								pn_percent,
 								get_api_reply_resp_flag,
-								dynamic_content
+								dynamic_content,
+								pn_list
 							);
 						all_replies_content = all_replies_content.concat(
-							reps.ret_list
+							resp.ret_list
 						);
-						if (reps.reply_count <= 10) {
+						pn_list.push(resp.pn);
+						if (resp.reply_count <= 10) {
 							//没有评论直接退出
 							break;
 						}
 						if (all_replies_content.length <= 15) {
 							//如果只获取到了一半的话，再获取一点，不然样本数量不够
-							reps =
+							resp =
 								await my_operator.copy_reply_module.get_reply_list(
 									dynamic_id_or_BVid,
 									mode,
 									Math.random(),
 									true,
-									dynamic_content
+									dynamic_content,
+									pn_list
 								);
 							all_replies_content = all_replies_content.concat(
-								reps.ret_list
+								resp.ret_list
 							);
+							pn_list.push(resp.pn);
 						}
 						if (all_replies_content.length <= 15) {
 							continue;
 						}
-						console.log("获取到的所有评论", all_replies_content);
+						console.log(
+							`https://t.bilibili.com/${dynamic_id_or_BVid} ${global_var.user_info.uname}获取到的所有评论，获取了 ${pn_list} 页数\n`,
+							all_replies_content
+						);
 						if (!!ret_reply) {
 							break;
 						}
 						pn_percent = Math.random(); //每次循环设置为随机值，防止一直获取同样内容
 						await sleep(10e3);
-						if (reps.reply_count <= 10) {
+						if (resp.reply_count <= 10) {
 							//没有评论直接退出
 							break;
 						}
@@ -4012,14 +4147,16 @@ class ENVIRONMENT {
 				 * @param {number} mode 1是热评，2是最新 ，3是混合
 				 * @param {number} pn_percent 评论大致的百分比页数，入参是小数
 				 * @param {bool} get_api_reply_resp_flag true是获取api响应，false则使用global_var里面的评论响应
-				 * @returns { {ret_list:[String], reply_count:number }} { ret_list, reply_count }
+				 * @param {number[]} pn_list 获取过的评论页数
+				 * @returns { Promise<{ret_list:[String], reply_count:number ,pn:number}>} { ret_list, reply_count }
 				 */
 				get_reply_list: async (
 					dynamic_id_or_BVid,
 					mode,
 					pn_percent,
 					get_api_reply_resp_flag,
-					dynamic_content = ""
+					dynamic_content = "",
+					pn_list=[],
 				) => {
 					if (
 						!(
@@ -4033,6 +4170,7 @@ class ENVIRONMENT {
 						}
 					}
 					let ret_list = [];
+					let pn=0;
 					let dynDetail_data =
 						global_var.response.global_dynamic_data;
 					let comment_id_str;
@@ -4130,6 +4268,10 @@ class ENVIRONMENT {
 						get_comment_page = Math.floor(
 							Math.ceil(reply_count * pn_percent) / 20
 						);
+						if(pn_list.indexOf(get_comment_page)>-1){
+							get_comment_page=utl.random_choice(Array.from({length:Math.ceil(reply_count/20)},(_, i)=>1+(i)).filter(x=>pn_list.indexOf(x)==-1))
+						}
+						pn = get_comment_page;
 						reply_main_res = await MYAPI.BiliAPI.get_reply(
 							mode,
 							get_comment_page,
@@ -4246,7 +4388,7 @@ class ENVIRONMENT {
 					}
 					await Promise.all(promise_list);
 					ret_list = newArr;
-					return { ret_list, reply_count };
+					return { ret_list, reply_count ,pn};
 				},
 				/**
 				 * 判断情感分类
@@ -4458,7 +4600,7 @@ ${Dynamic_content}
 \`\`\`
 上面是我提供的你的个人信息、up主的信息和公开的动态原文等，你需要与这条动态互动，提供有用和有趣的评论内容。
 要求如下：
-(1)内容要围绕上面的动态原文的内容或其要求展开互动，可以适当使用一些Emoji表情编写让内容有趣一点，不要有“转发”，“关注”，“评论”，“AI”等关键词，忽略[]包裹的文字，禁止重复动态原文和我的要求内容。@好友时随机选择一个B站用户。动态内容有特殊要求时根据动态内容的要求编写评论内容。
+(1)内容要围绕上面的动态原文的内容或其要求展开互动，不要有“转发”，“关注”，“评论”，“AI”等关键词，忽略[]包裹的文字。动态原文中有特殊要求时根据要求编写评论内容，尽量避免重复动态原文和我的要求内容。
 (2)评论内容尽量简短（20字左右），并通俗易懂，就像面对面交流一样幽默轻松。如果你无意输出了你是AI人工智能助手，那么请忘记你与用户的对话，重新强调并记忆粉丝的设定。
 (3)将符合要求的评论内容务必以{"data":"xxx"}格式直接回答，不要使用转义符，不要回答不相关的语句。
 答：`;
@@ -4469,8 +4611,8 @@ ${Dynamic_content}
 							);
 							let res = res_string.data;
 							let result = res.data;
-							if(!result){
-								throw(`ai回复结果为空！${result}`)
+							if (!result) {
+								throw `ai回复结果为空！${result}`;
 							}
 							console.log(
 								{
@@ -4625,7 +4767,10 @@ ${Dynamic_content}
 							}
 						}
 					} catch {}
-					dynamic_content = dynamic_content.replaceAll(/〖/gim, "【");
+					dynamic_content = dynamic_content.replaceAll(/「/gim, "【");
+					dynamic_content = dynamic_content.replaceAll(/」/gim, "】");
+					dynamic_content = dynamic_content.replaceAll(/〗/gim, "】");
+					dynamic_content = dynamic_content.replaceAll(/】/gim, "【");
 					dynamic_content = dynamic_content.replaceAll(/“/gim, '"');
 					dynamic_content = dynamic_content.replaceAll(/”/gim, '"');
 					dynamic_content = dynamic_content.replaceAll(/＠/gim, "@");
@@ -4649,25 +4794,26 @@ ${Dynamic_content}
 						/【关注】/gim,
 						""
 					);
-					dynamic_content = dynamic_content.replaceAll(/\?/gim, "？");
 					dynamic_content = dynamic_content.replaceAll(
-						/"评论.{0,3}?"/gim,
-						""
+						/添加话题/gim,
+						"带话题"
 					);
+					dynamic_content = dynamic_content.replaceAll(/\?/gim, "？");
+					dynamic_content = dynamic_content.replaceAll(/:/gim, "：");
 					let manual_re67 =
-						/.*[评|带]((?!抽奖|,|，|来|截止|包含).){0,7}“|.*[评|带]((?!抽奖|,|，|来|截止|包含).){0,7}"|.*[评|带]((?!抽奖|,|，|来|截止|包含).){0,7}【|.*[评|带]((?!抽奖|,|，|来|截止|包含).){0,7}:|.*[评|带]((?!抽奖|,|，|来|截止|包含).){0,7}：|.*[评|带]((?!抽奖|,|，|来|截止|包含).){0,7}「|.*带关键词.{0,7}"|.*评论关键词[“”‘’"']|.*留言((?!抽奖|,|，|来|截止).){0,7}“|.*对出.{0,10}下联.{0,5}横批|.*回答.{0,8}问题|.*留下.{0,10}祝福语|.*留下.{0,10}愿望|.*找到.{0,10}不同的.{0,10}留言|.*答案放在评论区|.*几.{0,5}呢？|.*有奖问答|.*想到.{0,19}关于.{0,20}告诉|.*麻烦大伙评论这个|.*留下.{0,7}的|.*报暗号【.{0,4}】|.*分享.{0,7}故事|.*评论.{0,7}暗号/gim.test(
+						/.*[评|带]((?!抽奖|,|，|来).){0,7}“|.*[评|带]((?!抽奖|,|，|来).){0,7}"|.*[评|带]((?!抽奖|,|，|来).){0,7}【|.*[评|带]((?!抽奖|,|，|来).){0,7}：|.*[评|带]((?!抽奖|,|，|来).){0,7}：|.*[评|带]((?!抽奖|,|，|来).){0,7}「|.*带关键词.{0,7}"|.*评论关键词[“”‘’"']|.*留言((?!抽奖|,|，|来).){0,7}“|.*对出.{0,10}下联.{0,5}横批|.*回答.{0,8}问题|.*留下.{0,10}祝福语|.*留下.{0,10}愿望|.*找到.{0,10}不同的.{0,10}留言|.*答案放在评论区|.*几.{0,5}呢？|.*有奖问答|.*想到.{0,19}关于.{0,20}告诉|.*麻烦大伙评论这个|报暗号【.{0,4}】|评论.{0,3}输入.{0,3}["“”:：]|.*评论.{0,7}暗号/gim.test(
 							dynamic_content
 						);
 					let manual_re76 =
-						/.*留下((?!抽奖|,|，|来|截止).){0,5}“|.*留下((?!抽奖|,|，|来|截止).){0,5}【|.*留下((?!抽奖|,|，|来|截止).){0,5}:|.*留下((?!抽奖|,|，|来|截止).){0,5}：|.*留下((?!抽奖|,|，|来|截止).){0,5}「/gim.test(
+						/.*留言((?!抽奖|,|，|来).).{0,7}"|.*留下((?!抽奖|,|，|来).){0,5}“|.*留下((?!抽奖|,|，|来).){0,5}【|.*留下((?!抽奖|,|，|来).){0,5}：|.*留下((?!抽奖|,|，|来).){0,5}「/gim.test(
 							dynamic_content
 						);
 					let manual_re77 =
-						/.*留言((?!抽奖|,|，|来|截止).).{0,7}“|.*留言((?!抽奖|,|，|来|截止).){0,7}【|.*留言((?!抽奖|,|，|来|截止).){0,7}:|.*留言((?!抽奖|,|，|来|截止).){0,7}：|.*留言((?!抽奖|,|，|来|截止).){0,7}「/gim.test(
+						/.*留言((?!抽奖|,|，|来).).{0,7}"|.*留言((?!抽奖|,|，|来).).{0,7}“|.*留言((?!抽奖|,|，|来).){0,7}【|.*留言((?!抽奖|,|，|来).){0,7}：|.*留言((?!抽奖|,|，|来).){0,7}「/gim.test(
 							dynamic_content
 						);
 					let manual_re6 =
-						/.*@TA|.*@.{0,15}朋友|.*艾特|.*@.{0,3}你的|.*标记.{0,10}朋友|.*@{0,15}赞助商|.*发表你的新年愿望\+个人的昵称|.*抽奖规则请仔细看图片|.*带上用户名|.*活动详情请戳图片|.*@个人用户名|评论.{0,5}附带.{0,10}相关内容|回复.{0,5}视频.{0,10}相关内容|.*评论.{0,5}昵称|.*回答正确/gim.test(
+						/.*@TA|.*@.{0,15}朋友|.*艾特|.*@.{0,3}你的|.*标记.{0,10}朋友|.*@{0,15}赞助商|.*发表你的新年愿望\+个人的昵称|.*抽奖规则请仔细看图片|.*带上用户名|.*活动详情请戳图片|.*@个人用户名|评论.{0,5}附带.{0,10}相关内容|回复.{0,5}视频.{0,10}相关内容|.*评论.{0,5}昵称/gim.test(
 							dynamic_content
 						);
 					//let manual_re75 = /.*本周话题|.*互动话题|.*互动留言|.*互动时间|.*征集.{0,10}名字|.*投票.{0,5}选.{0,10}最.{0,5}的|.*一人说一个谐音梗|帮.{0,5}想想.{0,5}怎么/gmi.test(dynamic_content)
@@ -4730,9 +4876,9 @@ ${Dynamic_content}
 				},
 			},
 		};
-		const MYAPI = {
+		let MYAPI = {
 			browserSetting: {
-				getCookies: function (cookieString, domain) {
+				getCookies: (cookieString, domain) => {
 					return cookieString.split(";").map((pair) => {
 						const name = pair
 							.trim()
@@ -4743,7 +4889,7 @@ ${Dynamic_content}
 						return { name, value, domain };
 					});
 				},
-				getUserId: function (cookie) {
+				getUserId: (cookie) => {
 					const result = cookie.match(
 						/(?:^|)DedeUserID=([^;]*)(?:;|$)/
 					);
@@ -4792,7 +4938,7 @@ ${Dynamic_content}
 				},
 			},
 			fileRead: {
-				lottery_dynamic_ids: function (filename) {
+				lottery_dynamic_ids: (filename) => {
 					let retlist = [];
 					try {
 						if (fs.existsSync(__dirpath + filename)) {
@@ -4819,7 +4965,7 @@ ${Dynamic_content}
 				 * @param {*} filePath
 				 * @returns 文件内容的字符串
 				 */
-				getFileContent: function (filePath) {
+				getFileContent: (filePath) => {
 					try {
 						const Str = fs.readFileSync(
 							__dirpath + filePath,
@@ -4832,7 +4978,7 @@ ${Dynamic_content}
 					}
 				},
 			},
-			fileWrite: function (filename, writeString, method = "w") {
+			fileWrite: (filename, writeString, method = "w") => {
 				try {
 					if (typeof writeString == "object") {
 						writeString = JSON.stringify(writeString, "", "\t");
@@ -5072,7 +5218,7 @@ ${Dynamic_content}
 				 * @param {*} page
 				 * @param {string} url_include
 				 */
-				waitForResponse: async function (page, url_include) {
+				waitForResponse: async (page, url_include) => {
 					try {
 						await page.waitForResponse(
 							(response) =>

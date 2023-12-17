@@ -18,8 +18,9 @@ async function generate_unfollow_file(pg, uid) {
 		async (data) => {
 			if (data.code == 0) {
 				console.log(
-					`${uid} 全部关注数：【${data.data.list.length}】个`
+					`${uid}\t全部关注数：【${data.data.list.length}】个`
 				);
+				console.log(`${uid}\t正在获取取关列表中！`);
 				return await MYAPI.get_unlot_following(data.data.list);
 			} else {
 				console.error(`获取关注列表失败！${data}`);
@@ -27,12 +28,15 @@ async function generate_unfollow_file(pg, uid) {
 			}
 		}
 	);
-	let write_string = all_unfollowing_list.join('\n')
+	let write_string = all_unfollowing_list
 		.map((el) => `https://space.bilibili.com/${el}`)
 		.join("\n");
 	fs.writeFileSync(
-		__dir_path + `${uid}_取关脚本/取关对象.csv`,
+		__dir_path + `取关脚本/${uid}_取关对象.csv`,
 		write_string,
+		{
+			flag: "w",
+		},
 		function (err) {
 			if (err) {
 				console.error(err);
@@ -48,6 +52,9 @@ async function generate_unfollow_file(pg, uid) {
  */
 async function do_unfollow(pg, uid) {
 	try {
+		if (pg.isClosed()) {
+			pg = await pg.browser().newPage();
+		}
 		if (!pg.url().includes("bilibili.com")) {
 			await pg.goto("https://www.bilibili.com");
 		}
@@ -60,10 +67,10 @@ async function do_unfollow(pg, uid) {
 		}
 		if (
 			!nav_stat?.data?.following ||
-			nav_stat?.data?.following <= global_config.unfollow.max_follow_num
+			nav_stat?.data?.following <= global_config.unfollow_module.max_follow_num
 		) {
 			console.log(
-				`${uid} 当前关注数${nav_stat?.data?.following}个 不满足取关条件（大于${global_config.unfollow.max_follow_num}个）`
+				`${uid} 当前关注数${nav_stat?.data?.following}个 不满足取关条件（大于${global_config.unfollow_module.max_follow_num}个）`
 			);
 			return;
 		}
@@ -74,7 +81,7 @@ async function do_unfollow(pg, uid) {
 			.shift().value;
 		let unfollow_data = fs
 			.readFileSync(
-				__dir_path + `${uid}_取关脚本/取关对象.csv`,
+				__dir_path + `取关脚本/${uid}_取关对象.csv`,
 				function (err) {
 					if (err) {
 						console.error(err);
@@ -141,7 +148,7 @@ async function do_unfollow(pg, uid) {
 				} else {
 					now_time++;
 					console.log(
-						`当前进度【${now_time}/${all_times}】\t${unfollow_mid}\t取关成功！${JSON.stringify(
+						`${uid}\t【取关脚本】当前进度【${now_time}/${all_times}】\thttps://space.bilibili.com/${unfollow_mid}/dynamic\t取关成功！${JSON.stringify(
 							resp_json,
 							"",
 							"\t"
