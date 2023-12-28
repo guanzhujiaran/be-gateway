@@ -24,20 +24,19 @@ br<!--
 >>1.1 存放的数据文件
 >>>1.1.1 [必抽的大奖.txt](./木偶模块/必抽的大奖.txt)\
 此文件是用来存放必抽的大奖，无关设置直接参加，格式如下:\
-<https://t.bilibili.com/{动态id}> + 结尾分类\
+`https://t.bilibili.com/{动态id}` + 结尾分类\
 \
 1.1.2 [必抽的预约抽奖.txt](./木偶模块/必抽的预约抽奖.txt)\
 此文件时用来存放预约抽奖，将预约抽奖的发起人的空间链接丢进去，格式如下：\
-<https://space.bilibili.com/{upUID}>
+`https://space.bilibili.com/{upUID}`
 \
 1.1.3 [官方抽奖动态id.txt](./木偶模块/官方抽奖动态id.txt)\
 此文件时用来存放官方转发抽奖，将动态链接丢进去，格式如下：\
-<https://t.bilibili.com/{动态id}?tab=1>\
+`https://t.bilibili.com/{动态id}?tab=1`\
 \
 1.1.4 [一般的抽奖动态id.txt](./木偶模块/一般的抽奖动态id.txt)\
 此文件是用来存放一般的抽奖动态id，可以通过设置，调整为参加只评论的抽奖/不参加所有一般抽奖/参加所有抽奖，格式如下:\
-<https://t.bilibili.com/{动态id}> + 结尾分类\
-\
+`https://t.bilibili.com/{动态id}` + 结尾分类\
 
 >[UserData](./UserData/)\
 此目录用于存放pptr的浏览器数据！\

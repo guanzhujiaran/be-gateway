@@ -9,6 +9,7 @@ const { sleep } = require("../木偶模块/puppeteer_lottery.js");
 const axios = require("axios");
 const fs = require("fs");
 const { BAPI } = require("../lib/helper/BAPI.js");
+const { API } = require("./LIVETOOL");
 const GLOBAL_CONFIG = require("../CONFIG.Default");
 const live_op = {
 	element_map: {
@@ -21,6 +22,10 @@ const live_op = {
 		contribution_btn: ".switch-btn-bg.live-skin-highlight-bg", //贡献值下拉框按钮
 		gift_package: ".gift-control-section .gift-package", //包裹按钮
 		gift_item_free: ".gift-item.package.free",
+		live_room_treasurebox: {
+			round_item: ".round-item", // 金宝箱侧边栏
+			join_btn: ".bl-button.bl-button--primary", //参加金宝箱按钮
+		},
 	},
 	/**
 	 * 初始化一个新的页面，专门进行直播操作，并注册一个拦截直播流的事件
@@ -287,32 +292,6 @@ const live_op = {
 		},
 	},
 };
-class API {
-	constructor(uname) {
-		this.uname = uname;
-	}
-	chatLog = (text, type = "info") => {
-		let dateTime_str = new Date().toLocaleString();
-		switch (type) {
-			case "info": {
-				console.log(`【${this.uname}】${text}  --${dateTime_str}`);
-				break;
-			}
-			case "warning": {
-				console.warn(`【${this.uname}】${text}  --${dateTime_str}`);
-				break;
-			}
-			case "error": {
-				console.error(`【${this.uname}】${text}  --${dateTime_str}`);
-				break;
-			}
-			default: {
-				console.debug(`【${this.uname}】${text}  --${dateTime_str}`);
-				break;
-			}
-		}
-	};
-}
 
 class LOT_LOG {
 	constructor(uname) {
@@ -352,91 +331,12 @@ class LOT_LOG {
 	};
 }
 
-/**  
- * @class LIVE_LOT_Service
- * @description 控制所有账号进行直播抽奖操作
- */  
-class LIVE_LOT_Service {
-	/**
-	 * @param {DO_Lottery[]} DO_Lottery_list
-	 */
-	constructor(DO_Lottery_list) {
-		this.DO_Lottery_list = DO_Lottery_list;
-		/** @prop {LIVE_LOT} */
-		this.LIVE_LOT_list = []; //需要直播抽奖的
-		this.LIVE_LOT_name_list = [];
-		this.ALL_LIVE_LOT = []; //所有的直播抽奖的class实例，无论抽不抽都加进去，用于后续的宝箱抽奖或者特大奖用
-		this.ALL_LIVE_LOT_name_list = [];
-		this.event_map={
-			live_lot:"live_lot"//直播抽奖
-		}
-	}
-	#get_data_from_server = async () => {
-		try {
-			let url = "http://127.0.0.1:23333/v1/get/live_lots/";
-			return await axios.get(url).then((resp) => {
-				return resp.data;
-			});
-		} catch (e) {
-			this.API.chatLog(`获取服务器数据失败！${e}`, "error");
-			return [];
-		}
-	};
-	/**
-	 * 循环抽奖主函数
-	 */
-	#main_lot = async () => {
-		try {
-			let lot_data = await this.#get_data_from_server();
-			if(lot_data){
-				let promise_list = [];
-				for (let LIVE_LOT of this.LIVE_LOT_list) {
-					promise_list.push(LIVE_LOT.main(lot_data));
-				}
-				await Promise.all(promise_list);
-			}
-			setTimeout(this.#main_lot, 1e3);
-		} catch (e) {
-			console.error(`出了严重错误，不继续执行直播抽奖！`, e);
-			throw e;
-		}
-	};
-	main = async () => {
-		for (let do_lottery of this.DO_Lottery_list) {
-			if (!do_lottery.lottery_setting) {
-				await do_lottery.variable_init();
-			}
-			let event_name = `live_lot_${do_lottery.lottery_name}`;
-
-			if (do_lottery.lottery_setting.CONFIG.LIVE_LOT) {
-				if (this.LIVE_LOT_name_list.indexOf(event_name) == -1) {
-					let live_lot = new LIVE_LOT(do_lottery);
-					this.LIVE_LOT_list.push(live_lot);
-					this.LIVE_LOT_name_list.push(event_name);
-					this.ALL_LIVE_LOT.push(live_lot);
-					this.ALL_LIVE_LOT_name_list.push(event_name);
-				} else {
-					console.log(`${do_lottery.lottery_name} 直播抽奖进行中`);
-				}
-			}
-			else{
-				if (this.ALL_LIVE_LOT_name_list.indexOf(event_name)==-1){
-					let live_lot = new LIVE_LOT(do_lottery);
-					this.ALL_LIVE_LOT.push(live_lot);
-				}
-			}
-		}
-
-		
-		if (event_bus.event_list.indexOf(this.event_map.live_lot) == -1)
-			event_bus.on(this.event_map.live_lot, async () => {
-				await this.#main_lot();
-			});
-			event_bus.emit(this.event_map.live_lot)
-	};
-}
-
+/**
+ * @class LIVE_LOT
+ * @description 单个账号的抽奖类
+ */
 class LIVE_LOT {
+	// TODO:添加直播间金宝箱的抽奖！
 	/**
 	 * @param {DO_Lottery} DO_Lottery_instance DO_Lottery的实例
 	 */
@@ -483,30 +383,34 @@ class LIVE_LOT {
 		this.dm_list = ["[dog]", "[妙]", "[哇]"]; //随机发送弹幕的列表
 		this.Lot_log;
 		this.Start_Date = new Date(0); //new Date();
+		this.live_lot_switch =
+			DO_Lottery_instance.lottery_setting?.CONFIG?.LIVE_LOT;
 		console.log(`创建了新的直播抽奖实例`);
 	}
 	/**
 	 * 初始化一个新的页面，专门用来抽直播抽奖
 	 */
-	init = async () => {
+	init = async (android_emulate = true) => {
 		try {
 			this.live_pg = await live_op.live_page_init(
 				this.__origin_pg,
 				this.__DO_Lottery_class
 			);
-			await this.live_pg.emulate({
-				name: "Redmi K30 Pro",
-				userAgent:
-					"Mozilla/5.0 BiliDroid/6.79.0 (bbcallen@gmail.com) os/android model/Redmi K30 Pro mobi_app/android build/6790300 channel/360 innerVer/6790310 osVer/11 network/2",
-				viewport: {
-					width: 600,
-					height: 1024,
-					deviceScaleFactor: 1,
-					isMobile: true,
-					hasTouch: true,
-					isLandscape: false,
-				},
-			});
+			if (android_emulate) {
+				await this.live_pg.emulate({
+					name: "Redmi K30 Pro",
+					userAgent:
+						"Mozilla/5.0 BiliDroid/6.79.0 (bbcallen@gmail.com) os/android model/Redmi K30 Pro mobi_app/android build/6790300 channel/360 innerVer/6790310 osVer/11 network/2",
+					viewport: {
+						width: 600,
+						height: 1024,
+						deviceScaleFactor: 1,
+						isMobile: true,
+						hasTouch: true,
+						isLandscape: false,
+					},
+				});
+			}
 			await live_op.basic_op.bringToFront(this.live_pg);
 			await this.live_pg.goto(
 				"https://live.bilibili.com/?spm_id_from=333.1296.0.0"
@@ -600,6 +504,7 @@ class LIVE_LOT {
 			}
 			await sleep(5e3);
 			let resp_data = await pg.evaluate(
+				//红包抽奖和天选抽奖的js里面数据获取依赖wss的消息，所以要查看https://s1.hdslb.com/bfs/static/blive/blfe-live-room/static/js/app.268978a8c4d7b424e697.js 里面如何绕过前端不显示红包抽奖的界面
 				async (roomid, anchor_uid, csrf_token, lot_id) => {
 					var formData = new FormData();
 					formData.set("visit_id", "");
@@ -1086,6 +991,115 @@ class LIVE_LOT {
 			}
 		}
 	};
+	/**
+	 * @typedef {Object} roundObj
+	 * @property {string} imgUrl - 奖品图片链接
+	 * @property {number} join_end_time - 抽奖加入截止时间
+	 * @property {number} join_start_time - 抽奖加入开始时间
+	 * @property {number} round_num - 回合数
+	 * @property {string} startTime - 开始时间的str形式 2023-12-28 14:31:00
+	 * @param {roundObj} round - 奖品的回合
+	 * @param {Page} pg
+	 * @param {number} aid
+	 */
+	#glod_box_draw = async (round, pg, aid) => {
+		if (!this.live_pg || this.live_pg.isClosed()) {
+			try {
+				await this.init(false);
+			} catch (e) {
+				console.error(e);
+				this.API.chatLog(`浏览器出错！`);
+				throw e; //出了未知错误就直接抛出错误，不接着执行了！
+			}
+		}
+		if (pg.isClosed()) {
+			pg = await this.live_pg.browser().newPage();
+			await pg.setExtraHTTPHeaders({
+				referer: `https://live.bilibili.com/${Math.ceil(
+					Math.random() * (10000000 - 1000) + 1000
+				)}?live_from=84002&spm_id_from=333.337.0.0`,
+			});
+		}
+		if (!pg.url.includes("live-room-treasurebox")) {
+			await pg.goto(
+				`https://live.bilibili.com/p/html/live-room-treasurebox/index.html?aid=${aid}#/`
+			);
+		}
+		let round_items = await pg.$$(
+			live_op.element_map.live_room_treasurebox.round_item
+		);
+		let current_round_item = round_items[round.round_num - 1];
+		await current_round_item.click();
+		let join_btn = await pg.$(
+			live_op.element_map.live_room_treasurebox.join_btn
+		);
+		await join_btn.click();
+	};
+	/**
+	 *
+	 * @param {number} aid
+	 */
+	glod_box_main = async (aid) => {
+		try {
+			if (!this.live_pg || this.live_pg.isClosed()) {
+				try {
+					await this.init(false);
+				} catch (e) {
+					console.error(e);
+					this.API.chatLog(`浏览器出错！`);
+					throw e; //出了未知错误就直接抛出错误，不接着执行了！
+				}
+			}
+			let new_pg = await this.live_pg.browser().newPage();
+			await new_pg.setExtraHTTPHeaders({
+				referer: `https://live.bilibili.com/${Math.ceil(
+					Math.random() * (10000000 - 1000) + 1000
+				)}?live_from=84002&spm_id_from=333.337.0.0`,
+			});
+			await new_pg.goto(
+				`https://live.bilibili.com/p/html/live-room-treasurebox/index.html?aid=${aid}#/`
+			);
+			let goldbox_resp = await (
+				await new_pg.waitForResponse((resp) =>
+					resp.url().includes("goldBox/getBoxInfo")
+				)
+			).json();
+			/**@type {roundObj[]} */
+			let rounds = goldbox_resp.data.rounds;
+			for (let round of rounds) {
+				round.join_end_time * 1e3 > Date.now()
+					? setTimeout(() => {
+							try {
+								this.#glod_box_draw(round, new_pg, aid);
+							} catch (e) {
+								this.API.chatLog(
+									`参加金宝箱失败！${e}`,
+									"error"
+								);
+							}
+					  }, Date.now() - round.join_start_time * 1e3 + 10e3)
+					: undefined;
+			}
+			setTimeout(async () => {
+				if (!new_pg.isClosed()) {
+					await new_pg.close();
+				}
+				if ((await new_pg.browser().pages()).length != 0) {
+					if (
+						this.__DO_Lottery_class.lottery_setting.CONFIG.LIVE_LOT
+					) {
+						return;
+					}
+					if (this.__DO_Lottery_class.lotFlag) {
+						return;
+					}
+					await new_pg.browser().close();
+				}
+			}, rounds.pop().join_end_time * 1e3 + 600e3 - Date.now());
+		} catch (e) {
+			console.error(e);
+		}
+	};
 	main = async (lot_data) => {
 		try {
 			if (!this.live_pg || this.live_pg.isClosed()) {
@@ -1236,5 +1250,138 @@ class LIVE_LOT {
 		}
 	};
 }
+/**
+ * @class LIVE_LOT_Service
+ * @description 控制所有账号进行直播抽奖操作
+ */
+class LIVE_LOT_Service {
+	/**
+	 * @param {DO_Lottery[]} DO_Lottery_list
+	 */
+	constructor(DO_Lottery_list) {
+		//class的constructor里面的属性注释需要使用type，而不是prop
+		this.DO_Lottery_list = DO_Lottery_list;
+		/** @type { LIVE_LOT[] } 抽奖执行对象*/
+		this.LIVE_LOT_list = []; //需要直播抽奖的
+		/** @type { String[] } */
+		this.LIVE_LOT_name_list = [];
+		/** @type { LIVE_LOT[] } */
+		this.ALL_LIVE_LOT = []; //所有的直播抽奖的class实例，无论抽不抽都加进去，用于后续的宝箱抽奖或者特大奖用
+		this.ALL_LIVE_LOT_name_list = [];
+		this.event_map = {
+			live_lot: "live_lot", //直播抽奖
+			gold_box: "gold_box",
+		};
+		this.API = new API(`直播抽奖系统`);
+		this.GOLDBOX = {
+			recorded_aid: [],
+		};
+	}
+	/**
+	 *
+	 * @returns {Promise<Object[]>}
+	 */
+	#get_data_from_server = async () => {
+		try {
+			let url = "http://127.0.0.1:23333/v1/get/live_lots/";
+			return await axios.get(url).then((resp) => {
+				return resp.data;
+			});
+		} catch (e) {
+			this.API.chatLog(`获取服务器数据失败！${e}`, "error");
+			return [];
+		}
+	};
+	/**
+	 * 循环抽奖主函数
+	 */
+	#main_lot = async () => {
+		try {
+			let lot_data = await this.#get_data_from_server();
 
-module.exports = { LIVE_LOT, live_op ,LIVE_LOT_Service};
+			if (lot_data) {
+				let promise_list = [];
+				for (let LIVE_LOT of this.LIVE_LOT_list) {
+					promise_list.push(LIVE_LOT.main(lot_data));
+				}
+				await Promise.all(promise_list);
+			}
+
+			let gold_box_data = lot_data.filter((el) => el.goldbox).pop();
+			if (gold_box_data) {
+				//默认所有账号都参加金宝箱抽奖！
+				for (let goldbox of gold_box_data) {
+					let event_name = `${this.event_map.gold_box}_${goldbox.aid}`;
+					if (this.GOLDBOX.recorded_aid.includes(goldbox.aid)) {
+						continue;
+					}
+					if (
+						goldbox.join_start_time - Date.now() / 1e3 < 3600e3 &&
+						Date.now() / 1e3 < goldbox.join_end_time
+					) {
+						this.GOLDBOX.recorded_aid.push(goldbox.aid);
+						if (!event_bus.event_list.includes(event_name)) {
+							event_bus.on(event_name, async () => {
+								for (let LIVE_LOT of this.ALL_LIVE_LOT) {
+									promise_list.push(
+										LIVE_LOT.glod_box_main(goldbox.aid)
+									);
+								}
+								await Promise.all(promise_list);
+							});
+						}
+						event_bus.emit(event_name);
+					}
+					if (
+						event_bus.event_list.includes(event_name) &&
+						Date.now() / 1e3 < goldbox.join_end_time //删除过期宝箱事件
+					) {
+						event_bus.off(event_name);
+					}
+				}
+			}
+			this.GOLDBOX.recorded_aid= this.GOLDBOX.recorded_aid.slice(-10);//只保留最后十个aid
+			setTimeout(this.#main_lot, 1e3);
+		} catch (e) {
+			console.error(`出了严重错误，不继续执行直播抽奖！`, e);
+			throw e;
+		}
+	};
+	main = async () => {
+		for (let do_lottery of this.DO_Lottery_list) {
+			if (!do_lottery.lottery_setting) {
+				await do_lottery.variable_init();
+			}
+			let event_name = `live_lot_${do_lottery.lottery_name}`;
+
+			if (do_lottery.lottery_setting.CONFIG.LIVE_LOT) {
+				if (this.LIVE_LOT_name_list.indexOf(event_name) == -1) {
+					let live_lot = new LIVE_LOT(do_lottery);
+					this.LIVE_LOT_list.push(live_lot);
+					this.LIVE_LOT_name_list.push(event_name);
+					this.ALL_LIVE_LOT.push(live_lot);
+					this.ALL_LIVE_LOT_name_list.push(event_name);
+				} else {
+					console.log(`${do_lottery.lottery_name} 直播抽奖进行中`);
+				}
+			} else {
+				if (this.ALL_LIVE_LOT_name_list.indexOf(event_name) == -1) {
+					let live_lot = new LIVE_LOT(do_lottery);
+					this.ALL_LIVE_LOT.push(live_lot);
+				}
+			}
+		}
+
+		if (event_bus.event_list.indexOf(this.event_map.live_lot) == -1)
+			event_bus.on(this.event_map.live_lot, async () => {
+				try {
+					await this.#main_lot();
+				} catch (e) {
+					console.error(`直播抽奖出错！`, e);
+				}
+			});
+		event_bus.emit(this.event_map.live_lot);
+	};
+}
+
+module.exports = { LIVE_LOT, live_op, LIVE_LOT_Service };

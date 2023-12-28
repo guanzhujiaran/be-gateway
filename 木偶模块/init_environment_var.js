@@ -2081,7 +2081,7 @@ class ENVIRONMENT {
 						let ret_dynamic_content = (
 							dynmaic_content +
 							"\n" +
-							top_msg.toString()
+							String(top_msg).replaceAll('undefined','')
 						).trim();
 						return ret_dynamic_content;
 					} catch (e) {
@@ -2450,10 +2450,7 @@ class ENVIRONMENT {
 					let manual_re17 = /.*评.{0,10}接力/gim.test(
 						dynamic_content
 					);
-					let manual_re18 =
-						/.*聊.{0,10}聊|有没有.{0,20}事.{0,5}？/gim.test(
-							dynamic_content
-						);
+					let manual_re18 = /.*聊.{0,10}聊|有没有.{0,20}事.{0,5}？/gim.test(dynamic_content);
 					let manual_re19 =
 						/.*评论.{0,10}扣|.*评论.{0,5}说.{0,3}下/gim.test(
 							dynamic_content
@@ -2559,7 +2556,7 @@ class ENVIRONMENT {
 						);
 					let manual_re61 = /.*看.{0,10}猜/gim.test(dynamic_content);
 					let manual_re63 =
-						/.*评论.{0,10}猜|.*评论.{0,15}预测/gim.test(
+						/.*评论.{0,10}猜|.*评论.{0,15}预测|选择.{0,5}任意.{0,17}评论/gim.test(
 							dynamic_content
 						);
 					let manual_re65 = /.*老规矩你们懂的/gim.test(
@@ -4818,7 +4815,7 @@ ${Dynamic_content}
 						);
 					//let manual_re75 = /.*本周话题|.*互动话题|.*互动留言|.*互动时间|.*征集.{0,10}名字|.*投票.{0,5}选.{0,10}最.{0,5}的|.*一人说一个谐音梗|帮.{0,5}想想.{0,5}怎么/gmi.test(dynamic_content)
 					let manual_re63 =
-						/.*评论.{0,10}猜|.*评论.{0,15}预测/gim.test(
+						/.*评论.{0,10}猜|.*评论.{0,15}预测|选择.{0,5}任意.{0,17}评论/gim.test(
 							dynamic_content
 						);
 					return !(

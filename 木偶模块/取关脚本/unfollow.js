@@ -53,6 +53,10 @@ async function generate_unfollow_file(pg, uid) {
 async function do_unfollow(pg, uid) {
 	try {
 		if (pg.isClosed()) {
+			if ((await pg.browser.pages()).length == 0) {
+				console.warn(`${uid} 浏览器关闭，取消执行取关！`);
+				return;
+			}
 			pg = await pg.browser().newPage();
 		}
 		if (!pg.url().includes("bilibili.com")) {
@@ -67,7 +71,8 @@ async function do_unfollow(pg, uid) {
 		}
 		if (
 			!nav_stat?.data?.following ||
-			nav_stat?.data?.following <= global_config.unfollow_module.max_follow_num
+			nav_stat?.data?.following <=
+				global_config.unfollow_module.max_follow_num
 		) {
 			console.log(
 				`${uid} 当前关注数${nav_stat?.data?.following}个 不满足取关条件（大于${global_config.unfollow_module.max_follow_num}个）`

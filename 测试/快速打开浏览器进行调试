@@ -2,12 +2,12 @@
  * @Author: 星瞳 1944637830@qq.com
  * @Date: 2023-12-08 00:34:37
  * @LastEditors: 星瞳 1944637830@qq.com
- * @LastEditTime: 2023-12-16 20:36:39
+ * @LastEditTime: 2023-12-28 16:46:48
  * @FilePath: \tampermonkey\测试\快速打开浏览器进行调试
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
 
 let { DO_Lottery, sleep } = require("./木偶模块/puppeteer_lottery.js");
 let browser_mode = 1
-let lot = new DO_Lottery('lottery_setting2', browser_mode);
+let lot = new DO_Lottery('lottery_setting3', browser_mode);
 await lot.main();

@@ -2156,11 +2156,14 @@ class DO_Lottery {
 					console.warn(e);
 					global_var.Getter.check_login_status();
 					if (global_var.page.isClosed()) {
-						return false;
+						await account_init();
+						// return false;
 					}
+					await sleep(10e3);
 					await utl.my_throw(
 						`发生未知错误，不可避免！${e.toString()}`
 					);
+					return true;
 				}
 			}
 			/**
