@@ -83,6 +83,10 @@ class DO_Lottery {
 		this.global_var = undefined;
 		this.my_operator = undefined;
 		this.MYAPI = undefined;
+		/**
+		 * @type {boolean} other_lottery_flag -  是否有其他抽奖正在进行
+		 */
+		this.goldbox_lottery_flag = false;
 	}
 	/**
 	 * 初始化环境！（主要是 lottery_setting）
@@ -1123,6 +1127,7 @@ class DO_Lottery {
 				let new_pg = await br.newPage();
 				this._setGlobalPage(new_pg);
 				global_var.page = new_pg;
+				this.global_page  = new_pg;
 			}
 			await global_page_listen();
 
@@ -1697,7 +1702,7 @@ class DO_Lottery {
 						comment_msg =
 							await my_operator.dynamic_comment_operator.reply_comment_generator(
 								dynamic_content,
-								MYAPI.BiliAPI.draw_dynamic_id(goto_url),
+								MYAPI.BiliAPI.draw_dynamic_id(goto_url)
 							);
 					}
 					if (
@@ -2097,7 +2102,8 @@ class DO_Lottery {
 						if (goto_url.indexOf("tab=2") > -1) {
 							//评论加转发
 							if (
-								Math.random()*0.6 < lottery_setting.repostchance ||
+								Math.random() * 0.6 <
+									lottery_setting.repostchance ||
 								comment_msg.includes("#") ||
 								global_var.response.reply_main.code == 12061
 								// 	dynamic_content.length > 200) &&
@@ -2378,6 +2384,7 @@ class DO_Lottery {
 									undefined; //空间预约响应
 								global_var.recorded_data = "";
 								global_var.pageurl = all_dynamic_id_list[i];
+								await global_var.page.bringToFront();
 								if (opus_dynamic) {
 									await global_var.page.goto(
 										`https://www.bilibili.com/opus/${MYAPI.BiliAPI.draw_dynamic_id(
@@ -3165,8 +3172,9 @@ class DO_Lottery {
 				}
 				try {
 					if (
-						(await global_var.page.isClosed()) ||
-						lottery_setting.CONFIG.LIVE_LOT
+						global_var.page.isClosed() ||
+						lottery_setting.CONFIG.LIVE_LOT ||
+						this.goldbox_lottery_flag
 					) {
 						//页面关了全都不管
 					} else {
@@ -3204,7 +3212,11 @@ class DO_Lottery {
 				opus动态标志
 			);
 		} catch (e) {
-			console.error(e, lottery_setting_filename,(new Date()).toLocaleString());
+			console.error(
+				e,
+				lottery_setting_filename,
+				new Date().toLocaleString()
+			);
 		}
 	};
 }

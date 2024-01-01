@@ -6,19 +6,19 @@ class API {
 		let dateTime_str = new Date().toLocaleString();
 		switch (type) {
 			case "info": {
-				console.log(`【${this.uname}】${text}  --${dateTime_str}`);
+				console.log(`{info}【${this.uname}】${text}  --${dateTime_str}`);
 				break;
 			}
 			case "warning": {
-				console.warn(`【${this.uname}】${text}  --${dateTime_str}`);
+				console.warn(`{warning}【${this.uname}】${text}  --${dateTime_str}`);
 				break;
 			}
 			case "error": {
-				console.error(`【${this.uname}】${text}  --${dateTime_str}`);
+				console.error(`{error}【${this.uname}】${text}  --${dateTime_str}`);
 				break;
 			}
 			default: {
-				console.debug(`【${this.uname}】${text}  --${dateTime_str}`);
+				console.debug(`{debug}【${this.uname}】${text}  --${dateTime_str}`);
 				break;
 			}
 		}

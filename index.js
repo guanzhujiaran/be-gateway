@@ -120,16 +120,15 @@ async function main() {
 		}
 	}
 
-	if(event_bus.event_list.indexOf('ALL_LIVE_LOT')){
+	if(!event_bus.event_list.includes('ALL_LIVE_LOT')){
 		let ALL_DO_Lottery = MYLOTLIST.map(el=>el.lot)
 		let ALL_LIVE_LOT = new LIVE_LOT_Service(ALL_DO_Lottery)
 		event_bus.on('ALL_LIVE_LOT',async()=>{
 			await ALL_LIVE_LOT.main()
 		})
+		event_bus.emit('ALL_LIVE_LOT')
 	}
-	event_bus.emit('ALL_LIVE_LOT')
 	
-
 	await sleep(10e3);//防止启动浏览器时和直播抽奖启动的浏览器冲突报错！
 
 	while (1) {

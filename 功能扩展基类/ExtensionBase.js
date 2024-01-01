@@ -60,7 +60,9 @@ class ExtensionClass {
 	 */
 	constructor(DO_Lottery_instance) {
 		this.__DO_Lottery_class = DO_Lottery_instance;
+		/**@type {Page} */
 		this.__origin_pg = DO_Lottery_instance.global_page;
+		/**@type {Page} */
 		this.basic_pg;
 		this.CONFIG = {
 			user_info: {
@@ -74,7 +76,7 @@ class ExtensionClass {
 	/**
 	 * 初始化一个新的页面，专门用来抽直播抽奖
 	 */
-	#init = async () => {
+	init = async () => {
 		try {
 			this.basic_pg = await basic_op.page_init(
 				this.__origin_pg,
@@ -95,7 +97,6 @@ class ExtensionClass {
 				);
 			}
 			await this.basic_pg.goto("about:blank");
-			await basic_op.bringToFront(this.__DO_Lottery_class.global_page);
 		} catch (e) {
 			this.API.chatLog(`初始化一个新的页面失败！${e}`, "error");
 			throw e;

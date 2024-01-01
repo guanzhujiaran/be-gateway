@@ -9,7 +9,7 @@ const GLOBAL_CONFIG = {
 			room_id: 24354075,
 			room_id_backup: 1872831,
 		},
-		wss_url:"wss://127.0.0.1:5705"//直播发弹幕通知的wss消息的端口
+		wss_port:5705//直播发弹幕通知的wss消息的端口
 	},
 };
 module.exports = GLOBAL_CONFIG;

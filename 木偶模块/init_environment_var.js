@@ -2081,7 +2081,7 @@ class ENVIRONMENT {
 						let ret_dynamic_content = (
 							dynmaic_content +
 							"\n" +
-							String(top_msg).replaceAll('undefined','')
+							String(top_msg).replaceAll("undefined", "")
 						).trim();
 						return ret_dynamic_content;
 					} catch (e) {
@@ -2450,7 +2450,10 @@ class ENVIRONMENT {
 					let manual_re17 = /.*评.{0,10}接力/gim.test(
 						dynamic_content
 					);
-					let manual_re18 = /.*聊.{0,10}聊|有没有.{0,20}事.{0,5}？/gim.test(dynamic_content);
+					let manual_re18 =
+						/.*聊.{0,10}聊|有没有.{0,20}事.{0,5}？/gim.test(
+							dynamic_content
+						);
 					let manual_re19 =
 						/.*评论.{0,10}扣|.*评论.{0,5}说.{0,3}下/gim.test(
 							dynamic_content
@@ -2610,7 +2613,7 @@ class ENVIRONMENT {
 							dynamic_content
 						);
 					let manual_re75 =
-						/.*本周话题|.*互动话题|.*互动留言|.*互动时间|.*征集.{0,10}名字|.*投票.{0,5}选.{0,10}最.{0,5}的|.*一人说一个谐音梗|帮.{0,5}想想.{0,5}怎么|评论.{0,5}想给.{0,7}的|取.{0,7}名字/gim.test(
+						/.*本周话题|.*互动话题|.*互动留言|.*互动时间|.*征集.{0,10}名字|.*征集.{0,15}外号|.*投票.{0,5}选.{0,10}最.{0,5}的|.*一人说一个谐音梗|帮.{0,5}想想.{0,5}怎么|评论.{0,5}想给.{0,7}的|取.{0,7}名字/gim.test(
 							dynamic_content
 						);
 
@@ -4080,7 +4083,7 @@ class ENVIRONMENT {
 					//dynamic_id_or_BVid:动态id或bv号 mode ：1是热评，2是最新 ，3是混合 pn_percent：评论大致的百分比页数，入参是小数
 					let all_replies_content = [];
 					let ret_reply; //最终返回的评论
-					let pn_list=[];
+					let pn_list = [];
 					for (let _ = 0; _ < 3; _++) {
 						//超过就退出,进行随机抽取
 						let resp =
@@ -4153,7 +4156,7 @@ class ENVIRONMENT {
 					pn_percent,
 					get_api_reply_resp_flag,
 					dynamic_content = "",
-					pn_list=[],
+					pn_list = []
 				) => {
 					if (
 						!(
@@ -4167,7 +4170,7 @@ class ENVIRONMENT {
 						}
 					}
 					let ret_list = [];
-					let pn=0;
+					let pn = 0;
 					let dynDetail_data =
 						global_var.response.global_dynamic_data;
 					let comment_id_str;
@@ -4265,8 +4268,13 @@ class ENVIRONMENT {
 						get_comment_page = Math.floor(
 							Math.ceil(reply_count * pn_percent) / 20
 						);
-						if(pn_list.indexOf(get_comment_page)>-1){
-							get_comment_page=utl.random_choice(Array.from({length:Math.ceil(reply_count/20)},(_, i)=>1+(i)).filter(x=>pn_list.indexOf(x)==-1))
+						if (pn_list.indexOf(get_comment_page) > -1) {
+							get_comment_page = utl.random_choice(
+								Array.from(
+									{ length: Math.ceil(reply_count / 20) },
+									(_, i) => 1 + i
+								).filter((x) => pn_list.indexOf(x) == -1)
+							);
 						}
 						pn = get_comment_page;
 						reply_main_res = await MYAPI.BiliAPI.get_reply(
@@ -4385,7 +4393,7 @@ class ENVIRONMENT {
 					}
 					await Promise.all(promise_list);
 					ret_list = newArr;
-					return { ret_list, reply_count ,pn};
+					return { ret_list, reply_count, pn };
 				},
 				/**
 				 * 判断情感分类
