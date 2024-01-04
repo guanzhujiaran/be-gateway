@@ -1127,7 +1127,7 @@ class DO_Lottery {
 				let new_pg = await br.newPage();
 				this._setGlobalPage(new_pg);
 				global_var.page = new_pg;
-				this.global_page  = new_pg;
+				this.global_page = new_pg;
 			}
 			await global_page_listen();
 
@@ -2554,11 +2554,11 @@ class DO_Lottery {
 									`lottery_loop执行单条任务失败，原因：${e}`
 								);
 								console.error(
-									`${global_var.user_info.uname}\t${all_dynamic_id_list[i]}\n${e}`
+									`lottery_loop执行单条任务失败，原因：${e}\n${global_var.user_info.uname}\t${all_dynamic_id_list[i]}\n${e}\n${e.stack}`
 								);
 								if (
 									!global_var.user_info.uname ||
-									(await global_var.page.isClosed())
+									global_var.page.isClosed()
 								) {
 									//没登录或者浏览器页面关了
 									break;
@@ -2569,7 +2569,7 @@ class DO_Lottery {
 							let record = await utl.my_throw(`${e}`);
 							manual_op_failed_record.push(record);
 							console.error(
-								`${global_var.user_info.uname}\t${all_dynamic_id_list[i]}\n${e}`
+								`单个lottery_loop执行失败，进入下一个循环！${global_var.user_info.uname}\t${all_dynamic_id_list[i]}\n${e}\n${e.stack}`
 							);
 							if (
 								!global_var.user_info.uname ||
@@ -2578,19 +2578,11 @@ class DO_Lottery {
 								//没登录或者浏览器页面关了
 								break;
 							}
-							if (
-								JSON.stringify(record)
-									.toLowerCase()
-									.includes("timeout") ||
-								JSON.stringify(record).toLowerCase() == "{}"
-							) {
-								await sleep(2 * 60 * 1e3);
-							}
 						}
 					}
 				} catch (e) {
 					console.error(
-						`${global_var.user_info.uname}\tlottery_loop\n`,
+						`${global_var.user_info.uname}\tlottery_loop执行失败，退出循环！\n`,
 						e
 					);
 					global_var.Getter.check_login_status();

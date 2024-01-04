@@ -402,7 +402,7 @@ class ENVIRONMENT {
 			},
 		};
 		/**
-		 * @type {Object} global_var - 全局变量
+		 * @typedef {Object} global_var - 全局变量
 		 * @property {Page|undefined} page - 浏览器页面
 		 * @property {string} pageurl - 抽奖网址
 		 * @property {number} dynamic_id - 动态ID
@@ -440,9 +440,10 @@ class ENVIRONMENT {
 		 * @property {Object} Getter - 获取器
 		 * @property {function} Getter.check_login_status - 检查登录状态
 		 */
+		/**@type {global_var} */
 		let global_var = {
 			/**
-			 * @type {Page|undefined} page - 浏览器页面
+			 * @type {Page} page - 浏览器页面
 			 */
 			page: undefined, //创建的网页
 			pageurl: "", //抽奖网址
@@ -3775,7 +3776,7 @@ class ENVIRONMENT {
 											.share_video_url,
 										new Date().toLocaleString()
 									);
-									if (await global_var.page.isClosed()) {
+									if ( global_var.page.isClosed()) {
 										console.log(
 											`${
 												global_var.user_info.uname
@@ -3783,6 +3784,7 @@ class ENVIRONMENT {
 										);
 										return;
 									}
+									await global_var.page.bringToFront();
 									await global_var.page.goto(video_elem);
 									await sleep(10e3);
 									try {
