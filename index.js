@@ -6,7 +6,7 @@ let fs = require("fs");
 
 /**
  * 生成抽奖文件
- * @param {Date} start_time 
+ * @param {Date} start_time
  */
 async function gen_lot_file(start_time) {
 	console.log(`开始新的一轮抽奖！${new Date().toLocaleString()}`);
@@ -29,7 +29,11 @@ async function gen_lot_file(start_time) {
 			"./木偶模块/一般的抽奖动态id.txt",
 			lot_dyn_data.join("\n")
 		);
-		console.log(`获取完成。写入文件 ./木偶模块/一般的抽奖动态id.txt 共计${lot_dyn_data.length}条抽奖！\n抽奖，启动！--${start_time.toLocaleString()}`);
+		console.log(
+			`获取完成。写入文件 ./木偶模块/一般的抽奖动态id.txt 共计${
+				lot_dyn_data.length
+			}条抽奖！\n抽奖，启动！--${start_time.toLocaleString()}`
+		);
 	}
 }
 /**
@@ -52,12 +56,12 @@ async function main() {
 		"lottery_setting12",
 		"lottery_setting13",
 		"lottery_setting14",
-		//养成四级号再跑脚本
+		// 养成四级号再跑脚本
 		// 'lottery_setting7',//G
 		// 'lottery_setting6',//G
 	];
 	let unfollow_mode = 0; //是否开启取关模式
-	let auto_mode = 1; //是否开启全自动抽奖模式
+	let auto_mode = 0; //是否开启全自动抽奖模式
 	let browser_mode = 0; //是否只打开浏览器，不进行抽奖
 
 	let gen_lot_file_mark = false; //抽奖文件获取完成
@@ -82,8 +86,6 @@ async function main() {
 		}
 	}
 	let opus动态标志 = true; //是否使用新版动，默认开启!
-
-
 
 	for (let i of lottery_setting_filename_list) {
 		console.log(i);
@@ -120,16 +122,16 @@ async function main() {
 		}
 	}
 
-	if(!event_bus.event_list.includes('ALL_LIVE_LOT')){
-		let ALL_DO_Lottery = MYLOTLIST.map(el=>el.lot)
-		let ALL_LIVE_LOT = new LIVE_LOT_Service(ALL_DO_Lottery)
-		event_bus.on('ALL_LIVE_LOT',async()=>{
-			await ALL_LIVE_LOT.main()
-		})
-		event_bus.emit('ALL_LIVE_LOT')
+	if (!event_bus.event_list.includes("ALL_LIVE_LOT")) {
+		let ALL_DO_Lottery = MYLOTLIST.map((el) => el.lot);
+		let ALL_LIVE_LOT = new LIVE_LOT_Service(ALL_DO_Lottery);
+		event_bus.on("ALL_LIVE_LOT", async () => {
+			await ALL_LIVE_LOT.main();
+		});
+		event_bus.emit("ALL_LIVE_LOT");
 	}
-	
-	await sleep(10e3);//防止启动浏览器时和直播抽奖启动的浏览器冲突报错！
+
+	await sleep(10e3); //防止启动浏览器时和直播抽奖启动的浏览器冲突报错！
 
 	while (1) {
 		//触发动态抽奖事件
@@ -188,7 +190,7 @@ async function main() {
 								(ss < 10 ? "0" + ss : ss) +
 								"秒"
 							} 后启动！\n--${new Date().toLocaleString()}`
-					  );
+					);
 				await sleep(10e3);
 				setTimeout(async () => {
 					// event_bus.flush(); //事件不清空，复用事件！

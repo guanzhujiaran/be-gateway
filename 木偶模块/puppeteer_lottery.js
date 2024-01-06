@@ -9,11 +9,9 @@ const axios = require("axios");
 const unfollow_op = require("./取关脚本/unfollow");
 //导入包
 const __dirpath = "./木偶模块/";
-
+const {sleep} = require('./util/common_utl');
 //设置项目路径和必要的文件夹
-function sleep(ms) {
-	return new Promise((resolve) => setTimeout(() => resolve(sleep), ms));
-}
+
 
 let lottery_setting_file_reader = async function (filename) {
 	let path = `${__dirpath}lottery_setting/${filename}.txt`;
@@ -105,10 +103,11 @@ class DO_Lottery {
 	};
 	/**
 	 * 初始化类的属性变量和环境
+	 * @param {boolean} lotFlag 是否在抽奖
 	 */
-	variable_init = async () => {
+	variable_init = async (lotFlag) => {
 		this.login_status = undefined;
-		this.lotFlag = undefined;
+		this.lotFlag = lotFlag;
 		await this.#init_environment();
 	};
 	_setGlobalPage = (pageHandler) => {
@@ -131,196 +130,71 @@ class DO_Lottery {
 		);
 		let lottery_setting;
 		eval(lottery_settingstr); //设置全局的抽奖参数
-		let account_init = async () => {
-			/**
-			 *检查是否登录了账号
-			 * @returns {Promise<boolean | undefined>}
-			 */
-			let check_login = async () => {
-				for (let i = 0; i < 5; i++) {
-					try {
-						await global_var.page.goto("https://www.bilibili.com", {
-							waitUntil: "domcontentloaded",
-						});
-						break;
-					} catch {
-						await sleep(3e3);
-					}
-				}
 
-				for (let i = 0; i < 5; i++) {
-					if (global_var.user_info.uname) {
-						console.log(
-							lottery_setting.CONFIG.COOKIENAME,
-							global_var.user_info.uname,
-							"账号初始化完成"
-						);
-						return true;
-					}
-					await sleep(1e3);
+		await this.account_init();
+		await unfollow_op(global_var.page, global_var.user_info.uid);
+	};
+	/**
+	 * 主函数
+	 * @param {boolean} lotFlag 是否在抽奖
+	 */
+	main = async (lotFlag) => {
+		await this.variable_init(lotFlag);
+		await this.mainFunc(
+			this.lottery_name,
+			this.browser_mode,
+			this.opus动态标志
+		);
+	};
+	/**
+	 *
+	 * @returns {Promise<boolean>} true 代表账号信息获取成功
+	 */
+	account_init = async () => {
+		var global_var = this.global_var;
+		var lottery_setting = this.lottery_setting;
+		/**
+		 *检查是否登录了账号
+		 * @returns {Promise<boolean | undefined>}
+		 */
+		let check_login = async () => {
+			for (let i = 0; i < 5; i++) {
+				try {
+					await global_var.page.goto("https://www.bilibili.com", {
+						waitUntil: "domcontentloaded",
+					});
+					break;
+				} catch {
+					await sleep(3e3);
 				}
+			}
 
+			for (let i = 0; i < 5; i++) {
 				if (global_var.user_info.uname) {
 					console.log(
-						global_var.user_info.uid,
+						lottery_setting.CONFIG.COOKIENAME,
 						global_var.user_info.uname,
-						"登陆成功！"
+						"账号初始化完成"
 					);
-				} else {
-					throw `${lottery_setting.CONFIG.COOKIENAME}登陆信息获取失败`;
+					return true;
 				}
-			};
-			if (this.global_page && !this.global_page.isClosed()) {
-				//如果浏览器没关
-				global_var.page = this.global_page;
-				return await check_login();
+				await sleep(1e3);
 			}
-			if (
-				!this.global_page ||
-				(await this.global_page.browser().pages()).length == 0
-			) {
-				//浏览器未打开状态
-				let cookieStr;
-				try {
-					cookieStr = await MYAPI.cookieSetting.getCookie(
-						lottery_setting.CONFIG.COOKIENAME
-					);
-				} catch {}
-				//let ext1 = 'C:/Users/Acer/AppData/Local/Google/Chrome/User Data/Default/Extensions/lanfdkkpgfjfdikkncbnojekcppdebfp/0.2.0_1';
-				// let useragent =
-				// 	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36";
-				let browser;
-				let __args = [];
-				if (lottery_setting.CONFIG.proxy) {
-					__args.push(
-						`--proxy-server=${lottery_setting.CONFIG.proxy}`
-					);
-				}
-				__args.push(
-					`--start-stack-profiler`,
-					//`--load-extension=${ext1}`,
-					"--disable-notifications=true",
-					// '--no-sandbox',
-					"-–ignore-certificate-errors",
-					"--disable-infobars",
-					"--disable-session-crashed-bubble",
-					// '--disable-web-security',
-					"--disable-gpu",
-					"--disable-dev-shm-usage",
-					"--no-first-run",
-					//'--mute-audio',
-					"--disable-extensions",
-					"--no-zygote",
-					"--disable-xss-auditor",
-					"--disable-popup-blocking",
-					// '--disable-setuid-sandbox',
-					//'--disable-accelerated-2d-canvas',
-					// '--single-process',
-					`--profile-directory=${lottery_setting.CONFIG.ProfileDir}`,
-					// "--disable-features=IsolateOrigins,site-per-process",
-					`--start-maximized`,
-					"--disable-infobars",
-					"--window-position=0,0",
-					"--ignore-certifcate-errors",
-					"--ignore-certifcate-errors-spki-list"
+
+			if (global_var.user_info.uname) {
+				console.log(
+					global_var.user_info.uid,
+					global_var.user_info.uname,
+					"登陆成功！"
 				);
-				for (let retry = 0; retry <= 5; retry++) {
-					//五次重试启动浏览器的机会
-					try {
-						if (lottery_setting.CONFIG.UserDataDir) {
-							browser = await puppeteer.launch({
-								executablePath: `C:\\Users\\Acer\\AppData\\Local\\Google\\Chrome SxS\\Application\\chrome.exe`, //浏览器路径
-								headless: false, //false为显示浏览器界面
-								defaultViewport: {
-									//分辨率
-									width: 1920,
-									height: 1080,
-								},
-								args: __args,
-								userDataDir:
-									"UserData\\" +
-									lottery_setting.CONFIG.COOKIENAME,
-								ignoreDefaultArgs: [
-									"--enable-automation",
-									"--disable-extensions",
-									"--disable-client-side-phishing-detection",
-									"--disable-sync",
-								],
-								ignoreHTTPSErrors: true,
-							});
-							let page = await browser.newPage();
-							global_var.page = page;
-							this._setGlobalPage(global_var.page);
-							//await global_var.page.setUserAgent(useragent);//设置浏览器ua
-						} else {
-							browser = await puppeteer.launch({
-								executablePath:
-									"C:/Users/Acer/AppData/Local/Google/Chrome SxS/Application/chrome.exe", //浏览器路径
-								headless: false, //false为显示浏览器界面
-								defaultViewport: {
-									width: 1920,
-									height: 1080,
-								},
-								args: [
-									`--start-stack-profiler`,
-									//`--load-extension=${ext1}`,
-									"--disable-notifications=true",
-									// '--no-sandbox',
-									"-–ignore-certificate-errors",
-									"--disable-infobars",
-									"--disable-session-crashed-bubble",
-									// '--disable-web-security',
-									"--disable-gpu",
-									"--disable-dev-shm-usage",
-									"--no-first-run",
-									//'--mute-audio',
-									"--no-zygote",
-									// '--single-process',
-									`--profile-directory=${lottery_setting.CONFIG.ProfileDir}`,
-									// "--disable-features=IsolateOrigins,site-per-process",
-									`--start-maximized`,
-								],
-								ignoreDefaultArgs: [
-									"--enable-automation",
-									"--disable-extensions",
-									"--disable-client-side-phishing-detection",
-									"--disable-sync",
-								],
-								ignoreHTTPSErrors: true,
-							});
-							let page = await browser.newPage();
-							global_var.page = page;
-							this._setGlobalPage(global_var.page);
-							//await global_var.page.setUserAgent(useragent);
-							let ck = MYAPI.browserSetting.getCookies(
-								cookieStr,
-								".bilibili.com"
-							);
-							// for (let singleck of ck) {
-							// 	if (singleck.name != "") {
-							// 		await global_var.page.setCookie(singleck);
-							// 	}
-							// }
-						}
-						break;
-					} catch (e) {
-						console.error(
-							lottery_setting.CONFIG.COOKIENAME,
-							"浏览器启动失败"
-						);
-						console.error(e);
-						await sleep(10e3);
-						continue;
-					}
-				}
+			} else {
+				throw `${lottery_setting.CONFIG.COOKIENAME}登陆信息获取失败`;
 			}
-			if (this.global_page.isClosed()) {
-				//浏览器未关闭，抽奖页面已关闭
-				let br = this.global_page.browser();
-				let new_pg = await br.newPage();
-				this._setGlobalPage(new_pg);
-				global_var.page = new_pg;
-			}
+		};
+		/**
+		 * 监听浏览器响应
+		 */
+		let global_page_listen = async () => {
 			await global_var.page.setRequestInterception(true);
 			global_var.page.on("response", async (response) => {
 				//拦截响应的响应
@@ -388,6 +262,13 @@ class DO_Lottery {
 							global_var.response.comment_dyn_response =
 								response_json;
 							global_var.FLAG.评论响应标志 = true;
+							if (response_json.code == 12051) {
+								//重复评论
+								console.warn(
+									`${global_var.user_info.uname} ${url} 重复评论！${response_json} `
+								);
+								return;
+							}
 							let oid;
 							let type;
 							let rpid;
@@ -587,19 +468,160 @@ class DO_Lottery {
 					);
 				}
 			});
-			return await check_login();
 		};
+		if (this.global_page && !this.global_page.isClosed()) {
+			//如果浏览器没关
+			global_var.page = this.global_page;
+			return await check_login();
+		}
+		if (
+			!this.global_page ||
+			(await this.global_page.browser().pages()).length == 0
+		) {
+			//浏览器未打开状态
+			let cookieStr;
+			try {
+				cookieStr = await MYAPI.cookieSetting.getCookie(
+					lottery_setting.CONFIG.COOKIENAME
+				);
+			} catch {}
+			//let ext1 = 'C:/Users/Acer/AppData/Local/Google/Chrome/User Data/Default/Extensions/lanfdkkpgfjfdikkncbnojekcppdebfp/0.2.0_1';
+			// let useragent =
+			// 	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36";
+			let browser;
+			let __args = [];
+			if (lottery_setting.CONFIG.proxy) {
+				__args.push(`--proxy-server=${lottery_setting.CONFIG.proxy}`);
+			}
+			__args.push(
+				`--start-stack-profiler`,
+				//`--load-extension=${ext1}`,
+				"--disable-notifications=true",
+				// '--no-sandbox',
+				"-–ignore-certificate-errors",
+				"--disable-infobars",
+				"--disable-session-crashed-bubble",
+				// '--disable-web-security',
+				"--disable-gpu",
+				"--disable-dev-shm-usage",
+				"--no-first-run",
+				//'--mute-audio',
+				"--disable-extensions",
+				"--no-zygote",
+				"--disable-xss-auditor",
+				"--disable-popup-blocking",
+				// '--disable-setuid-sandbox',
+				//'--disable-accelerated-2d-canvas',
+				// '--single-process',
+				`--profile-directory=${lottery_setting.CONFIG.ProfileDir}`,
+				// "--disable-features=IsolateOrigins,site-per-process",
+				`--start-maximized`,
+				"--disable-infobars",
+				"--window-position=0,0",
+				"--ignore-certifcate-errors",
+				"--ignore-certifcate-errors-spki-list"
+			);
+			for (let retry = 0; retry <= 5; retry++) {
+				//五次重试启动浏览器的机会
+				try {
+					if (lottery_setting.CONFIG.UserDataDir) {
+						browser = await puppeteer.launch({
+							executablePath: `C:\\Users\\Acer\\AppData\\Local\\Google\\Chrome SxS\\Application\\chrome.exe`, //浏览器路径
+							headless: false, //false为显示浏览器界面
+							defaultViewport: {
+								//分辨率
+								width: 1920,
+								height: 1080,
+							},
+							args: __args,
+							userDataDir:
+								"UserData\\" +
+								lottery_setting.CONFIG.COOKIENAME,
+							ignoreDefaultArgs: [
+								"--enable-automation",
+								"--disable-extensions",
+								"--disable-client-side-phishing-detection",
+								"--disable-sync",
+							],
+							ignoreHTTPSErrors: true,
+						});
+						let page = await browser.newPage();
+						global_var.page = page;
+						this._setGlobalPage(global_var.page);
+						//await global_var.page.setUserAgent(useragent);//设置浏览器ua
+					} else {
+						browser = await puppeteer.launch({
+							executablePath:
+								"C:/Users/Acer/AppData/Local/Google/Chrome SxS/Application/chrome.exe", //浏览器路径
+							headless: false, //false为显示浏览器界面
+							defaultViewport: {
+								width: 1920,
+								height: 1080,
+							},
+							args: [
+								`--start-stack-profiler`,
+								//`--load-extension=${ext1}`,
+								"--disable-notifications=true",
+								// '--no-sandbox',
+								"-–ignore-certificate-errors",
+								"--disable-infobars",
+								"--disable-session-crashed-bubble",
+								// '--disable-web-security',
+								"--disable-gpu",
+								"--disable-dev-shm-usage",
+								"--no-first-run",
+								//'--mute-audio',
+								"--no-zygote",
+								// '--single-process',
+								`--profile-directory=${lottery_setting.CONFIG.ProfileDir}`,
+								// "--disable-features=IsolateOrigins,site-per-process",
+								`--start-maximized`,
+							],
+							ignoreDefaultArgs: [
+								"--enable-automation",
+								"--disable-extensions",
+								"--disable-client-side-phishing-detection",
+								"--disable-sync",
+							],
+							ignoreHTTPSErrors: true,
+						});
+						let page = await browser.newPage();
+						global_var.page = page;
+						this._setGlobalPage(global_var.page);
+						//await global_var.page.setUserAgent(useragent);
+						let ck = MYAPI.browserSetting.getCookies(
+							cookieStr,
+							".bilibili.com"
+						);
+						// for (let singleck of ck) {
+						// 	if (singleck.name != "") {
+						// 		await global_var.page.setCookie(singleck);
+						// 	}
+						// }
+					}
+					break;
+				} catch (e) {
+					console.error(
+						lottery_setting.CONFIG.COOKIENAME,
+						"浏览器启动失败"
+					);
+					console.error(e);
+					await sleep(10e3);
+					continue;
+				}
+			}
+		}
+		if (this.global_page.isClosed()) {
+			//浏览器未关闭，抽奖页面已关闭
+			let br = this.global_page.browser();
+			let new_pg = await br.newPage();
+			this._setGlobalPage(new_pg);
+			global_var.page = new_pg;
+			this.global_page = new_pg;
+		}
+		await global_page_listen();
 
-		await account_init();
-		await unfollow_op(global_var.page, global_var.user_info.uid);
-	};
-	main = async () => {
-		await this.variable_init();
-		await this.mainFunc(
-			this.lottery_name,
-			this.browser_mode,
-			this.opus动态标志
-		);
+		return await check_login();
 	};
 	launch_lottery = async (
 		lottery_setting_string,
@@ -638,500 +660,6 @@ class DO_Lottery {
 					console.warn(e, "消息推送失败！");
 				}
 			},
-		};
-
-		/**
-		 *
-		 * @returns {Promise<boolean>} true 代表账号信息获取成功
-		 */
-		let account_init = async () => {
-			/**
-			 *检查是否登录了账号
-			 * @returns {Promise<boolean | undefined>}
-			 */
-			let check_login = async () => {
-				for (let i = 0; i < 5; i++) {
-					try {
-						await global_var.page.goto("https://www.bilibili.com", {
-							waitUntil: "domcontentloaded",
-						});
-						break;
-					} catch {
-						await sleep(3e3);
-					}
-				}
-
-				for (let i = 0; i < 5; i++) {
-					if (global_var.user_info.uname) {
-						console.log(
-							lottery_setting.CONFIG.COOKIENAME,
-							global_var.user_info.uname,
-							"账号初始化完成"
-						);
-						return true;
-					}
-					await sleep(1e3);
-				}
-
-				if (global_var.user_info.uname) {
-					console.log(
-						global_var.user_info.uid,
-						global_var.user_info.uname,
-						"登陆成功！"
-					);
-				} else {
-					throw `${lottery_setting.CONFIG.COOKIENAME}登陆信息获取失败`;
-				}
-			};
-			/**
-			 * 监听浏览器响应
-			 */
-			let global_page_listen = async () => {
-				await global_var.page.setRequestInterception(true);
-				global_var.page.on("response", async (response) => {
-					//拦截响应的响应
-					let url = response.url();
-					try {
-						if (url.includes(`/x/polymer/web-dynamic/v1/detail?`)) {
-							try {
-								global_var.response.global_dynamic_data = (
-									await response.json()
-								).data;
-							} catch (e) {
-								if ((await response.json()).code == -412) {
-									global_var.response.global_dynamic_data =
-										-412;
-								} else {
-									global_var.response.global_dynamic_data =
-										undefined;
-								}
-								throw `${
-									global_var.user_info.uname
-								}\t${url}\tglobal_dynamic_data\t${
-									(await response.json()).message
-								}\n${e}`;
-							}
-						}
-						if (
-							url.includes("/x/dynamic/feed/create/dyn") ||
-							url.includes("dynamic_repost/reply")
-						) {
-							let req = await response.request();
-							if ((await req.method()).toLowerCase() != "post") {
-								//option是没有数据的
-								console.log(
-									await (await response.request()).method()
-								);
-								return;
-							}
-							try {
-								global_var.response.create_dyn_response =
-									await response.json();
-								console.log(
-									`${
-										global_var.user_info.uname
-									}\t转发动态response：\n${JSON.stringify(
-										global_var.response.create_dyn_response
-									)}\n转发生成的动态链接：https://t.bilibili.com/${
-										global_var.response.create_dyn_response
-											?.data?.dynamic_id_str ||
-										global_var.response.create_dyn_response
-											?.data?.dyn_id_str
-									}`
-								);
-							} catch (e) {
-								console.warn(
-									`${
-										global_var.user_info.uname
-									}\t抓取转发动态response失败：\n${e}\n${await response.text()}`
-								);
-								//global_var.response.create_dyn_response = undefined;
-								throw `${global_var.user_info.uname}\tcreate_dyn_response, ${e}, ${global_var.user_info.uname}`;
-							}
-						}
-						if (url.includes("/x/v2/reply/add")) {
-							try {
-								let response_json = await response.json();
-								global_var.response.comment_dyn_response =
-									response_json;
-								global_var.FLAG.评论响应标志 = true;
-								if (response_json.code == 12051) {
-									//重复评论
-									console.warn(
-										`${global_var.user_info.uname} ${url} 重复评论！${response_json} `
-									);
-									return;
-								}
-								let oid;
-								let type;
-								let rpid;
-								try {
-									type = response_json.data.reply.type;
-								} catch {
-									throw `评论响应type获取出错`;
-								}
-								try {
-									oid = response_json.data.reply.oid;
-								} catch {
-									try {
-										oid =
-											global_var.response
-												.global_dynamic_data.item.basic
-												.comment_id_str;
-									} catch {
-										//throw (`评论响应oid获取出错`)
-									}
-								}
-								try {
-									rpid = response_json.data.reply.rpid_str;
-								} catch {
-									//throw (`评论响应rpid获取出错`)
-								}
-								console.log(
-									`${
-										global_var.user_info.uname
-									}\t获取到评论响应：\t${new Date().toLocaleTimeString()}\n`,
-									`检查阿瓦隆链接：https://api.bilibili.com/x/v2/reply/jump?type=${type}&oid=${oid}&rpid=${rpid}`
-								);
-							} catch (e) {
-								//console.log('动态评论响应',global_var.response.comment_dyn_response);
-								global_var.FLAG.评论响应标志 = false;
-								console.warn(
-									`${
-										global_var.user_info.uname
-									}\t抓取评论动态response失败：\n${e}\n${await response.text()}`
-								);
-								//global_var.response.create_dyn_response = undefined;
-								throw `${url}\t${global_var.user_info.uname}\tcomment_dyn_response, ${e}, ${global_var.user_info.uname}`;
-							}
-						}
-						if (
-							url.includes("/x/v2/reply/main") ||
-							url.includes("/x/v2/reply/wbi/main")
-						) {
-							try {
-								let response_json = await response.text();
-								global_var.response.reply_main =
-									JSON.parse(response_json);
-								if (response_json.code == 0) {
-									let replies = response_json.data.replies;
-									for (
-										let repindex = 0;
-										repindex < replies.length;
-										repindex++
-									) {
-										try {
-											MYAPI.fileWrite(
-												`文案/评论响应.csv`,
-												JSON.stringify(
-													replies[repindex]
-												),
-												"a+"
-											);
-										} catch {
-											console.warn("记录评论内容失败！");
-										}
-									}
-								}
-							} catch (e) {
-								try {
-									let response_json = await response.text();
-									global_var.response.reply_main = JSON.parse(
-										/.*?\((.*)\)/gim
-											.exec(response_json)
-											.slice(1)
-											.join("")
-									);
-								} catch (e) {
-									throw (
-										(`${
-											global_var.user_info.uname
-										}\treply_main, ${await response.text()},`,
-										e)
-									);
-								}
-							}
-							//console.log(`获取评论响应：`, global_var.reply_main);
-						}
-						if (url.includes("/x/web-interface/nav")) {
-							if (!global_var.user_info.uname) {
-								if (await response.text()) {
-									global_var.user_nav = JSON.parse(
-										await response.text()
-									);
-								}
-								try {
-									global_var.user_info.uid =
-										global_var.user_nav.data.mid;
-									global_var.user_info.uname =
-										global_var.user_nav.data.uname;
-								} catch {
-									global_var.user_info.uid = undefined;
-									global_var.user_info.uname = undefined;
-									console.warn(
-										global_var.user_nav,
-										`获取登陆信息失败，cookie可能过期`
-									);
-								}
-							}
-						}
-						if (url.includes("/x/relation/modify")) {
-							try {
-								global_var.response.relation_modify_response =
-									await response.json();
-							} catch (e) {
-								//console.log('关注响应',global_var.response.relation_modify_response);
-								global_var.response.relation_modify_response =
-									undefined;
-								throw `relation_modify_response, ${e}, ${global_var.user_info.uname}`;
-							}
-						}
-						if (
-							url.includes("/dynamic_like/v1/dynamic_like/thumb")
-						) {
-							try {
-								global_var.response.dynamic_thumb_response =
-									await response.json();
-							} catch (e) {
-								//console.log('动态点赞响应',global_var.response.dunamic_thumb_response);
-								global_var.response.dynamic_thumb_response =
-									undefined;
-								throw `${global_var.user_info.uname}\tglobal_dynamic_data, ${e}, ${global_var.user_info.uname}`;
-							}
-						}
-						if (url.includes("space/reservation")) {
-							try {
-								global_var.response.space_reservation =
-									await response.json();
-								console.log(
-									`${
-										global_var.user_info.uname
-									}\t空间预约响应：\n${JSON.stringify(
-										global_var.response.space_reservation
-									)}`
-								);
-							} catch (e) {
-								global_var.response.space_reservation =
-									undefined;
-								throw `${global_var.user_info.uname}\nreservation, ${e}`;
-							}
-						}
-						if (url.includes("msgfeed/unread")) {
-							try {
-								let resp_josn = await response.json();
-								if (!resp_josn.code) {
-									global_var.response.msgfeed_unread =
-										resp_josn;
-									// console.log(`${global_var.user_info.uname}\t我的消息响应：\n${JSON.stringify(global_var.response.msgfeed_unread)}`);
-								}
-							} catch (e) {
-								global_var.response.msgfeed_unread = undefined;
-								//throw (`${global_var.user_info.uname}\t我的消息响应获取失败msgfeed/unread, ${e}`);
-							}
-						}
-						if (url.includes("data.bilibili.com/log/web")) {
-							if (url.includes("risk")) {
-								MYAPI.fileWrite(
-									"log/log_report.txt",
-									url,
-									"a+"
-								);
-							}
-						}
-					} catch (e) {
-						console.warn(
-							`${
-								global_var.user_info.uname
-							}监听api响应失败\t${url}\n${e}\n${JSON.stringify(
-								response
-							)}`
-						);
-					}
-				});
-				global_var.page.on("request", async (interceptedRequest) => {
-					try {
-						if (
-							interceptedRequest.method().toLowerCase() == "post"
-						) {
-							if (
-								interceptedRequest
-									.url()
-									.includes(
-										"data.bilibili.com/log/web?013324"
-									)
-							) {
-								//如果是浏览器要发起检测到作弊的请求，就拦截下来，不让它发出去！
-								interceptedRequest.abort();
-								//console.log(`成功拦截科技识别请求：${interceptedRequest.url()}`);
-							} else {
-								interceptedRequest.continue();
-							}
-						} else {
-							interceptedRequest.continue();
-						}
-					} catch (e) {
-						console.warn(
-							`拦截请求：${interceptedRequest.url()}失败`,
-							e
-						);
-					}
-				});
-			};
-			if (this.global_page && !this.global_page.isClosed()) {
-				//如果浏览器没关
-				global_var.page = this.global_page;
-				return await check_login();
-			}
-			if (
-				!this.global_page ||
-				(await this.global_page.browser().pages()).length == 0
-			) {
-				//浏览器未打开状态
-				let cookieStr;
-				try {
-					cookieStr = await MYAPI.cookieSetting.getCookie(
-						lottery_setting.CONFIG.COOKIENAME
-					);
-				} catch {}
-				//let ext1 = 'C:/Users/Acer/AppData/Local/Google/Chrome/User Data/Default/Extensions/lanfdkkpgfjfdikkncbnojekcppdebfp/0.2.0_1';
-				// let useragent =
-				// 	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36";
-				let browser;
-				let __args = [];
-				if (lottery_setting.CONFIG.proxy) {
-					__args.push(
-						`--proxy-server=${lottery_setting.CONFIG.proxy}`
-					);
-				}
-				__args.push(
-					`--start-stack-profiler`,
-					//`--load-extension=${ext1}`,
-					"--disable-notifications=true",
-					// '--no-sandbox',
-					"-–ignore-certificate-errors",
-					"--disable-infobars",
-					"--disable-session-crashed-bubble",
-					// '--disable-web-security',
-					"--disable-gpu",
-					"--disable-dev-shm-usage",
-					"--no-first-run",
-					//'--mute-audio',
-					"--disable-extensions",
-					"--no-zygote",
-					"--disable-xss-auditor",
-					"--disable-popup-blocking",
-					// '--disable-setuid-sandbox',
-					//'--disable-accelerated-2d-canvas',
-					// '--single-process',
-					`--profile-directory=${lottery_setting.CONFIG.ProfileDir}`,
-					// "--disable-features=IsolateOrigins,site-per-process",
-					`--start-maximized`,
-					"--disable-infobars",
-					"--window-position=0,0",
-					"--ignore-certifcate-errors",
-					"--ignore-certifcate-errors-spki-list"
-				);
-				for (let retry = 0; retry <= 5; retry++) {
-					//五次重试启动浏览器的机会
-					try {
-						if (lottery_setting.CONFIG.UserDataDir) {
-							browser = await puppeteer.launch({
-								executablePath: `C:\\Users\\Acer\\AppData\\Local\\Google\\Chrome SxS\\Application\\chrome.exe`, //浏览器路径
-								headless: false, //false为显示浏览器界面
-								defaultViewport: {
-									//分辨率
-									width: 1920,
-									height: 1080,
-								},
-								args: __args,
-								userDataDir:
-									"UserData\\" +
-									lottery_setting.CONFIG.COOKIENAME,
-								ignoreDefaultArgs: [
-									"--enable-automation",
-									"--disable-extensions",
-									"--disable-client-side-phishing-detection",
-									"--disable-sync",
-								],
-								ignoreHTTPSErrors: true,
-							});
-							let page = await browser.newPage();
-							global_var.page = page;
-							this._setGlobalPage(global_var.page);
-							//await global_var.page.setUserAgent(useragent);//设置浏览器ua
-						} else {
-							browser = await puppeteer.launch({
-								executablePath:
-									"C:/Users/Acer/AppData/Local/Google/Chrome SxS/Application/chrome.exe", //浏览器路径
-								headless: false, //false为显示浏览器界面
-								defaultViewport: {
-									width: 1920,
-									height: 1080,
-								},
-								args: [
-									`--start-stack-profiler`,
-									//`--load-extension=${ext1}`,
-									"--disable-notifications=true",
-									// '--no-sandbox',
-									"-–ignore-certificate-errors",
-									"--disable-infobars",
-									"--disable-session-crashed-bubble",
-									// '--disable-web-security',
-									"--disable-gpu",
-									"--disable-dev-shm-usage",
-									"--no-first-run",
-									//'--mute-audio',
-									"--no-zygote",
-									// '--single-process',
-									`--profile-directory=${lottery_setting.CONFIG.ProfileDir}`,
-									// "--disable-features=IsolateOrigins,site-per-process",
-									`--start-maximized`,
-								],
-								ignoreDefaultArgs: [
-									"--enable-automation",
-									"--disable-extensions",
-									"--disable-client-side-phishing-detection",
-									"--disable-sync",
-								],
-								ignoreHTTPSErrors: true,
-							});
-							let page = await browser.newPage();
-							global_var.page = page;
-							this._setGlobalPage(global_var.page);
-							//await global_var.page.setUserAgent(useragent);
-							let ck = MYAPI.browserSetting.getCookies(
-								cookieStr,
-								".bilibili.com"
-							);
-							// for (let singleck of ck) {
-							// 	if (singleck.name != "") {
-							// 		await global_var.page.setCookie(singleck);
-							// 	}
-							// }
-						}
-						break;
-					} catch (e) {
-						console.error(
-							lottery_setting.CONFIG.COOKIENAME,
-							"浏览器启动失败"
-						);
-						console.error(e);
-						await sleep(10e3);
-						continue;
-					}
-				}
-			}
-			if (this.global_page.isClosed()) {
-				//浏览器未关闭，抽奖页面已关闭
-				let br = this.global_page.browser();
-				let new_pg = await br.newPage();
-				this._setGlobalPage(new_pg);
-				global_var.page = new_pg;
-				this.global_page = new_pg;
-			}
-			await global_page_listen();
-
-			return await check_login();
 		};
 
 		///////////////////////////////////////////////////////////////
@@ -1405,7 +933,7 @@ class DO_Lottery {
 			 * @param {*} opus_dynamic
 			 * @returns
 			 */
-			async function do_lottery(goto_url, opus_dynamic = false) {
+			let do_lottery = async (goto_url, opus_dynamic = false) =>{
 				try {
 					console.log(
 						`${
@@ -1786,6 +1314,9 @@ class DO_Lottery {
 										await follow_pg.goto(
 											`https://space.bilibili.com/${global_var.response.global_dynamic_data.item.modules.module_author.mid}`
 										);
+										await utl.check_page_is_front(
+											follow_pg
+										);
 										let follow_btn =
 											await follow_pg.waitForSelector(
 												".h-f-btn.h-follow"
@@ -1895,7 +1426,9 @@ class DO_Lottery {
 										console.error(
 											`${
 												global_var.user_info.uname
-											}\t关注失败，${JSON.stringify(e)}`
+											}\t关注失败，${JSON.stringify(
+												e
+											)}\n${e.stack}`
 										);
 										await sleep(3e3);
 										if (!follow_pg.isClosed()) {
@@ -1907,6 +1440,9 @@ class DO_Lottery {
 									try {
 										console.log(
 											`${global_var.user_info.uname}\t未关注\thttps://space.bilibili.com/${global_var.response.global_dynamic_data.item.modules.module_author.mid}\t${pageurl}`
+										);
+										await utl.check_page_is_front(
+											global_var.page
 										);
 										await global_var.page.hover(
 											"div.bili-dyn-item__main > div.bili-dyn-item__avatar > div > div"
@@ -2040,18 +1576,7 @@ class DO_Lottery {
 								pg.url().includes("t.bilibili.com/") ||
 								pg.url().includes("www.bilibili.com/opus")
 							) {
-								let isInForeground =
-									await global_var.page.evaluate(() => {
-										// 检查浏览器窗口是否在前端显示
-										return (
-											document.visibilityState ===
-											"visible"
-										);
-									});
-								if (!isInForeground) {
-									// 如果页面不在前端，则调用bringToFront方法
-									await global_var.page.bringToFront();
-								}
+								await utl.check_page_is_front(global_var.page);
 							}
 						}
 						await global_var.page.evaluate(() => {
@@ -2162,7 +1687,7 @@ class DO_Lottery {
 					console.warn(e);
 					global_var.Getter.check_login_status();
 					if (global_var.page.isClosed()) {
-						await account_init();
+						await this.account_init();
 						// return false;
 					}
 					await sleep(10e3);
@@ -2367,7 +1892,7 @@ class DO_Lottery {
 								);
 								if (global_var.page.isClosed()) {
 									//每次抽奖循环时检测页面是否关闭，如果关闭则重新打开浏览器页面！
-									await account_init(); //重新设置global_var.page
+									await this.account_init(); //重新设置global_var.page
 								}
 								lottery_setting.FLAG.do_lottery_flag = true;
 								global_var.response.global_dynamic_data =
@@ -2384,7 +1909,7 @@ class DO_Lottery {
 									undefined; //空间预约响应
 								global_var.recorded_data = "";
 								global_var.pageurl = all_dynamic_id_list[i];
-								await global_var.page.bringToFront();
+								await utl.check_page_is_front(global_var.page);
 								if (opus_dynamic) {
 									await global_var.page.goto(
 										`https://www.bilibili.com/opus/${MYAPI.BiliAPI.draw_dynamic_id(
@@ -2556,12 +2081,13 @@ class DO_Lottery {
 								console.error(
 									`lottery_loop执行单条任务失败，原因：${e}\n${global_var.user_info.uname}\t${all_dynamic_id_list[i]}\n${e}\n${e.stack}`
 								);
-								if (
-									!global_var.user_info.uname ||
-									global_var.page.isClosed()
-								) {
+								await sleep(10e3);
+								if (!global_var.user_info.uname) {
 									//没登录或者浏览器页面关了
 									break;
+								}
+								if (global_var.page.isClosed()) {
+									await this.account_init();
 								}
 							}
 						} catch (e) {
@@ -2635,10 +2161,10 @@ class DO_Lottery {
 						`\t${lottery_setting.CONFIG.COOKIENAME}\t${global_var.user_info.uname}\t${global_var.user_info.uname}抽奖完成`,
 						d.toLocaleString()
 					);
-					console.log(
-						`${global_var.user_info.uname}\t`,
-						lottery_record
-					);
+					// console.log(
+					// 	`${global_var.user_info.uname}\t`,
+					// 	lottery_record
+					// );
 					console.log(
 						`${global_var.user_info.uname}\t人工回复动态：${manual_op.length}条`
 					);
@@ -3075,14 +2601,14 @@ class DO_Lottery {
 			 *
 			 * @returns {Promise<boolean>} login_status
 			 */
-			async function Init() {
+			let Init = async  () =>{
 				//await sleep(3600e3)
 				let login_status = false;
 				try {
-					login_status = await account_init();
+					login_status = await this.account_init();
 				} catch (e) {
 					console.warn(
-						`ERROR:${e}\naccount_init\n${lottery_setting.CONFIG.COOKIENAME}`
+						`ERROR:${e}\n${e.stack}\naccount_init\n${lottery_setting.CONFIG.COOKIENAME}`
 					);
 				}
 
