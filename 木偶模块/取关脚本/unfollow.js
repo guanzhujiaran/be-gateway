@@ -4,6 +4,8 @@ const __dir_path = "./木偶模块/";
 const { BAPI } = require("../../lib/helper/BAPI.js");
 const { MYAPI } = require("../../lib/helper/MYAPI.js");
 const global_config = require("../../CONFIG.Default.js");
+const { pptr_op } = require("../util/common_utl.js");
+const { DO_Lottery } = require("../puppeteer_lottery.js");
 function sleep(ms) {
 	return new Promise((resolve) => setTimeout(() => resolve(sleep), ms));
 }
@@ -47,20 +49,19 @@ async function generate_unfollow_file(pg, uid) {
 	return all_unfollowing_list;
 }
 /**
- * 取关脚本
- * @param {Page} pg
+ * 
+ * @param {Page} pg 
+ * @param {number} uid 
+ * @param {DO_Lottery} do_lottery 
+ * @returns 
  */
-async function do_unfollow(pg, uid) {
+async function do_unfollow(pg, uid, do_lottery) {
 	try {
-		if (pg.isClosed()) {
-			if ((await pg.browser.pages()).length == 0) {
-				console.warn(`${uid} 浏览器关闭，取消执行取关！`);
-				return;
-			}
-			pg = await pg.browser().newPage();
-		}
+		let basic_url = "https://www.bilibili.com"
+		pg = await do_lottery.check_page_is_alive(pg,basic_url);
+		await pptr_op.check_page_is_front(pg);
 		if (!pg.url().includes("bilibili.com")) {
-			await pg.goto("https://www.bilibili.com");
+			await pg.goto(basic_url);
 		}
 		let nav_stat = await BAPI.web_interface_nav_stat(pg);
 
@@ -80,7 +81,9 @@ async function do_unfollow(pg, uid) {
 			return;
 		}
 		await generate_unfollow_file(pg, uid);
-		let bili_cookie = await pg.cookies("https://www.bilibili.com");
+		pg = await do_lottery.check_page_is_alive(pg,basic_url);
+		await pptr_op.check_page_is_front(pg);
+		let bili_cookie = await pg.cookies(basic_url);
 		let csrf = bili_cookie
 			.filter((el) => el.name == "bili_jct")
 			.shift().value;
@@ -100,9 +103,8 @@ async function do_unfollow(pg, uid) {
 		let all_times = unfollow_arr.length;
 		let now_time = 0;
 		for (let unfollow_raw of unfollow_arr) {
-			if (!pg.url().includes("bilibili.com")) {
-				await pg.goto("https://www.bilibili.com");
-			}
+			pg = await do_lottery.check_page_is_alive(pg,basic_url);
+			await pptr_op.check_page_is_front(pg);
 			let unfollow_arr_trim = unfollow_raw.trim();
 			if (unfollow_arr_trim) {
 				let unfollow_mid = unfollow_arr_trim
@@ -143,7 +145,7 @@ async function do_unfollow(pg, uid) {
 					console.error(
 						`${JSON.stringify(
 							unfollow_arr_trim
-						)}\n取关失败，原因：${JSON.stringify(
+						)}\n${uid} 取关失败，原因：${JSON.stringify(
 							resp_json,
 							"",
 							"\t"
@@ -165,7 +167,7 @@ async function do_unfollow(pg, uid) {
 		}
 		await pg.goto("about:blank");
 	} catch (e) {
-		console.error(`取关模块执行失败！${e}`);
+		console.error(`${uid} 取关模块执行失败！${e}\n${e.stack}`);
 	}
 }
 

@@ -61,7 +61,7 @@ async function main() {
 		// 'lottery_setting6',//G
 	];
 	let unfollow_mode = 0; //是否开启取关模式
-	let auto_mode = 0; //是否开启全自动抽奖模式
+	let auto_mode = 1; //是否开启全自动抽奖模式
 	let browser_mode = 0; //是否只打开浏览器，不进行抽奖
 
 	let gen_lot_file_mark = false; //抽奖文件获取完成
@@ -131,6 +131,7 @@ async function main() {
 		event_bus.emit("ALL_LIVE_LOT");
 	}
 
+	////////////////////////////////////////////////////各种事件注册在这一行上面
 	await sleep(10e3); //防止启动浏览器时和直播抽奖启动的浏览器冲突报错！
 
 	while (1) {
@@ -156,7 +157,7 @@ async function main() {
 		break;
 	}
 
-	if (auto_mode && !browser_mode) {
+	if (auto_mode && !browser_mode) {//判断是否结束，并开启下一轮
 		while (1) {
 			let all_end = true;
 			for (let lot of MYLOTLIST) {

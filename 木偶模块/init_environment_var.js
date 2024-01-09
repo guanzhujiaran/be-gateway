@@ -4,6 +4,7 @@ const fs = require("fs");
 const QueryWbiEnc = require("../lib/helper/encbiliWbiQuery");
 const { Page } = require("puppeteer-core");
 const { fun } = require("synonyms/dictionary");
+const GLOBAL_CONFIG = require("../CONFIG.Default");
 const __dirpath = "./木偶模块/";
 if (!fs.existsSync(__dirpath)) {
 	//创建文件目录
@@ -2715,18 +2716,22 @@ class ENVIRONMENT {
 				 */
 				non_lottery_up_judge: () => {
 					try {
-						let non_lottery_up_mids = [
-							"391464745",
-							"14064125",
-							"332793152",
-							"54790268",
-							"46880349",
-							//"294887687",
-							"3493120108923438",
-							"3537106980833281",
-							"3532811",
-							"1508263674",
-						];
+						let non_lottery_up_mids = GLOBAL_CONFIG.lot_module
+							.non_lottery_up_mids
+							? GLOBAL_CONFIG.lot_module.non_lottery_up_mids
+							: [
+									"571791768",
+									"391464745",
+									"14064125",
+									"332793152",
+									"54790268",
+									"46880349",
+									//"294887687",
+									"3493120108923438",
+									"3537106980833281",
+									"3532811",
+									"1508263674",
+							  ];
 						let up_mid =
 							global_var.response.global_dynamic_data.item.modules.module_author.mid.toString();
 						if (non_lottery_up_mids.includes(up_mid)) {
@@ -4663,7 +4668,7 @@ ${Dynamic_content}
 							);
 							return result;
 						} catch (e) {
-							if (try_time > 5) {
+							if (try_time > 3) {
 								return undefined;
 							}
 							try_time++;

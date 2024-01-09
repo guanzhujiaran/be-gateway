@@ -166,13 +166,6 @@ class chatgptOP {
 	}
 
 	async __get_answer() {
-		if (
-			await this.chatpage.$(
-				`.py-2.px-3.border.text-gray-600.rounded-md.text-sm`
-			)
-		) {
-			throw "获取回复出错";
-		}
 		let ret_answer = await this.chatpage.$$eval(
 			".markdown.prose.w-full",
 			(els) => els.at(-1).textContent
@@ -212,7 +205,7 @@ class chatgptOP {
 			await this.sleep(5e3);
 			return await get_answer();
 		} catch (e) {
-			console.error(`askquestion失败！${e.toString()}`);
+			console.error(`askquestion失败！${e.toString()}\n${e.stack}`);
 		} finally {
 			this.isAvailable = true;
 		}

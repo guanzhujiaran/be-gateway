@@ -9,9 +9,8 @@ const axios = require("axios");
 const unfollow_op = require("./取关脚本/unfollow");
 //导入包
 const __dirpath = "./木偶模块/";
-const {sleep} = require('./util/common_utl');
+const { sleep, pptr_op } = require("./util/common_utl");
 //设置项目路径和必要的文件夹
-
 
 let lottery_setting_file_reader = async function (filename) {
 	let path = `${__dirpath}lottery_setting/${filename}.txt`;
@@ -87,6 +86,49 @@ class DO_Lottery {
 		this.goldbox_lottery_flag = false;
 	}
 	/**
+	 * 检查是否页面还存活着，关了的话开一个新页面并返回
+	 * @param {Page} pg
+	 * @param {string} defaultUrl 默认应该在的网址
+	 * @returns {Promise<Page>}
+	 */
+	check_page_is_alive = async (
+		pg,
+		defaultUrl = "https://www.bilibili.com"
+	) => {
+		let ret_pg = pg;
+		if (!pg) {
+			await this.launch_lottery();
+			ret_pg = await this.global_page.browser().newPage();
+			if (defaultUrl) {
+				await ret_pg.goto(defaultUrl);
+			}
+			return ret_pg;
+		}
+		if (pg.isClosed()) {
+			if ((await pg.browser().pages()).length != 0) {
+				ret_pg = await pg.browser().newPage();
+				if (defaultUrl) {
+					await pptr_op.check_page_is_front(ret_pg);
+					await ret_pg.goto(defaultUrl);
+				}
+				return ret_pg;
+			} else {
+				await this.launch_lottery();
+				ret_pg = await this.global_page.browser().newPage();
+				if (defaultUrl) {
+					await pptr_op.check_page_is_front(ret_pg);
+					await ret_pg.goto(defaultUrl);
+				}
+				return ret_pg;
+			}
+		}
+		if (!ret_pg.url().includes(defaultUrl)) {
+			await pptr_op.check_page_is_front(ret_pg);
+			await ret_pg.goto(defaultUrl);
+		}
+		return ret_pg;
+	};
+	/**
 	 * 初始化环境！（主要是 lottery_setting）
 	 */
 	#init_environment = async () => {
@@ -132,7 +174,7 @@ class DO_Lottery {
 		eval(lottery_settingstr); //设置全局的抽奖参数
 
 		await this.account_init();
-		await unfollow_op(global_var.page, global_var.user_info.uid);
+		await unfollow_op(global_var.page, global_var.user_info.uid,this);
 	};
 	/**
 	 * 主函数
@@ -933,7 +975,7 @@ class DO_Lottery {
 			 * @param {*} opus_dynamic
 			 * @returns
 			 */
-			let do_lottery = async (goto_url, opus_dynamic = false) =>{
+			let do_lottery = async (goto_url, opus_dynamic = false) => {
 				try {
 					console.log(
 						`${
@@ -1696,7 +1738,7 @@ class DO_Lottery {
 					);
 					return true;
 				}
-			}
+			};
 			/**
 			 * 抽奖循环，返回参与成功的抽奖
 			 * @param {Array} all_dynamic_id_list
@@ -2583,7 +2625,8 @@ class DO_Lottery {
 					//查看是否需要取关！
 					await unfollow_op(
 						global_var.page,
-						global_var.user_info.uid
+						global_var.user_info.uid,
+						this
 					);
 				}
 				lottery_setting.FLAG.do_lottery_flag = false;
@@ -2601,7 +2644,7 @@ class DO_Lottery {
 			 *
 			 * @returns {Promise<boolean>} login_status
 			 */
-			let Init = async  () =>{
+			let Init = async () => {
 				//await sleep(3600e3)
 				let login_status = false;
 				try {
@@ -2661,7 +2704,7 @@ class DO_Lottery {
 				await lottery_init();
 				return login_status;
 				//await browser_Disconnected(global_var.browser);
-			}
+			};
 
 			this._setLotFlag(true);
 			this.login_status = await Init(); //初始化抽奖，同时开始抽奖
