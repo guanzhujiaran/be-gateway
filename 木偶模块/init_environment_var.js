@@ -4154,7 +4154,8 @@ class ENVIRONMENT {
 						}
 						console.log(
 							`https://t.bilibili.com/${dynamic_id_or_BVid} ${global_var.user_info.uname}获取到的所有评论，获取了 ${pn_list} 页数\n`,
-							all_replies_content
+							all_replies_content,
+							new Date()
 						);
 						if (!!ret_reply) {
 							break;
@@ -4242,7 +4243,7 @@ class ENVIRONMENT {
 									dynamic_id_or_BVid,
 									e
 								);
-								return { ret_list, reply_count };
+								return { ret_list, reply_count, pn_list };
 							}
 							comment_id_str =
 								dynamic_detail_res.data.item.basic
@@ -4350,11 +4351,11 @@ class ENVIRONMENT {
 						}
 					}
 					let replies = reply_main_res.data.replies;
-					if (replies.length < 7) {
+					if (replies.length < 5) {
 						console.warn(
 							`评论数量过少，不抄了 ${dynamic_id_or_BVid}`
 						);
-						return { ret_list, reply_count };
+						return { ret_list, reply_count, pn_list };
 					}
 					let replies_content = [...Array(replies.length)].map(
 						(x) => undefined
@@ -4709,7 +4710,7 @@ ${Dynamic_content}
 							);
 							return result;
 						} catch (e) {
-							if (try_time > 5) {
+							if (try_time > 3) {
 								return undefined;
 							}
 							try_time++;
@@ -4719,6 +4720,9 @@ ${Dynamic_content}
 								}\tAI同义改写失败！\n同义改写内容：${OriginMessage}\n重试次数：${try_time}\t${new Date().toLocaleTimeString()}`,
 								e
 							);
+							if (global_var.page.isClosed()) {
+								return undefined;
+							}
 							await sleep(10e3);
 							//return undefined
 						}

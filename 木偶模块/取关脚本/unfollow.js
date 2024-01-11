@@ -5,7 +5,6 @@ const { BAPI } = require("../../lib/helper/BAPI.js");
 const { MYAPI } = require("../../lib/helper/MYAPI.js");
 const global_config = require("../../CONFIG.Default.js");
 const { pptr_op } = require("../util/common_utl.js");
-const { DO_Lottery } = require("../puppeteer_lottery.js");
 function sleep(ms) {
 	return new Promise((resolve) => setTimeout(() => resolve(sleep), ms));
 }
@@ -52,13 +51,11 @@ async function generate_unfollow_file(pg, uid) {
  * 
  * @param {Page} pg 
  * @param {number} uid 
- * @param {DO_Lottery} do_lottery 
  * @returns 
  */
-async function do_unfollow(pg, uid, do_lottery) {
+async function do_unfollow(pg, uid) {
 	try {
 		let basic_url = "https://www.bilibili.com"
-		pg = await do_lottery.check_page_is_alive(pg,basic_url);
 		await pptr_op.check_page_is_front(pg);
 		if (!pg.url().includes("bilibili.com")) {
 			await pg.goto(basic_url);
@@ -81,7 +78,6 @@ async function do_unfollow(pg, uid, do_lottery) {
 			return;
 		}
 		await generate_unfollow_file(pg, uid);
-		pg = await do_lottery.check_page_is_alive(pg,basic_url);
 		await pptr_op.check_page_is_front(pg);
 		let bili_cookie = await pg.cookies(basic_url);
 		let csrf = bili_cookie
@@ -103,7 +99,6 @@ async function do_unfollow(pg, uid, do_lottery) {
 		let all_times = unfollow_arr.length;
 		let now_time = 0;
 		for (let unfollow_raw of unfollow_arr) {
-			pg = await do_lottery.check_page_is_alive(pg,basic_url);
 			await pptr_op.check_page_is_front(pg);
 			let unfollow_arr_trim = unfollow_raw.trim();
 			if (unfollow_arr_trim) {

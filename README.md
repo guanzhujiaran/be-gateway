@@ -1,15 +1,16 @@
-br<!--
-
-* @Author: 星瞳 1944637830@qq.com
-* @Date: 2023-11-02 01:07:29
-* @LastEditors: 星瞳 1944637830@qq.com
-* @LastEditTime: 2023-12-09 21:16:44
-* @FilePath: \tampermonkey\README.md
-* @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
-
+<!--
+ * @Author: 星瞳 1944637830@qq.com
+ * @Date: 2023-11-02 01:07:29
+ * @LastEditors: 星瞳 1944637830@qq.com
+ * @LastEditTime: 2024-01-10 14:18:56
+ * @FilePath: \tampermonkey\README.md
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 -->
 
 # puppeteer_Bili
+主要文件：
+[程序入口](./index.js) 执行的程序主函数\
+[chatgpt回复服务端](./ChatGPT/ChatGPTService.js) 基于express的服务端，利用pptr获取回复内容
 
 ## 一、木偶模块
 

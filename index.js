@@ -9,7 +9,7 @@ let fs = require("fs");
  * @param {Date} start_time
  */
 async function gen_lot_file(start_time) {
-	console.log(`开始新的一轮抽奖！${new Date().toLocaleString()}`);
+	try{console.log(`开始新的一轮抽奖！${new Date().toLocaleString()}`);
 	console.log(`正在获取抽奖动态中！----${new Date().toLocaleString()}`);
 	let latest_lot_dyn = fs
 		.readFileSync("./木偶模块/一般的抽奖动态id.txt")
@@ -34,6 +34,11 @@ async function gen_lot_file(start_time) {
 				lot_dyn_data.length
 			}条抽奖！\n抽奖，启动！--${start_time.toLocaleString()}`
 		);
+	}}
+	catch(e){
+		console.error(`获取抽奖动态失败！${e}\n${e.stack}`);
+		fs.writeFileSync("./木偶模块/一般的抽奖动态id.txt", "");
+		throw e;
 	}
 }
 /**
@@ -46,33 +51,32 @@ async function main() {
 	let lottery_setting_filename_list = [
 		//抽奖设置的名称
 		"lottery_setting1",
-		"lottery_setting3",
+		// "lottery_setting3",
 		"lottery_setting2",
 		"lottery_setting5",
-		"lottery_setting8",
-		"lottery_setting9",
-		"lottery_setting10",
-		"lottery_setting11",
-		"lottery_setting12",
-		"lottery_setting13",
-		"lottery_setting14",
+		// "lottery_setting8",
+		// "lottery_setting9",
+		// "lottery_setting10",
+		// "lottery_setting11",
+		// "lottery_setting12",
+		// "lottery_setting13",
+		// "lottery_setting14",
 		// 养成四级号再跑脚本
 		// 'lottery_setting7',//G
 		// 'lottery_setting6',//G
 	];
 	let unfollow_mode = 0; //是否开启取关模式
-	let auto_mode = 1; //是否开启全自动抽奖模式
+	let auto_mode = 0; //是否开启全自动抽奖模式
 	let browser_mode = 0; //是否只打开浏览器，不进行抽奖
-
+	let live_mode = 1;//是否开始直播抽奖模块
 	let gen_lot_file_mark = false; //抽奖文件获取完成
 	if (auto_mode && !browser_mode && !unfollow_mode) {
 		try {
 			gen_lot_file(start_time).then(() => {
 				gen_lot_file_mark = true;
-			});
+			})
 		} catch (e) {
 			console.error(e, "获取最新抽奖信息失败！");
-			return;
 		}
 	} else if (browser_mode) {
 		console.log(`浏览模式，不抽奖！`);
@@ -121,15 +125,17 @@ async function main() {
 			}
 		}
 	}
-
-	if (!event_bus.event_list.includes("ALL_LIVE_LOT")) {
-		let ALL_DO_Lottery = MYLOTLIST.map((el) => el.lot);
-		let ALL_LIVE_LOT = new LIVE_LOT_Service(ALL_DO_Lottery);
-		event_bus.on("ALL_LIVE_LOT", async () => {
-			await ALL_LIVE_LOT.main();
-		});
-		event_bus.emit("ALL_LIVE_LOT");
+	if(live_mode){
+		if (!event_bus.event_list.includes("ALL_LIVE_LOT")) {
+			let ALL_DO_Lottery = MYLOTLIST.map((el) => el.lot);
+			let ALL_LIVE_LOT = new LIVE_LOT_Service(ALL_DO_Lottery);
+			event_bus.on("ALL_LIVE_LOT", async () => {
+				await ALL_LIVE_LOT.main();
+			});
+			event_bus.emit("ALL_LIVE_LOT");
+		}
 	}
+	
 
 	////////////////////////////////////////////////////各种事件注册在这一行上面
 	await sleep(10e3); //防止启动浏览器时和直播抽奖启动的浏览器冲突报错！

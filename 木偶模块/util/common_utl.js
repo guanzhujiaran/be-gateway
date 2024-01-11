@@ -25,7 +25,7 @@ const pptr_op={
 			console.error(`将浏览器切换至前台失败！${e}\n${e.stack}`);
 		}
 		return is_front;
-	},
+	}
 }
 
 module.exports = {

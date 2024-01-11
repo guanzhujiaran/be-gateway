@@ -174,7 +174,11 @@ class DO_Lottery {
 		eval(lottery_settingstr); //设置全局的抽奖参数
 
 		await this.account_init();
-		await unfollow_op(global_var.page, global_var.user_info.uid,this);
+		global_var.page = await this.check_page_is_alive(
+			global_var.page,
+			global_var.page.url()
+		);
+		await unfollow_op(global_var.page, global_var.user_info.uid);
 	};
 	/**
 	 * 主函数
@@ -2555,8 +2559,7 @@ class DO_Lottery {
 
 				let tasklist = ["普通抽奖", "必抽的大奖加官方抽奖"];
 				global_var.Pause = false;
-				console.log(Date());
-				console.log("开始获取动态id");
+				console.log(`${Date()}开始获取动态id`);
 				lottery_setting.FLAG.do_lottery_flag = true; //设置开始抽奖的标志
 				global_var.page.on("close", function () {
 					//确认关闭后干的事情
@@ -2622,12 +2625,9 @@ class DO_Lottery {
 				}
 				///////////////////////////////////开始防过滤操作
 				if (global_var.user_info.uid) {
-					//查看是否需要取关！
 					await unfollow_op(
 						global_var.page,
-						global_var.user_info.uid,
-						this
-					);
+						global_var.user_info.uid);
 				}
 				lottery_setting.FLAG.do_lottery_flag = false;
 				// try {

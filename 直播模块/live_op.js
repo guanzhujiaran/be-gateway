@@ -2,7 +2,7 @@
  * @Author: 星瞳 1944637830@qq.com
  * @Date: 2023-11-07 22:44:13
  * @LastEditors: 星瞳 1944637830@qq.com
- * @LastEditTime: 2024-01-07 23:50:14
+ * @LastEditTime: 2024-01-11 14:25:14
  * @FilePath: \tampermonkey\直播模块\live_op.js
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -34,6 +34,7 @@ const live_op = {
 			round_item: ".round-item", // 金宝箱侧边栏
 			join_btn: ".bl-button.bl-button--primary", //参加金宝箱按钮
 		},
+		rightArrow_btn: ".pointer.arrow-box", //直播的功能展开箭头
 	},
 	/**
 	 * 初始化一个新的页面，专门进行直播操作，并注册一个拦截直播流的事件
@@ -1096,7 +1097,20 @@ class LIVE_LOT {
 					"天选抽奖"
 				);
 			}
+			if (!(await anchor_icon.isVisible())) {
+				let rightArrow_btn = await anchor_page.$(
+					live_op.element_map.rightArrow_btn
+				);
+				await rightArrow_btn.click();
+			}
 			await anchor_icon.click();
+			await anchor_page.waitForFrame(async (frame) => {
+				return frame
+					.url()
+					.includes(
+						"live.bilibili.com/p/html/live-lottery/anchor-join.html"
+					);
+			});
 			let anchor_join_btn = await anchor_page
 				.frames()
 				.find((el) =>
@@ -1701,9 +1715,13 @@ class LIVE_LOT_Service {
 	#get_data_from_server = async () => {
 		try {
 			let url = "http://127.0.0.1:23333/v1/get/live_lots/";
-			return await axios.get(url).then((resp) => {
+			let response = await axios.get(url).then((resp) => {
 				return resp.data;
 			});
+			console.debug(
+				`【直播抽奖】获取到服务器数据！${JSON.stringify(response)}`
+			);
+			return response;
 		} catch (e) {
 			this.API.chatLog(`获取服务器数据失败！${e}\n${e.stack}`, "error");
 			return [];
@@ -1809,7 +1827,7 @@ class LIVE_LOT_Service {
 						`直播抽奖出错！不继续进行直播抽奖！${e}\n${e.stack}`
 					);
 				}
-			}, 2333);
+			}, 1e3);
 		} catch (e) {
 			console.error(`出了严重错误，不继续执行直播抽奖！\n${e.stack}`, e);
 			throw e;
