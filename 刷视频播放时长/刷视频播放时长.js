@@ -4,6 +4,7 @@ puppeteer.use(StealthPlugin())
 const fs = require('fs');
 const { TIMEOUT } = require('dns');
 const { stringify } = require('querystring');
+const { pptr_op } = require('../木偶模块/util/common_utl');
 //导入包
 const __dirpath = './刷视频播放时长/';
 if (!fs.existsSync(__dirpath)) {

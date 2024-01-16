@@ -3,7 +3,6 @@ const axios = require("axios");
 const fs = require("fs");
 const QueryWbiEnc = require("../lib/helper/encbiliWbiQuery");
 const { Page } = require("puppeteer-core");
-const { fun } = require("synonyms/dictionary");
 const GLOBAL_CONFIG = require("../CONFIG.Default");
 const __dirpath = "./木偶模块/";
 if (!fs.existsSync(__dirpath)) {
@@ -219,11 +218,23 @@ class ENVIRONMENT {
 						);
 					}
 					origin_str = origin_str.replaceAll("＃", "#");
-					return origin_str
-						.replaceAll(/(\[(?<=\[)(.*?)(?=\])])/gim, "")
-						.replaceAll(/(\#(?<=#)(.*?)(?=#)#)/gim, "");
+					let topic_match = origin_str.match(
+						/(\#(?<=#)(.*?)(?=#)#)/gim
+					);
+					if (topic_match) {
+						for (let match_str of topic_match) {
+							let topic_content = match_str.replaceAll("#", "");
+							if (dynamic_content.includes(topic_content))
+								continue;
+							origin_str.replaceAll(match_str, "");
+						}
+					}
+					return origin_str.replaceAll(
+						/(\[(?<=\[)(.*?)(?=\])])/gim,
+						""
+					);
 				} else {
-					console.warn(
+					console.error(
 						`${global_var.user_info.uname}\t提取@和表情出错\t${origin_str}`
 					);
 					return origin_str;
@@ -616,27 +627,24 @@ class ENVIRONMENT {
 				/**
 				 * 获取opus动态的转发框里的内容
 				 * @param {*} msg_box_node
+				 * @returns {Promise<string>}
 				 */
 				get_opus_dynamic_repost_area_content: async (msg_box_node) => {
-					return (
-						await msg_box_node.$eval(
-							`.bili-rich-textarea__inner`,
-							async function pagefnc(el) {
-								let ret_msg = "";
-								for (let i of el.childNodes) {
-									if (i.data) {
-										ret_msg += i.data;
-									} else {
-										let emoji_data = JSON.parse(
-											i.dataset.data
-										);
-										ret_msg += emoji_data.text;
-									}
+					return await msg_box_node.$eval(
+						`.bili-rich-textarea__inner`,
+						async (el) => {
+							let ret_msg = "";
+							for (let i of el.childNodes) {
+								if (i.data) {
+									ret_msg += i.data;
+								} else {
+									let emoji_data = JSON.parse(i.dataset.data);
+									ret_msg += emoji_data.text;
 								}
-								return ret_msg;
 							}
-						)
-					).slice(1, -1);
+							return ret_msg;
+						}
+					);
 				},
 				/**
 				 * 点赞动态
@@ -667,7 +675,7 @@ class ENVIRONMENT {
 							opus_dynamic = false;
 						}
 
-						if (opus_dynamic) {
+						if (opus_dynamic || 1) {
 							await sleep(2e3);
 							await global_var.page.click(
 								`.side-toolbar__action.like`
@@ -689,32 +697,28 @@ class ENVIRONMENT {
 									);
 									break;
 								} else {
-									console.warn(
+									console.error(
 										`${global_var.user_info.uname}\t${global_var.pageurl}\t动态点赞失败`
 									);
 									await sleep(2e3);
-									await global_var.page.click(
-										`.side-toolbar__action.like`
-									);
-									await sleep(1e3);
-									break;
 								}
 							}
-						} else {
-							await sleep(2e3);
-							await global_var.page.click(
-								".bili-dyn-action.like"
-							);
-							await sleep(1e3);
-							console.log(
-								`${global_var.user_info.uname}\t${global_var.pageurl}\t动态点赞成功`
-							);
-							await sleep(
-								utl.random_choice(
-									lottery_setting.Working_clearance_time
-								)
-							);
 						}
+						// else {
+						// 	await sleep(2e3);
+						// 	await global_var.page.click(
+						// 		".bili-dyn-action.like"
+						// 	);
+						// 	await sleep(1e3);
+						// 	console.log(
+						// 		`${global_var.user_info.uname}\t${global_var.pageurl}\t动态点赞成功`
+						// 	);
+						// 	await sleep(
+						// 		utl.random_choice(
+						// 			lottery_setting.Working_clearance_time
+						// 		)
+						// 	);
+						// }
 					} catch (e) {
 						console.warn(
 							`${global_var.user_info.uname}\t${global_var.pageurl}\t动态点赞失败`,
@@ -761,7 +765,7 @@ class ENVIRONMENT {
 					}
 					//点击转发
 					global_var.Getter.check_login_status();
-					let pageurl = await global_var.page.url();
+					let pageurl = global_var.page.url();
 					if (pageurl.includes("opus")) {
 						opus_dynamic = true;
 					} else {
@@ -770,7 +774,7 @@ class ENVIRONMENT {
 
 					await sleep(3e3);
 					try {
-						if (opus_dynamic) {
+						if (opus_dynamic || 1) {
 							let repost_btn = await global_var.page.$(
 								`.side-toolbar__action.forward`
 							);
@@ -802,9 +806,21 @@ class ENVIRONMENT {
 										let _bt = 0;
 
 										while (
-											msg_box_content != repost_content
+											msg_box_content.includes(
+												repost_content
+											)
 										) {
 											//回复栏里的东西等于回复内容时break
+											if (
+												!(await global_var.page.$(
+													`.bili-rich-textarea`
+												))
+											) {
+												await repost_btn.click();
+											}
+											msg_box = await global_var.page.$(
+												`.bili-rich-textarea`
+											);
 											await msg_box.focus();
 											await sleep(
 												utl.random_choice(
@@ -821,10 +837,11 @@ class ENVIRONMENT {
 													msg_box
 												);
 											if (
-												msg_box_content !=
-												repost_content
+												!msg_box_content.includes(
+													repost_content
+												)
 											) {
-												//如果不等就删掉重新输入
+												//如果不等就删掉重新输入，如果是转发 被转发的动态,则只需要判断是否包含即可
 												await global_var.page.mouse.click(
 													10,
 													10
@@ -841,7 +858,7 @@ class ENVIRONMENT {
 												);
 											}
 											if (_bt >= 5) {
-												console.log(
+												console.error(
 													"转发框里输入内容失败"
 												);
 												await utl.my_throw(
@@ -873,83 +890,86 @@ class ENVIRONMENT {
 							);
 							await repost_launcher.click();
 							await sleep(6e3);
-						} else {
-							let repost_btn = await global_var.page.$(
-								".bili-dyn-forward-publishing__action__btn"
-							);
-							let repost_text_area = await global_var.page.$(
-								".bili-rich-textarea"
-							);
-							if (repost_btn && repost_text_area) {
-							} else {
-								//如果没有等待元素，则尝试前往转发页面
-								await global_var.page.click(
-									`.bili-dyn-action.forward`
-								);
-								await sleep(1e3);
-								repost_btn = await global_var.page.$(
-									".bili-dyn-forward-publishing__action__btn"
-								);
-								repost_text_area = await global_var.page.$(
-									".bili-rich-textarea"
-								);
-							}
-							if (repost_content) {
-								//旧版动态页（非opus） 面如果有评论需要转发，就直接在转发页面输入
-								await repost_text_area.type(repost_content, {
-									delay: 20,
-								});
-								let textContent =
-									await repost_text_area.evaluate(
-										(el) => el.textContent
-									);
-								if (textContent && textContent.length > 950) {
-									await repost_text_area.focus();
-									await global_var.page.keyboard.down(
-										"Control"
-									);
-									await global_var.page.keyboard.press("A");
-									await global_var.page.keyboard.up(
-										"Control"
-									);
-									await sleep(1e3);
-									await global_var.page.keyboard.press(
-										"Backspace"
-									);
-									await repost_text_area.type(
-										textContent.slice(0, 950)
-									);
-								}
-							}
-							await sleep(1e3);
-							await repost_btn.click();
-
-							// let bt = 0
-							// while (!global_var.response.create_dyn_response) {
-							//     if (bt > 5) { break }
-							//     await sleep(1e3)
-							//     bt += 1
-							// }
-							// try {
-							//     if (global_var.response.create_dyn_response.code != 0) {
-							//         console.log(`动态转发失败，create_dyn_response.code`, global_var.response.create_dyn_response)
-							//         global_var.fengkong_flag = true//可能触发风控，停一个小时
-							//         return await utl.my_throw(`动态转发失败，create_dyn_response.code`)
-							//     }
-							//     else {
-							//         console.log('动态转发成功');
-							//     }
-							// }
-							// catch (e) {
-							//     if (!e.includes(`Error: Node is either not clickable or not an HTMLElement`)) {
-							//         global_var.fengkong_flag = true
-							//     }//可能触发风控，停一个小时
-							//     await utl.my_throw(`动态转发失败，dynamic_repost，${e}`)
-							//     throw (`动态转发失败，dynamic_repost，${e}`)
-							// }
 						}
+						// else {
+						// 	let repost_btn = await global_var.page.$(
+						// 		".bili-dyn-forward-publishing__action__btn"
+						// 	);
+						// 	let repost_text_area = await global_var.page.$(
+						// 		".bili-rich-textarea"
+						// 	);
+						// 	if (repost_btn && repost_text_area) {
+						// 	} else {
+						// 		//如果没有等待元素，则尝试前往转发页面
+						// 		await global_var.page.click(
+						// 			`.bili-dyn-action.forward`
+						// 		);
+						// 		await sleep(1e3);
+						// 		repost_btn = await global_var.page.$(
+						// 			".bili-dyn-forward-publishing__action__btn"
+						// 		);
+						// 		repost_text_area = await global_var.page.$(
+						// 			".bili-rich-textarea"
+						// 		);
+						// 	}
+						// 	if (repost_content) {
+						// 		//旧版动态页（非opus） 面如果有评论需要转发，就直接在转发页面输入
+						// 		await repost_text_area.type(repost_content, {
+						// 			delay: 20,
+						// 		});
+						// 		let textContent =
+						// 			await repost_text_area.evaluate(
+						// 				(el) => el.textContent
+						// 			);
+						// 		if (textContent && textContent.length > 950) {
+						// 			await repost_text_area.focus();
+						// 			await global_var.page.keyboard.down(
+						// 				"Control"
+						// 			);
+						// 			await global_var.page.keyboard.press("A");
+						// 			await global_var.page.keyboard.up(
+						// 				"Control"
+						// 			);
+						// 			await sleep(1e3);
+						// 			await global_var.page.keyboard.press(
+						// 				"Backspace"
+						// 			);
+						// 			await repost_text_area.type(
+						// 				textContent.slice(0, 950)
+						// 			);
+						// 		}
+						// 	}
+						// 	await sleep(1e3);
+						// 	await repost_btn.click();
+
+						// 	// let bt = 0
+						// 	// while (!global_var.response.create_dyn_response) {
+						// 	//     if (bt > 5) { break }
+						// 	//     await sleep(1e3)
+						// 	//     bt += 1
+						// 	// }
+						// 	// try {
+						// 	//     if (global_var.response.create_dyn_response.code != 0) {
+						// 	//         console.log(`动态转发失败，create_dyn_response.code`, global_var.response.create_dyn_response)
+						// 	//         global_var.fengkong_flag = true//可能触发风控，停一个小时
+						// 	//         return await utl.my_throw(`动态转发失败，create_dyn_response.code`)
+						// 	//     }
+						// 	//     else {
+						// 	//         console.log('动态转发成功');
+						// 	//     }
+						// 	// }
+						// 	// catch (e) {
+						// 	//     if (!e.includes(`Error: Node is either not clickable or not an HTMLElement`)) {
+						// 	//         global_var.fengkong_flag = true
+						// 	//     }//可能触发风控，停一个小时
+						// 	//     await utl.my_throw(`动态转发失败，dynamic_repost，${e}`)
+						// 	//     throw (`动态转发失败，dynamic_repost，${e}`)
+						// 	// }
+						// }
 					} catch (e) {
-						console.error(`动态转发失败，dynamic_repost，${e}`);
+						console.error(
+							`动态转发失败，dynamic_repost，${e}\n${e.stack}`
+						);
 						await utl.my_throw(
 							`动态转发失败，dynamic_repost，${e}`
 						);
@@ -1041,7 +1061,7 @@ class ENVIRONMENT {
 						let bt = 0;
 
 						try {
-							if (opus_dynamic) {
+							if (opus_dynamic || 1) {
 								let msg_box;
 								await global_var.page.waitForSelector(
 									`.reply-box-textarea`,
@@ -1129,116 +1149,117 @@ class ENVIRONMENT {
 								await sleep(1e3);
 
 								await CheckRisk();
-							} else {
-								//老版动态评论
-								let msg_box;
-								let comment_box_jquery = `textarea[name=msg]`;
-								try {
-									await global_var.page.waitForSelector(
-										`.reply-box-textarea`,
-										{ timeout: 10e3 }
-									);
-									comment_box_jquery = `.reply-box-textarea`;
-								} catch {
-									comment_box_jquery = `textarea[name=msg]`;
-								}
-								msg_box = await global_var.page.$(
-									comment_box_jquery
-								);
-								await msg_box.focus();
-								let msg_box_content =
-									await global_var.page.$eval(
-										comment_box_jquery,
-										(el) => el.value
-									);
-								let _bt = 0;
-								while (msg_box_content != comment_msg) {
-									//回复栏里的东西等于回复内容时break
-									await msg_box.focus();
-									await sleep(
-										utl.random_choice(
-											3 *
-												lottery_setting.Working_clearance_time
-										)
-									);
-									await msg_box.type(comment_msg, {
-										delay: 20,
-									});
-									await sleep(1e3);
-									msg_box_content =
-										await global_var.page.$eval(
-											comment_box_jquery,
-											(el) => el.value
-										);
-									if (
-										utl.remove_invisible_char(
-											msg_box_content.replaceAll(
-												/[\uD800-\uDBFF][\uDC00-\uDFFF]/g,
-												""
-											)
-										) !=
-										utl.remove_invisible_char(
-											comment_msg.replaceAll(
-												/[\uD800-\uDBFF][\uDC00-\uDFFF]/g,
-												""
-											)
-										)
-									) {
-										//如果不等就删掉重新输入
-										await sleep(1e3);
-										await msg_box.focus();
-										await global_var.page.keyboard.down(
-											"Control"
-										);
-										await global_var.page.keyboard.press(
-											"A"
-										);
-										await global_var.page.keyboard.up(
-											"Control"
-										);
-										await sleep(1e3);
-										await global_var.page.keyboard.press(
-											"Backspace"
-										);
-										console.log(
-											"输入框里内容与评论不符，删除输入框里内容",
-											`\nmsg_box_content:${msg_box_content}\ncomment_msg:${comment_msg}`
-										);
-									} else {
-										//相等了就break出去
-										break;
-									}
-									if (_bt >= 5) {
-										console.log("输入框里输入内容失败");
-										await utl.my_throw("动态评论失败");
-										throw `动态评论失败`;
-									}
-									_bt += 1;
-								}
-								await sleep(1e3);
-								let comment_submit_jquert = `.comment-submit`;
-								try {
-									if (
-										await global_var.page.$(
-											`.reply-box-send`
-										)
-									) {
-										comment_submit_jquert = `.reply-box-send`;
-									} else {
-										comment_submit_jquert = `.comment-submit`;
-									}
-								} catch {
-									comment_submit_jquert = `.comment-submit`;
-								}
-								await global_var.page.click(
-									comment_submit_jquert
-								);
-								await MYAPI.PageFunc.waitForResponse(
-									global_var.page,
-									"reply/add"
-								);
-								await sleep(1e3);
 							}
+							// else {
+							// 	//老版动态评论
+							// 	let msg_box;
+							// 	let comment_box_jquery = `textarea[name=msg]`;
+							// 	try {
+							// 		await global_var.page.waitForSelector(
+							// 			`.reply-box-textarea`,
+							// 			{ timeout: 10e3 }
+							// 		);
+							// 		comment_box_jquery = `.reply-box-textarea`;
+							// 	} catch {
+							// 		comment_box_jquery = `textarea[name=msg]`;
+							// 	}
+							// 	msg_box = await global_var.page.$(
+							// 		comment_box_jquery
+							// 	);
+							// 	await msg_box.focus();
+							// 	let msg_box_content =
+							// 		await global_var.page.$eval(
+							// 			comment_box_jquery,
+							// 			(el) => el.value
+							// 		);
+							// 	let _bt = 0;
+							// 	while (msg_box_content != comment_msg) {
+							// 		//回复栏里的东西等于回复内容时break
+							// 		await msg_box.focus();
+							// 		await sleep(
+							// 			utl.random_choice(
+							// 				3 *
+							// 					lottery_setting.Working_clearance_time
+							// 			)
+							// 		);
+							// 		await msg_box.type(comment_msg, {
+							// 			delay: 20,
+							// 		});
+							// 		await sleep(1e3);
+							// 		msg_box_content =
+							// 			await global_var.page.$eval(
+							// 				comment_box_jquery,
+							// 				(el) => el.value
+							// 			);
+							// 		if (
+							// 			utl.remove_invisible_char(
+							// 				msg_box_content.replaceAll(
+							// 					/[\uD800-\uDBFF][\uDC00-\uDFFF]/g,
+							// 					""
+							// 				)
+							// 			) !=
+							// 			utl.remove_invisible_char(
+							// 				comment_msg.replaceAll(
+							// 					/[\uD800-\uDBFF][\uDC00-\uDFFF]/g,
+							// 					""
+							// 				)
+							// 			)
+							// 		) {
+							// 			//如果不等就删掉重新输入
+							// 			await sleep(1e3);
+							// 			await msg_box.focus();
+							// 			await global_var.page.keyboard.down(
+							// 				"Control"
+							// 			);
+							// 			await global_var.page.keyboard.press(
+							// 				"A"
+							// 			);
+							// 			await global_var.page.keyboard.up(
+							// 				"Control"
+							// 			);
+							// 			await sleep(1e3);
+							// 			await global_var.page.keyboard.press(
+							// 				"Backspace"
+							// 			);
+							// 			console.log(
+							// 				"输入框里内容与评论不符，删除输入框里内容",
+							// 				`\nmsg_box_content:${msg_box_content}\ncomment_msg:${comment_msg}`
+							// 			);
+							// 		} else {
+							// 			//相等了就break出去
+							// 			break;
+							// 		}
+							// 		if (_bt >= 5) {
+							// 			console.log("输入框里输入内容失败");
+							// 			await utl.my_throw("动态评论失败");
+							// 			throw `动态评论失败`;
+							// 		}
+							// 		_bt += 1;
+							// 	}
+							// 	await sleep(1e3);
+							// 	let comment_submit_jquert = `.comment-submit`;
+							// 	try {
+							// 		if (
+							// 			await global_var.page.$(
+							// 				`.reply-box-send`
+							// 			)
+							// 		) {
+							// 			comment_submit_jquert = `.reply-box-send`;
+							// 		} else {
+							// 			comment_submit_jquert = `.comment-submit`;
+							// 		}
+							// 	} catch {
+							// 		comment_submit_jquert = `.comment-submit`;
+							// 	}
+							// 	await global_var.page.click(
+							// 		comment_submit_jquert
+							// 	);
+							// 	await MYAPI.PageFunc.waitForResponse(
+							// 		global_var.page,
+							// 		"reply/add"
+							// 	);
+							// 	await sleep(1e3);
+							// }
 							break;
 						} catch (e) {
 							bt++;
@@ -1426,8 +1447,8 @@ class ENVIRONMENT {
 								console.log("评论点赞成功");
 							}
 						} catch (e) {
-							console.log(e);
-							console.warn(`评论点赞失败，comment_thumb`, e);
+							console.error(e);
+							console.error(`评论点赞失败，comment_thumb`, e);
 							await utl.my_throw(
 								`评论点赞失败，comment_thumb，${e}`
 							);
@@ -1768,8 +1789,8 @@ class ENVIRONMENT {
 						}
 						//再转发
 						await sleep(1e3);
-						await global_var.page.click(".bili-dyn-action.forward"); //前往转发子页面
-						await sleep(1e3);
+						// await global_var.page.click(".bili-dyn-action.forward"); //前往转发子页面
+						// await sleep(1e3);
 						await my_operator.basic_operator.dynamic_repost(
 							opus_dynamic
 						);
@@ -1844,7 +1865,7 @@ class ENVIRONMENT {
 						console.warn(
 							`评论获取失败\n${JSON.stringify(
 								global_var.response.global_dynamic_data
-							)}\t${pageurl}\t${global_var.user_info.uname}`
+							)}\n${pageurl}\n${global_var.user_info.uname}`
 						);
 						return await utl.my_throw(
 							`评论获取失败， only_comment，${e}`
@@ -2128,9 +2149,121 @@ class ENVIRONMENT {
 				 * @param {string} dynamic_content
 				 * @param {string} reply_msg
 				 * @param {string} author_name
-				 * @returns
+				 * @returns 返回空字符串表示无需带话题或@，返回undefined表示获取话题失败！
 				 */
 				pre_msg_processing: function (dynamic_content, reply_msg) {
+					function zhDigitToArabic(digit) {
+						const zh = [
+							"零",
+							"一",
+							"二",
+							"三",
+							"四",
+							"五",
+							"六",
+							"七",
+							"八",
+							"九",
+						];
+						const unit = ["千", "百", "十"];
+						const quot = [
+							"万",
+							"亿",
+							"兆",
+							"京",
+							"垓",
+							"秭",
+							"穰",
+							"沟",
+							"涧",
+							"正",
+							"载",
+							"极",
+							"恒河沙",
+							"阿僧祗",
+							"那由他",
+							"不可思议",
+							"无量",
+							"大数",
+						];
+						let result = 0,
+							quotFlag;
+
+						for (let i = digit.length - 1; i >= 0; i--) {
+							if (zh.indexOf(digit[i]) > -1) {
+								// 数字
+								if (quotFlag) {
+									result += quotFlag * getNumber(digit[i]);
+								} else {
+									result += getNumber(digit[i]);
+								}
+							} else if (unit.indexOf(digit[i]) > -1) {
+								// 十分位
+								if (quotFlag) {
+									result +=
+										quotFlag *
+										getUnit(digit[i]) *
+										getNumber(digit[i - 1]);
+								} else {
+									result +=
+										getUnit(digit[i]) *
+										getNumber(digit[i - 1]);
+								}
+								--i;
+							} else if (quot.indexOf(digit[i]) > -1) {
+								// 万分位
+								if (unit.indexOf(digit[i - 1]) > -1) {
+									if (getNumber(digit[i - 1])) {
+										result +=
+											getQuot(digit[i]) *
+											getNumber(digit[i - 1]);
+									} else {
+										result +=
+											getQuot(digit[i]) *
+											getUnit(digit[i - 1]) *
+											getNumber(digit[i - 2]);
+										quotFlag = getQuot(digit[i]);
+										--i;
+									}
+								} else {
+									result +=
+										getQuot(digit[i]) *
+										getNumber(digit[i - 1]);
+									quotFlag = getQuot(digit[i]);
+								}
+								--i;
+							}
+						}
+
+						return result;
+
+						// 返回中文大写数字对应的阿拉伯数字
+						function getNumber(num) {
+							for (let i = 0; i < zh.length; i++) {
+								if (zh[i] == num) {
+									return i;
+								}
+							}
+						}
+
+						// 取单位
+						function getUnit(num) {
+							for (let i = unit.length; i > 0; i--) {
+								if (num == unit[i - 1]) {
+									return Math.pow(10, 4 - i);
+								}
+							}
+						}
+
+						// 取分段
+						function getQuot(q) {
+							for (var i = 0; i < quot.length; i++) {
+								if (q == quot[i]) {
+									return Math.pow(10, (i + 1) * 4);
+								}
+							}
+						}
+					}
 					if (!reply_msg) {
 						reply_msg = "";
 					}
@@ -2142,6 +2275,14 @@ class ENVIRONMENT {
 						""
 					);
 					dynamic_content = dynamic_content.replaceAll(
+						/标记/gim,
+						"艾特"
+					);
+					dynamic_content = dynamic_content.replaceAll(
+						/朋友/gim,
+						"好友"
+					);
+					dynamic_content = dynamic_content.replaceAll(
 						"转发话题",
 						"带话题"
 					);
@@ -2151,80 +2292,67 @@ class ENVIRONMENT {
 						/(?<=#)(.{0,10})(?=#)/gim,
 						""
 					);
-					let topobj_6 = /.*@.{0,3}位.*|.*@.{0,3}名.*/gim.exec(
-						non_topic_content
+					let topobj_6 = non_topic_content.match(
+						/@.{0,3}位.*|.*@.{0,3}名.*/gim
 					);
-					let topobj_5 = /.*@.{0,3}1位.*|.*@.{0,3}1名.*/gim.exec(
-						non_topic_content
+					let topobj_5 = non_topic_content.match(
+						/@.{0,3}1位.*|.*@.{0,3}1名.*/
 					);
-					let topobj_4 = /.*@.{0,3}一位.*|.*@.{0,3}一名.*/gim.exec(
-						non_topic_content
+					let topobj_4 = non_topic_content.match(
+						/@.{0,3}一位.*|.*@.{0,3}一名.*/gim
 					);
-					let topobj_3 =
-						/.*@.{0,3}一位好友.*|.*@.{0,3}你的|.*@.{0,3}一名好友.*/gim.exec(
-							non_topic_content
-						);
-					let topobj_2 =
-						/.*艾特.{0,3}位好友.*|.*艾特.{0,3}名好友.*|艾特.{0,7}up/gim.exec(
-							non_topic_content
-						);
-					let topobj_1 = /.*@你想祝福的人.*/gim.exec(
-						non_topic_content
+					let topobj_3 = non_topic_content.match(
+						/@.{0,3}一位好友.*|.*@.{0,3}你的|.*@.{0,3}一名好友.*/gim
 					);
-					let topobj0 = /.*@{0,3}位胖友.*|.*@{0,3}名胖友.*/gim.exec(
-						non_topic_content
+					let topobj_2 = non_topic_content.match(
+						/艾特.{0,3}位好友.*|.*艾特.{0,3}名好友.*|艾特.{0,7}up/gim
 					);
-					let topobj1 =
-						/.*圈.{0,3}位你的伙伴.*|.*圈.{0,3}名你的伙伴.*/gim.exec(
-							non_topic_content
-						);
-					let topobj2 = /.*带tag#.{0,30}#.*/gim.exec(
-						non_topic_content
+					let topobj_1 =
+						non_topic_content.match(/@你想祝福的人.*/gim);
+					let topobj0 = non_topic_content.match(
+						/@{0,3}位胖友.*|.*@{0,3}名胖友.*/gim
 					);
-					let topobj3 =
-						/.*带话题.{0,40}#.{0,30}#((?!投稿).)*$/gim.exec(
-							non_topic_content
-						);
-					let topobj4 = /.*带上tag#.{0,30}#((?!投稿).)*$/gim.exec(
-						non_topic_content
+					let topobj1 = non_topic_content.match(
+						/圈.{0,3}位你的伙伴.*|.*圈.{0,3}名你的伙伴.*/gim
 					);
-					let topobj5 =
-						/.*带#.{0,30}#.{0,10}话题((?!投稿).)*$/gim.exec(
-							non_topic_content
-						);
-					let topobj6 = /.*艾特好友.*/gim.exec(non_topic_content);
-					let topobj7 = /.*@.{0,4}名好友.*|.*@.{0,4}位好友.*/gim.exec(
-						non_topic_content
+					let topobj2 =
+						non_topic_content.match(/带tag#.{0,30}#.*/gim);
+					let topobj3 = non_topic_content.match(
+						/带话题.{0,40}#.{0,30}#((?!投稿).)*$/gim
 					);
-					let topobj8 = /.*@你的.{0,3}个小伙伴.*/gim.exec(
-						non_topic_content
+					let topobj4 = non_topic_content.match(
+						/带上tag#.{0,30}#((?!投稿).)*$/gim
 					);
-					let topobj9 = /.*@两位好友.*|.*@两名好友.*/gim.exec(
-						non_topic_content
+					let topobj5 = non_topic_content.match(
+						/带#.{0,30}#.{0,10}话题((?!投稿).)*$/gim
 					);
-					let topobj10 = /.*带#.{0,30}#((?!投稿).)*$/gim.exec(
-						non_topic_content
+					let topobj6 = non_topic_content.match(/艾特好友.*/gim);
+					let topobj7 = non_topic_content.match(
+						/@.{0,4}名好友.*|.*@.{0,4}位好友.*/gim
 					);
-					let topobj11 = /.*@.{0,5}你的.{0,3}个好友.*/gim.exec(
-						non_topic_content
+					let topobj8 =
+						non_topic_content.match(/@你的.{0,3}个小伙伴.*/gim);
+					let topobj9 =
+						non_topic_content.match(/@两位好友.*|.*@两名好友.*/gim);
+					let topobj10 = non_topic_content.match(
+						/带#.{0,30}#((?!投稿).)*$/gim
 					);
-					let topobj12 =
-						/.*带[^来】看懂]{0,5}#.{0,30}#((?!投稿).)*$/gim.exec(
-							non_topic_content
-						);
-					let topobj13 = /.*加话题#.{0,30}#((?!投稿).)*$/gim.exec(
-						non_topic_content
+					let topobj11 =
+						non_topic_content.match(/@.{0,5}你的.{0,3}个好友.*/gim);
+					let topobj12 = non_topic_content.match(
+						/带[^来】看懂]{0,5}#.{0,30}#((?!投稿).)*$/gim
 					);
-					let topobj14 = /.*带标签#.{0,30}#((?!投稿).)*$/gim.exec(
-						non_topic_content
+					let topobj13 = non_topic_content.match(
+						/加话题#.{0,30}#((?!投稿).)*$/gim
 					);
-					let topobj15 = /.*@三位好友.*|.*@三名好友.*/gim.exec(
-						non_topic_content
+					let topobj14 = non_topic_content.match(
+						/带标签#.{0,30}#((?!投稿).)*$/gim
 					);
-					let topobj_16 =
-						/带(.{0,3}#.{0,20}) 话题.(?!投稿).*?/gim.exec(
-							non_topic_content
-						);
+					let topobj15 =
+						non_topic_content.match(/@三位好友.*|.*@三名好友.*/gim);
+					let topobj_16 = non_topic_content.match(
+						/带(.{0,3}#.{0,20}) 话题.(?!投稿).*?/gim
+					);
 					if (
 						topobj_6 != null ||
 						topobj6 != null ||
@@ -2245,17 +2373,60 @@ class ENVIRONMENT {
 								global_var.response.global_dynamic_data.item
 									.modules.module_author.name;
 						} catch {}
+						let at_times = 1;
+						let findContent = [
+							topobj_6,
+							topobj6,
+							topobj_5,
+							topobj_4,
+							topobj_3,
+							topobj_2,
+							topobj_1,
+							topobj0,
+							topobj1,
+							topobj7,
+							topobj8,
+							topobj11,
+						].join("");
+						let num = parseInt(
+							findContent.match(/\d+/gim).join("") ||
+								zhDigitToArabic(findContent)
+						);
+						if (num > 0 && num < 5) {
+							at_times = num;
+						}
+						let choose_Up_list = [];
 						premsg =
-							"@" + UPname
+							"@" +
+							(UPname
 								? UPname
-								: utl.random_choice(lottery_setting.at_member) +
-								  " ";
+								: utl.random_choice(
+										lottery_setting.at_member
+								  )) +
+							" ";
+						for (let i = 0; i < num - 1; i++) {
+							at_up = "";
+							while (!choose_Up_list.includes(at_up)) {
+								at_up = utl.random_choice(
+									lottery_setting.at_member
+								);
+								if (!choose_Up_list.includes(at_up)) {
+									choose_Up_list.push(at_up);
+								}
+								if (
+									choose_Up_list.length ==
+									lottery_setting.at_member.length
+								)
+									break;
+							}
+							premsg += "@" + at_up + " ";
+						}
 					} else if (topobj9 != null) {
 						premsg = `@${utl.random_choice(
 							lottery_setting.at_member
 						)} @${utl.random_choice(lottery_setting.at_member)} `;
 					} else if (topobj2 != null) {
-						msg = /.*带tag#(.{0,20})#.*/gim
+						msg = /带tag#(.{0,20})#.*/gim
 							.exec(dynamic_content)
 							.slice(1);
 						for (let _ = 0; _ < msg.length; _++) {
@@ -2264,7 +2435,7 @@ class ENVIRONMENT {
 							}
 						}
 					} else if (topobj3 != null) {
-						msg = /.*带话题.*?#(.{0,30})#.*/gim
+						msg = /带话题.*?#(.{0,30})#.*/gim
 							.exec(dynamic_content)
 							.slice(1);
 						for (let _ = 0; _ < msg.length; _++) {
@@ -2273,7 +2444,7 @@ class ENVIRONMENT {
 							}
 						}
 					} else if (topobj4 != null) {
-						msg = /.*带上tag#(.{0,30})#.*/gim
+						msg = /带上tag#(.{0,30})#.*/gim
 							.exec(dynamic_content)
 							.slice(1);
 						for (let _ = 0; _ < msg.length; _++) {
@@ -2282,7 +2453,7 @@ class ENVIRONMENT {
 							}
 						}
 					} else if (topobj5 != null) {
-						msg = /.*带#(.{0,30})#.{0,10}话题.*/gim
+						msg = /带#(.{0,30})#.{0,10}话题.*/gim
 							.exec(dynamic_content)
 							.slice(1);
 						for (let _ = 0; _ < msg.length; _++) {
@@ -2291,7 +2462,7 @@ class ENVIRONMENT {
 							}
 						}
 					} else if (topobj10 != null) {
-						msg = /.*带#(.{0,30})#.*/gim
+						msg = /带#(.{0,30})#.*/gim
 							.exec(dynamic_content)
 							.slice(1);
 						for (let _ = 0; _ < msg.length; _++) {
@@ -2300,7 +2471,7 @@ class ENVIRONMENT {
 							}
 						}
 					} else if (topobj12 != null) {
-						msg = /.*带.{0,5}#(.{0,30})#.*/gim
+						msg = /带.{0,5}#(.{0,30})#.*/gim
 							.exec(dynamic_content)
 							.slice(1);
 						for (let _ = 0; _ < msg.length; _++) {
@@ -2309,7 +2480,7 @@ class ENVIRONMENT {
 							}
 						}
 					} else if (topobj13 != null) {
-						msg = /.*加话题#(.{0,30})#.*/gim
+						msg = /加话题#(.{0,30})#.*/gim
 							.exec(dynamic_content)
 							.slice(1);
 						for (let _ = 0; _ < msg.length; _++) {
@@ -2318,7 +2489,7 @@ class ENVIRONMENT {
 							}
 						}
 					} else if (topobj14 != null) {
-						msg = /.*带标签#(.{0,30})#.*/gim
+						msg = /带标签#(.{0,30})#.*/gim
 							.exec(dynamic_content)
 							.slice(1);
 						for (let _ = 0; _ < msg.length; _++) {
@@ -2359,10 +2530,8 @@ class ENVIRONMENT {
 						premsg = tpremsg;
 					}
 					if (
-						/.*带话题#.*#((?!投稿).)*$/gim.test(
-							non_topic_content
-						) ||
-						/.*带((?!】|来|看懂)).{0,5}#/.test(non_topic_content) ||
+						/带话题#.*#((?!投稿).)*$/gim.test(non_topic_content) ||
+						/带((?!】|来|看懂)).{0,5}#/.test(non_topic_content) ||
 						topobj2 ||
 						topobj3 ||
 						topobj4 ||
@@ -2375,7 +2544,7 @@ class ENVIRONMENT {
 						if (
 							!(premsg.includes("#") || reply_msg.includes("#"))
 						) {
-							utl.my_throw("话题获取失败");
+							// utl.my_throw("话题获取失败");
 							return undefined;
 						}
 					}
@@ -2636,7 +2805,7 @@ class ENVIRONMENT {
 							dynamic_content
 						);
 					let manual_re75 =
-						/.*本周话题|.*互动话题|.*互动留言|.*互动时间|.*征集.{0,10}名字|.*征集.{0,15}外号|.*投票.{0,5}选.{0,10}最.{0,5}的|.*一人说一个谐音梗|帮.{0,5}想想.{0,5}怎么|评论.{0,5}想给.{0,7}的|取.{0,7}名字/gim.test(
+						/.*本周话题|.*互动话题|.*互动留言|.*互动时间|.*征集.{0,10}名字|.*征集.{0,15}外号|.*投票.{0,5}选.{0,10}最.{0,5}的|.*投票.{0,10}评论|.*一人说一个谐音梗|帮.{0,5}想想.{0,5}怎么|评论.{0,5}想给.{0,7}的|取.{0,7}名字/gim.test(
 							dynamic_content
 						);
 
@@ -2928,6 +3097,12 @@ class ENVIRONMENT {
 						await utl.my_throw("需要人工回复的动态");
 						return undefined;
 					}
+					let pre_msg = "";
+					pre_msg =
+						my_operator.dynamic_comment_operator.pre_msg_processing(
+							dynamic_content,
+							comment_msg
+						);
 					if (
 						my_operator.dynamic_comment_operator.manual_reply_judge(
 							dynamic_content
@@ -2942,6 +3117,9 @@ class ENVIRONMENT {
 							); //再判断是否包含关键词回复
 						if (!key_reply) {
 							//如果没有关键词，那就判断是否抄评论或者直接交给人工回复
+							/** next的值为 0: 抄评论 1:AI回复 2:人工回复
+							 * @type {{prev:number,next:number}}
+							 */
 							let e = { prev: 0, next: 0 };
 							let copy_msg_flag =
 								global_var.response.reply_main?.code == 12061
@@ -2951,7 +3129,6 @@ class ENVIRONMENT {
 									  ) ||
 									  global_var.response.global_dynamic_data
 											.item.basic.comment_type == 1;
-
 							if (!copy_msg_flag) {
 								//如果不能抄评论，先设置为人工回复
 								e.next = 2;
@@ -2972,6 +3149,18 @@ class ENVIRONMENT {
 								e.next = 1;
 							} else {
 								e.next = 2;
+							}
+							if (pre_msg == undefined) {
+								//话题获取失败了，直接开抄！
+								if (
+									lottery_setting.copy_reply_module
+										.comment_copy_chance ||
+									lottery_setting.copy_reply_module
+										.AI_reply_chance
+								) {
+									e.next = 0;
+									pre_msg = "";
+								}
 							}
 							//0: 抄评论 1:AI回复 2:人工回复
 							let get_comment_times = 0;
@@ -3181,12 +3370,11 @@ class ENVIRONMENT {
 							// }
 						} else {
 							console.log(
-								`${await global_var.page.url()}\n触发关键词回复:${dynamic_content}`
+								`${global_var.page.url()}\n触发关键词回复:${dynamic_content}`
 							);
 							comment_msg = key_reply;
 						}
 					}
-					let pre_msg = "";
 
 					if (
 						typeof comment_msg == "string" &&
@@ -3194,12 +3382,6 @@ class ENVIRONMENT {
 					) {
 						comment_msg = undefined;
 					}
-
-					pre_msg =
-						my_operator.dynamic_comment_operator.pre_msg_processing(
-							dynamic_content,
-							comment_msg
-						);
 					let official_type =
 						global_var.response.global_dynamic_data.item.modules
 							.module_author.official_verify.type;
@@ -4173,11 +4355,12 @@ class ENVIRONMENT {
 					return ret_reply;
 				},
 				/**
-				 *
+				 * 获取评论并移除表情包和话题和@，除非是动态里有的话题和@
 				 * @param {string} dynamic_id_or_BVid
 				 * @param {number} mode 1是热评，2是最新 ，3是混合
 				 * @param {number} pn_percent 评论大致的百分比页数，入参是小数
 				 * @param {bool} get_api_reply_resp_flag true是获取api响应，false则使用global_var里面的评论响应
+				 * @param {string} dynamic_content 动态内容
 				 * @param {number[]} pn_list 获取过的评论页数
 				 * @returns { Promise<{ret_list:[String], reply_count:number ,pn:number}>} { ret_list, reply_count }
 				 */
@@ -4243,7 +4426,7 @@ class ENVIRONMENT {
 									dynamic_id_or_BVid,
 									e
 								);
-								return { ret_list, reply_count, pn_list };
+								return { ret_list, reply_count, p };
 							}
 							comment_id_str =
 								dynamic_detail_res.data.item.basic

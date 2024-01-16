@@ -2,7 +2,7 @@
  * @Author: 星瞳 1944637830@qq.com
  * @Date: 2023-12-09 21:55:06
  * @LastEditors: 星瞳 1944637830@qq.com
- * @LastEditTime: 2024-01-01 13:15:00
+ * @LastEditTime: 2024-01-16 22:40:07
  * @FilePath: \tampermonkey\直播模块\live_dm_server.js
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -10,7 +10,9 @@
  * 直播间刷弹幕抽奖用
  * 写一个wss消息，消息一旦中断就停止刷弹幕这种，消息每10ms传递一次？
  */
-const { DO_Lottery, sleep } = require("../木偶模块/puppeteer_lottery");
+const { DO_Lottery } = require("../木偶模块/puppeteer_lottery");
+
+const { sleep, pptr_op } = require("../木偶模块/util/common_utl");
 
 const { ExtensionClass } = require("../功能扩展基类/ExtensionBase");
 
@@ -19,6 +21,7 @@ const { live_op } = require("./live_op");
 const GLOBAL_CONFIG = require("../CONFIG.Default");
 
 const WebSocket = require("ws");
+const { BAPI } = require("../lib/helper/BAPI");
 
 class live_dm_wss_service {
 	/**
@@ -38,7 +41,7 @@ class live_dm_wss_service {
 	 * dm_msg:'',
 	 * cheat_mode:false,
 	 * stop_flag:false,
-	 * send_ts: (number) xx秒
+	 * send_ts: (number) 请求发送弹幕的时间戳 xx秒
 	 * }
 	 */
 	main = () => {
@@ -80,7 +83,8 @@ class live_dm_wss_service {
 						sending_flag = el.sending_flag;
 					});
 
-					if (!sending_flag) {//如果没有在发送弹幕，则启动！
+					if (!sending_flag) {
+						//如果没有在发送弹幕，则启动！
 						this.live_dm_sender_obj[msg.room_id].map((el) =>
 							el.wss_send_dm(
 								msg.room_id,
@@ -89,7 +93,7 @@ class live_dm_wss_service {
 							)
 						);
 					}
-					ws.send(`服务器端收到，执行发弹幕命令！`, (err) => {
+					ws.send(`服务器端收到wss，执行发弹幕命令！`, (err) => {
 						if (err) {
 							console.log(`[SERVER] error:${err}`);
 						}
@@ -111,15 +115,22 @@ class live_dm_sender extends ExtensionClass {
 		this.sending_flag = false; //是否正在发送弹幕
 		this.stop_flag = false; //停止标志，每次发弹幕前检查一遍是否为true
 		this.send_ts = 0;
+		this.csrf = "";
+		this.uid = 0;
 	}
 
 	/**
-	 *
+	 * 根据wss消息发送弹幕
 	 * @param {number} room_id
 	 * @param {string} dm_msg
 	 * @param {boolean} cheat_mode
 	 */
-	wss_send_dm = async (room_id, dm_msg, cheat_mode = false) => {
+	wss_send_dm = async (
+		room_id,
+		dm_msg,
+		cheat_mode = false,
+		op_mode = "API"
+	) => {
 		try {
 			if (this.sending_flag || this.stop_flag) {
 				return;
@@ -179,19 +190,35 @@ class live_dm_sender extends ExtensionClass {
 					}
 				});
 			}
-			if (this.basic_pg.url().includes(room_id)) {
+			if (!this.uid) {
+				this.uid = await pptr_op.get_uid(this.basic_pg);
+			}
+			let visit_id = live_op.basic_op.get_visit_id(this.uid);
+			if (this.basic_pg.url().includes(`live.bilibili`)) {
 				await this.basic_pg.goto(
-					`https://live.bilibili.com/${room_id}`
+					//`https://live.bilibili.com/${room_id}`
+					`https://live.bilibili.com/all?visit_id=${visit_id}`
 				);
 			}
-			await this.basic_pg.bringToFront();
+			await pptr_op.check_page_is_front(this.basic_pg);
 			while (!this.stop_flag) {
+				await pptr_op.check_page_is_front(this.basic_pg);
 				if (!cheat_mode) {
-					await live_op.polymer_op.live_send_dm_single(
-						this.basic_pg,
-						dm_msg,
-						cheat_mode
-					);
+					if (op_mode != "API") {
+						await live_op.polymer_op.live_send_dm_single(
+							this.basic_pg,
+							dm_msg,
+							cheat_mode
+						);
+					} else {
+						await BAPI.live_send_msg(
+							this.basic_pg,
+							dm,
+							room_id,
+							this.csrf,
+							visit_id
+						);
+					}
 				} else {
 					let space_num = 30 - dm_msg.length;
 					let dm_list = [];
@@ -210,11 +237,26 @@ class live_dm_sender extends ExtensionClass {
 							this.stop_flag = true;
 							break;
 						}
-						await live_op.polymer_op.live_send_dm_single(
-							this.basic_pg,
-							dm,
-							cheat_mode
-						);
+						if (op_mode != "API") {
+							await live_op.polymer_op.live_send_dm_single(
+								this.basic_pg,
+								dm,
+								cheat_mode
+							);
+						} else {
+							if (!this.csrf) {
+								this.csrf = await pptr_op.get_bili_cjt(
+									this.basic_pg
+								);
+							}
+							await BAPI.live_send_msg(
+								this.basic_pg,
+								dm,
+								room_id,
+								this.csrf,
+								visit_id
+							);
+						}
 					}
 				}
 			}

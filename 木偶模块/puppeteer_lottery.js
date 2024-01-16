@@ -193,10 +193,10 @@ class DO_Lottery {
 		);
 	};
 	/**
-	 *
+	 * @param {boolean} check_login_flag - 是否检查登录状态，也就是是否前往b站首页
 	 * @returns {Promise<boolean>} true 代表账号信息获取成功
 	 */
-	account_init = async () => {
+	account_init = async (check_login_flag = true) => {
 		var global_var = this.global_var;
 		var lottery_setting = this.lottery_setting;
 		/**
@@ -204,37 +204,26 @@ class DO_Lottery {
 		 * @returns {Promise<boolean | undefined>}
 		 */
 		let check_login = async () => {
-			for (let i = 0; i < 5; i++) {
-				try {
-					await global_var.page.goto("https://www.bilibili.com", {
-						waitUntil: "domcontentloaded",
-					});
-					break;
-				} catch {
-					await sleep(3e3);
-				}
+			if (!check_login_flag) {
+				return true;
 			}
-
-			for (let i = 0; i < 5; i++) {
-				if (global_var.user_info.uname) {
-					console.log(
-						lottery_setting.CONFIG.COOKIENAME,
-						global_var.user_info.uname,
-						"账号初始化完成"
-					);
-					return true;
-				}
-				await sleep(1e3);
+			try {
+				await global_var.page.goto("https://message.bilibili.com/?spm_id_from=333.1007.0.0#/love", {
+					waitUntil: "domcontentloaded",
+				});
+			} catch {
+				await sleep(3e3);
 			}
 
 			if (global_var.user_info.uname) {
 				console.log(
-					global_var.user_info.uid,
+					lottery_setting.CONFIG.COOKIENAME,
 					global_var.user_info.uname,
-					"登陆成功！"
+					"账号初始化完成"
 				);
+				return true;
 			} else {
-				throw `${lottery_setting.CONFIG.COOKIENAME}登陆信息获取失败`;
+				return false;
 			}
 		};
 		/**
@@ -645,6 +634,7 @@ class DO_Lottery {
 						// 	}
 						// }
 					}
+					await global_var.page.goto("about:blank");
 					break;
 				} catch (e) {
 					console.error(
@@ -1162,17 +1152,15 @@ class DO_Lottery {
 					}
 					let thumb_status;
 					try {
-						if (pageurl.includes(`www.bilibili.com/opus/`)) {
-							thumb_status = await global_var.page.$(
+						thumb_status =
+							(await global_var.page.$(
 								".side-toolbar__action.like.is-active"
-							);
-						} else {
-							thumb_status = await global_var.page.$(
+							)) ||
+							(await global_var.page.$(
 								".bili-dyn-action.like.active"
-							);
-						}
+							));
 					} catch (e) {
-						console.warn(
+						console.error(
 							`获取点赞状态失败，\t${pageurl}\t${global_var.user_info.uname}`,
 							e
 						);
@@ -1663,10 +1651,8 @@ class DO_Lottery {
 						console.log(
 							`${goto_url}\t${global_var.user_info.uname}\t动态内容： \n`,
 							dynamic_content,
-							"\n========================"
-						);
-						console.log(
-							`${global_var.user_info.uname}\t\t回复内容： `,
+							"\n========================",
+							`${global_var.user_info.uname}\t${goto_url}\t回复内容： `,
 							comment_msg,
 							`\n#############################`
 						);
@@ -2625,9 +2611,13 @@ class DO_Lottery {
 				}
 				///////////////////////////////////开始防过滤操作
 				if (global_var.user_info.uid) {
+					global_var.page = await pptr_op.check_page_is_front(
+						global_var.page
+					);
 					await unfollow_op(
 						global_var.page,
-						global_var.user_info.uid);
+						global_var.user_info.uid
+					);
 				}
 				lottery_setting.FLAG.do_lottery_flag = false;
 				// try {
@@ -2692,7 +2682,7 @@ class DO_Lottery {
 				} finally {
 					try {
 						await global_var.page.goto(
-							"https://message.bilibili.com/#/love"
+							"about:blank"
 						);
 					} catch {}
 				}

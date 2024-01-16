@@ -25,7 +25,20 @@ const pptr_op={
 			console.error(`将浏览器切换至前台失败！${e}\n${e.stack}`);
 		}
 		return is_front;
-	}
+	},
+	/**
+	 * 获取浏览器的b站中存储的csrf值
+	 * @param {Page} pg 
+	 * @returns {Promise<string>} - bili_cjt 也就是csrf_token和csrf
+	 */
+	get_bili_cjt:async(pg)=>{
+		let cks=  await pg.cookies('https://www.bilibili.com');
+		return cks.find(el=>el.name=='bili_jct').value
+	},
+	get_uid:async(pg)=>{
+		let cks=  await pg.cookies('https://www.bilibili.com');
+		return cks.find(el=>el.name=='DedeUserID').value
+	},
 }
 
 module.exports = {

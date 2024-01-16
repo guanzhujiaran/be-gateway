@@ -1,3 +1,40 @@
+/*
+ * @Author: 星瞳 1944637830@qq.com
+ * @Date: 2023-11-12 23:55:03
+ * @LastEditors: 星瞳 1944637830@qq.com
+ * @LastEditTime: 2024-01-16 18:31:12
+ * @FilePath: \tampermonkey\index.js
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+ */
+/*
+ * _______________#########_______________________ 
+ * ______________############_____________________ 
+ * ______________#############____________________ 
+ * _____________##__###########___________________ 
+ * ____________###__######_#####__________________ 
+ * ____________###_#######___####_________________ 
+ * ___________###__##########_####________________ 
+ * __________####__###########_####_______________ 
+ * ________#####___###########__#####_____________ 
+ * _______######___###_########___#####___________ 
+ * _______#####___###___########___######_________ 
+ * ______######___###__###########___######_______ 
+ * _____######___####_##############__######______ 
+ * ____#######__#####################_#######_____ 
+ * ____#######__##############################____ 
+ * ___#######__######_#################_#######___ 
+ * ___#######__######_######_#########___######___ 
+ * ___#######____##__######___######_____######___ 
+ * ___#######________######____#####_____#####____ 
+ * ____######________#####_____#####_____####_____ 
+ * _____#####________####______#####_____###______ 
+ * ______#####______;###________###______#________ 
+ * ________##_______####________####______________ 
+ */
+
+
+
+
 let { DO_Lottery, sleep } = require("./木偶模块/puppeteer_lottery.js");
 let { LIVE_LOT_Service } = require("./直播模块/live_op.js");
 let event_bus = require("./lib/helper/event_bus"); //注册事件用的，每一轮都要重新注册！
@@ -9,7 +46,8 @@ let fs = require("fs");
  * @param {Date} start_time
  */
 async function gen_lot_file(start_time) {
-	try{console.log(`开始新的一轮抽奖！${new Date().toLocaleString()}`);
+	try{
+	console.log(`开始新的一轮抽奖！${new Date().toLocaleString()}`);
 	console.log(`正在获取抽奖动态中！----${new Date().toLocaleString()}`);
 	let latest_lot_dyn = fs
 		.readFileSync("./木偶模块/一般的抽奖动态id.txt")
@@ -38,7 +76,8 @@ async function gen_lot_file(start_time) {
 	catch(e){
 		console.error(`获取抽奖动态失败！${e}\n${e.stack}`);
 		fs.writeFileSync("./木偶模块/一般的抽奖动态id.txt", "");
-		throw e;
+		await sleep(100e3)
+		return await gen_lot_file(start_time)
 	}
 }
 /**
@@ -50,7 +89,7 @@ async function main() {
 	let start_time = new Date();
 	let lottery_setting_filename_list = [
 		//抽奖设置的名称
-		"lottery_setting1",
+		// "lottery_setting1",
 		// "lottery_setting3",
 		"lottery_setting2",
 		"lottery_setting5",

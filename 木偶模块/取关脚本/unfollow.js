@@ -79,10 +79,7 @@ async function do_unfollow(pg, uid) {
 		}
 		await generate_unfollow_file(pg, uid);
 		await pptr_op.check_page_is_front(pg);
-		let bili_cookie = await pg.cookies(basic_url);
-		let csrf = bili_cookie
-			.filter((el) => el.name == "bili_jct")
-			.shift().value;
+		let csrf = await pptr_op.get_bili_cjt(pg)
 		let unfollow_data = fs
 			.readFileSync(
 				__dir_path + `取关脚本/${uid}_取关对象.csv`,
