@@ -2,12 +2,31 @@
  * @Author: 星瞳 1944637830@qq.com
  * @Date: 2023-12-08 00:34:37
  * @LastEditors: 星瞳 1944637830@qq.com
- * @LastEditTime: 2024-01-16 20:41:59
+ * @LastEditTime: 2024-01-19 02:25:00
  * @FilePath: \tampermonkey\测试\快速打开浏览器进行调试
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
 
 let { DO_Lottery, sleep } = require("./木偶模块/puppeteer_lottery.js");
-let browser_mode = 1
-let lot = new DO_Lottery('lottery_setting1', browser_mode);
+let browser_mode = 1;
+let lot = new DO_Lottery("lottery_setting1", browser_mode);
 await lot.main();
+
+let { BAPI } = require("./lib/helper/BAPI.js");
+let { pptr_op } = require("./木偶模块/util/common_utl.js");
+let csrf = await pptr_op.get_bili_cjt(lot.global_page);
+await lot.global_page.goto(
+	"https://live.bilibili.com/24354075?broadcast_type=0&is_room_feed=0&spm_id_from=333.999.to_liveroom.0.click&live_from=86002"
+);
+
+a=await BAPI.get_user_info(lot.global_page)
+a = await BAPI.like_info_v3_like_likeReportV3(
+	lot.global_page,
+	15,
+	24354075,
+	4237378,
+	9295261,
+	csrf
+);
+
+a = await BAPI.live_send_msg(lot.global_page,'2',24354075,csrf,"")

@@ -208,9 +208,12 @@ class DO_Lottery {
 				return true;
 			}
 			try {
-				await global_var.page.goto("https://message.bilibili.com/?spm_id_from=333.1007.0.0#/love", {
-					waitUntil: "domcontentloaded",
-				});
+				await global_var.page.goto(
+					"https://message.bilibili.com/?spm_id_from=333.1007.0.0#/love",
+					{
+						waitUntil: "domcontentloaded",
+					}
+				);
 			} catch {
 				await sleep(3e3);
 			}
@@ -1426,10 +1429,10 @@ class DO_Lottery {
 																.relation_modify_response
 														)}\t风控导致，休眠1小时！${new Date().toLocaleTimeString()}`
 													);
-													await sleep(1 * 3600e3);
 													if (!follow_pg.isClosed()) {
 														await follow_pg.close();
 													}
+													await sleep(1 * 3600e3);
 													break;
 												} else {
 													await utl.my_throw(
@@ -2590,9 +2593,11 @@ class DO_Lottery {
 							`${global_var.user_info.uname}\t开始防过滤操作`
 						);
 						//await global_var.page.setDefaultNavigationTimeout(30);
-						await global_var.page.goto("https://www.bilibili.com");
 						await sleep(10e3);
 						if (global_var.user_info.uname) {
+							await global_var.page.goto(
+								"https://www.bilibili.com"
+							);
 							await my_operator.prevent_filter_module.prevent_filter_init();
 						} else {
 							console.warn(
@@ -2601,6 +2606,8 @@ class DO_Lottery {
 							await global_var.page.goto("about:blank");
 							throw "登陆失败" + JSON.stringify(global_var);
 						}
+						await pptr_op.check_page_is_front(global_var.page);
+						await global_var.page.goto("about:blank");
 						console.log(
 							`${global_var.user_info.uname}\t防过滤操作完成！`
 						);
@@ -2611,13 +2618,20 @@ class DO_Lottery {
 				}
 				///////////////////////////////////开始防过滤操作
 				if (global_var.user_info.uid) {
-					global_var.page = await pptr_op.check_page_is_front(
-						global_var.page
-					);
-					await unfollow_op(
-						global_var.page,
-						global_var.user_info.uid
-					);
+					await pptr_op.check_page_is_front(global_var.page);
+					if ((await global_var.page.browser().pages()).length != 0) {
+						let unfollow_pg = await await global_var.page
+							.browser()
+							.newPage();
+						await unfollow_op(
+							unfollow_pg,
+							global_var.user_info.uid
+						);
+					} else {
+						console.log(
+							`${global_var.user_info.uname}浏览器关闭，不执行取关模块！`
+						);
+					}
 				}
 				lottery_setting.FLAG.do_lottery_flag = false;
 				// try {
@@ -2681,9 +2695,7 @@ class DO_Lottery {
 					await global_var.page.goto("chrome://new-tab-page/");
 				} finally {
 					try {
-						await global_var.page.goto(
-							"about:blank"
-						);
+						await global_var.page.goto("about:blank");
 					} catch {}
 				}
 
@@ -2742,7 +2754,9 @@ class DO_Lottery {
 						);
 						await global_var.page.browser().close(); //页面没关全部关掉
 					}
-				} catch {
+				} catch (e) {
+					console.error(`发生致命错误！${e}\n${e.stack}`);
+
 					await global_var.page.close();
 				}
 			}

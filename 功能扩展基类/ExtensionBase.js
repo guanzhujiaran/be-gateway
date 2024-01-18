@@ -84,7 +84,7 @@ class ExtensionClass {
 			);
 			await basic_op.bringToFront(this.basic_pg);
 			await this.basic_pg.goto(
-				"https://live.bilibili.com/?spm_id_from=333.1296.0.0"
+				"https://live.bilibili.com/all?spm_id_from=333.1296.0.0"
 			);
 			let response = await BAPI.get_user_info(this.basic_pg);
 			if (response.code == 0) {
@@ -98,7 +98,7 @@ class ExtensionClass {
 			}
 			await this.basic_pg.goto("about:blank");
 		} catch (e) {
-			this.API.chatLog(`初始化一个新的页面失败！${e}`, "error");
+			console.error(`初始化一个新的页面失败！${e}\n${e.stack}`, "error");
 			throw e;
 		}
 	};

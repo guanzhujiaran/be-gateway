@@ -2,7 +2,7 @@
  * @Author: 星瞳 1944637830@qq.com
  * @Date: 2023-11-07 22:44:13
  * @LastEditors: 星瞳 1944637830@qq.com
- * @LastEditTime: 2024-01-16 16:57:14
+ * @LastEditTime: 2024-01-18 21:26:41
  * @FilePath: \tampermonkey\直播模块\live_op.js
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -288,6 +288,10 @@ const live_op = {
 							"ROG",
 							"耳机",
 							"手机",
+							"Mate",
+							"mate",
+							"Pro",
+							"Pro"
 						],
 					};
 				}
@@ -362,7 +366,7 @@ const live_op = {
 			times = 10,
 			room_id,
 			uid,
-			anchor_id,
+			anchor_uid,
 			csrf
 		) => {
 			try {
@@ -376,7 +380,7 @@ const live_op = {
 						15,
 						room_id,
 						uid,
-						anchor_id,
+						anchor_uid,
 						csrf
 					);
 					await sleep(2e3);
@@ -607,28 +611,25 @@ class LIVE_LOT {
 			}
 		}
 	};
-	/**
-	 * 参加红包抽奖
-	 * @param {Page} pg
-	 */
+/**
+ * 参加红包抽奖
+ * @param {*} pg 
+ * @param {*} room_id 
+ * @param {*} anchor_uid 
+ * @param {*} lot_id 
+ * @param {*} total_price 
+ * @param {*} room_owner_uid 
+ */
 	#join_redpacket_lot = async (
 		pg,
 		room_id,
 		anchor_uid,
 		lot_id,
-		total_price
+		total_price,
 	) => {
 		try {
 			if (!this.CONFIG.live_info.csrf) {
-				//获取csrf
-				let all_cookies = await pg.cookies();
-				let bili_cookie = all_cookies.filter((el) =>
-					el.domain.includes("bilibili.com")
-				);
-				let csrf = bili_cookie
-					.filter((el) => el.name == "bili_jct")
-					.pop().value;
-				this.CONFIG.live_info.csrf = csrf;
+				this.CONFIG.live_info.csrf = await pptr_op.get_bili_cjt(pg);;
 			} //获取csrf
 			await this.#check_browser();
 			let new_pg = await this.live_pg.browser().newPage();
@@ -1085,15 +1086,7 @@ class LIVE_LOT {
 				}
 			}
 			if (!this.CONFIG.live_info.csrf) {
-				//获取csrf
-				let all_cookies = await pg.cookies();
-				let bili_cookie = all_cookies.filter((el) =>
-					el.domain.includes("bilibili.com")
-				);
-				let csrf = bili_cookie
-					.filter((el) => el.name == "bili_jct")
-					.pop().value;
-				this.CONFIG.live_info.csrf = csrf;
+				this.CONFIG.live_info.csrf = await pptr_op.get_bili_cjt(pg);
 			} //获取csrf
 			/**@type {Page} 专门抽天选的*/
 			let anchor_page = await pg.browser().newPage();
@@ -1687,7 +1680,7 @@ class LIVE_LOT {
 				da.room_id,
 				da.anchor_uid,
 				da.lot_id,
-				da.total_price
+				da.total_price,
 			);
 			await pptr_op.check_page_is_front(
 				this.__DO_Lottery_class.global_page
@@ -1722,7 +1715,7 @@ class LIVE_LOT {
 			this.CONFIG.live_info.uid
 		)}`;
 		this.API.chatLog(`开始天选抽奖 ${url} `);
-		await pptr_op.check_page_is_front(this.live_pg);
+		//await pptr_op.check_page_is_front(this.live_pg);
 		// await this.live_pg.goto(url);
 		await this.#join_anchor_lot_html(
 			this.live_pg,
@@ -1771,6 +1764,9 @@ class LIVE_LOT_Service {
 			recorded_aid: [],
 		};
 		this.live_lot_setting = live_op.basic_op.read_live_lot_json();
+		setTimeout(()=>{
+			this.live_lot_setting = live_op.basic_op.read_live_lot_json();
+		},10e3)//每隔10秒钟刷新一下抽奖设置
 	}
 	/**
 	 *

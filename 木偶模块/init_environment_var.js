@@ -3909,6 +3909,8 @@ class ENVIRONMENT {
 									e
 								);
 								await sleep(3e3);
+							} finally {
+								await global_var.page.goto("about:blank");
 							}
 						}
 					}
