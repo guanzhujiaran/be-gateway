@@ -48,14 +48,14 @@ async function generate_unfollow_file(pg, uid) {
 	return all_unfollowing_list;
 }
 /**
- * 
- * @param {Page} pg 
- * @param {number} uid 
- * @returns 
+ *执行取关
+ * @param {Page} pg
+ * @param {number} uid
+ * @returns
  */
-async function do_unfollow(pg, uid) {
+async function do_unfollow(pg, uid = 1) {
 	try {
-		let basic_url = "https://www.bilibili.com"
+		let basic_url = `https://space.bilibili.com/${uid}/fans/follow`;
 		await pptr_op.check_page_is_front(pg);
 		if (!pg.url().includes("bilibili.com")) {
 			await pg.goto(basic_url);
@@ -79,7 +79,7 @@ async function do_unfollow(pg, uid) {
 		}
 		await generate_unfollow_file(pg, uid);
 		await pptr_op.check_page_is_front(pg);
-		let csrf = await pptr_op.get_bili_cjt(pg)
+		let csrf = await pptr_op.get_bili_cjt(pg);
 		let unfollow_data = fs
 			.readFileSync(
 				__dir_path + `取关脚本/${uid}_取关对象.csv`,
@@ -96,70 +96,91 @@ async function do_unfollow(pg, uid) {
 		let all_times = unfollow_arr.length;
 		let now_time = 0;
 		for (let unfollow_raw of unfollow_arr) {
-			await pptr_op.check_page_is_front(pg);
-			let unfollow_arr_trim = unfollow_raw.trim();
-			if (unfollow_arr_trim) {
-				let unfollow_mid = unfollow_arr_trim
-					.split("\t")[0]
-					.split("/")
-					.slice(-1)
-					.join("");
-				let resp_json = await pg.evaluate(
-					(post_data) => {
-						return fetch(
-							"https://api.bilibili.com/x/relation/modify",
-							{
-								credentials: "include",
-								method: "POST",
-								body: new URLSearchParams(post_data),
-							}
-						)
-							.then((resp) => {
-								return resp.json();
-							})
-							.catch((e) => {
-								return e;
-							});
-					},
-					{
-						fid: unfollow_mid,
-						act: 2,
-						re_src: 11,
-						spmid: "333.999.0.0",
-						extend_content: JSON.stringify({
-							entity: "user",
-							entity_id: unfollow_mid,
-						}),
-						csrf: csrf,
+			try {
+				await pptr_op.check_page_is_front(pg);
+				let unfollow_arr_trim = unfollow_raw.trim();
+				if (unfollow_arr_trim) {
+					let unfollow_mid = unfollow_arr_trim
+						.split("\t")[0]
+						.split("/")
+						.slice(-1)
+						.join("");
+					let resp_json = await pg.evaluate(
+						(post_data) => {
+							return fetch(
+								"https://api.bilibili.com/x/relation/modify",
+								{
+									credentials: "include",
+									method: "POST",
+									body: new URLSearchParams(post_data),
+								}
+							)
+								.then((resp) => {
+									return resp.json();
+								})
+								.catch((e) => {
+									return e;
+								});
+						},
+						{
+							fid: unfollow_mid,
+							act: 2,
+							re_src: 11,
+							spmid: "333.999.0.0",
+							extend_content: JSON.stringify({
+								entity: "user",
+								entity_id: unfollow_mid,
+							}),
+							csrf: csrf,
+						}
+					);
+					if (resp_json.code != 0) {
+						console.error(
+							`${JSON.stringify(
+								unfollow_arr_trim
+							)}\n${uid} 取关失败，原因：${JSON.stringify(
+								resp_json,
+								"",
+								"\t"
+							)}\n休息2小时`
+						);
+						await sleep(2 * 3600 * 1e3);
+					} else {
+						now_time++;
+						console.log(
+							`${uid}\t【取关脚本】当前进度【${now_time}/${all_times}】\thttps://space.bilibili.com/${unfollow_mid}/dynamic\t取关成功！${JSON.stringify(
+								resp_json,
+								"",
+								"\t"
+							)}\t${new Date().toLocaleString()}`
+						);
 					}
-				);
-				if (resp_json.code != 0) {
-					console.error(
-						`${JSON.stringify(
-							unfollow_arr_trim
-						)}\n${uid} 取关失败，原因：${JSON.stringify(
-							resp_json,
-							"",
-							"\t"
-						)}\n休息2小时`
-					);
-					await sleep(2 * 3600 * 1e3);
-				} else {
-					now_time++;
-					console.log(
-						`${uid}\t【取关脚本】当前进度【${now_time}/${all_times}】\thttps://space.bilibili.com/${unfollow_mid}/dynamic\t取关成功！${JSON.stringify(
-							resp_json,
-							"",
-							"\t"
-						)}\t${new Date().toLocaleString()}`
-					);
+					await sleep(20e3);
 				}
-				await sleep(20e3);
+			} catch (e) {
+				console.error(
+					`${uid} 取关单个uid${unfollow_raw}失败，休眠2小时！${e}\n${e.stack}`
+				);
+				await sleep(2 * 3600 * 1e3);
 			}
 		}
 		await pg.goto("about:blank");
 	} catch (e) {
 		console.error(`${uid} 取关模块执行失败！${e}\n${e.stack}`);
+		await sleep(180e3);
+		if (!pg.isClosed() && (await pg.browser().pages()).length != 0) {
+			if (pg.isClosed()) {
+				pg = await pg.browser().newPage();
+			}
+			return await do_unfollow(pg, uid);
+		}
+	} finally {
+		if (!pg.isClosed() && (await pg.browser().pages()).length != 0) {
+			if (pg.isClosed()) {
+			} else {
+				await pg.close();
+			}
+		}
 	}
 }
 

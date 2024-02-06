@@ -2590,7 +2590,11 @@ class ENVIRONMENT {
 						/添加话题/gim,
 						"带话题"
 					);
-					dynamic_content = dynamic_content.replaceAll(/\?/gim, "？");
+
+					dynamic_content = dynamic_content.replaceAll(
+						/[\?|❓]/gim,
+						"？"
+					);
 					dynamic_content = dynamic_content.replaceAll(/:/gim, "：");
 					let manual_re1 =
 						/.*评论.{0,20}告诉|.*有关的评论|.*告诉.{0,20}留言/gim.test(
@@ -3182,7 +3186,8 @@ class ENVIRONMENT {
 													.basic.comment_type == 1 ||
 												global_var.response
 													.global_dynamic_data.item
-													.basic.comment_type == 8
+													.basic.comment_type == 8 ||
+												1==1
 											) {
 												copy_msg =
 													await my_operator.copy_reply_module.get_copy_reply(
@@ -3624,7 +3629,7 @@ class ENVIRONMENT {
 				 * @returns
 				 */
 				get_video_list: async (__share_num) => {
-					let now_pageurl = await global_var.page.url();
+					let now_pageurl = global_var.page.url();
 					if (!now_pageurl.includes("https://www.bilibili.com")) {
 						await global_var.page.goto(`https://www.bilibili.com`);
 					}
@@ -3718,14 +3723,10 @@ class ENVIRONMENT {
 								await global_var.page.click(".share-btn");
 								let share_iframe; //分享的单独的iframe
 								await sleep(3e3);
-								for (let child of await global_var.page
+								for (let child of global_var.page
 									.mainFrame()
 									.childFrames()) {
-									if (
-										(await child.url()).includes(
-											"share/card"
-										)
-									) {
+									if (child.url().includes("share/card")) {
 										//通过url定位iframe
 										share_iframe = child; //将找到的iframe赋值给share_iframe
 										break;
@@ -3743,7 +3744,8 @@ class ENVIRONMENT {
 												await my_operator.copy_reply_module.get_copy_reply(
 													BV,
 													1,
-													0.5
+													0.5,
+													true
 												);
 											if (copycontent) {
 												paraphrase_input =
@@ -4298,7 +4300,9 @@ class ENVIRONMENT {
 					let all_replies_content = [];
 					let ret_reply; //最终返回的评论
 					let pn_list = [];
-					for (let _ = 0; _ < 3; _++) {
+					let loop_times = 3;
+					if (!get_api_reply_resp_flag) loop_times = 1;
+					for (let _ = 0; _ < loop_times; _++) {
 						//超过就退出,进行随机抽取
 						let resp =
 							await my_operator.copy_reply_module.get_reply_list(
@@ -4337,7 +4341,7 @@ class ENVIRONMENT {
 							continue;
 						}
 						console.log(
-							`https://t.bilibili.com/${dynamic_id_or_BVid} ${global_var.user_info.uname}获取到的所有评论，获取了 ${pn_list} 页数\n`,
+							`https://t.bilibili.com/${dynamic_id_or_BVid} ${global_var.user_info.uname}获取到的所有评论，获取了 ${pn_list} 页数\n总获取次数：${loop_times}次！`,
 							all_replies_content,
 							new Date()
 						);
@@ -4499,8 +4503,8 @@ class ENVIRONMENT {
 							comment_id_str,
 							comment_type
 						);
-						if (reply_main_res) {
-							up_mid = reply_main_res.data.upper.mid;
+						if (!reply_main_res.code) {
+							up_mid = reply_main_res.data?.upper?.mid;
 						} else {
 							console.error(
 								`评论api获取数据失败！${JSON.stringify(
@@ -4540,7 +4544,7 @@ class ENVIRONMENT {
 						console.warn(
 							`评论数量过少，不抄了 ${dynamic_id_or_BVid}`
 						);
-						return { ret_list, reply_count, pn_list };
+						return { ret_list, reply_count, pn: -1 };
 					}
 					let replies_content = [...Array(replies.length)].map(
 						(x) => undefined
@@ -5245,7 +5249,7 @@ ${Dynamic_content}
 						query = await QueryWbiEnc(params);
 					}
 					console.debug(`使用api获取响应！${api}?${query}`);
-					return await new Promise((resolve, reject) => {
+					let resp = await new Promise((resolve, reject) => {
 						superagent
 							.get(api + (query ? "?" + query : ""))
 							.set({
@@ -5281,9 +5285,10 @@ ${Dynamic_content}
 								}
 							});
 					});
+					return resp;
 				},
 				post: (api, data) => {
-					return new Promise((resolve, reject) => {
+					let resp = new Promise((resolve, reject) => {
 						superagent
 							.post(api)
 							.send(data)
@@ -5315,6 +5320,7 @@ ${Dynamic_content}
 								}
 							});
 					});
+					return resp;
 				},
 				get_dynamic_v1_detail: (dynamic_id) => {
 					//获取动态详情
@@ -5379,41 +5385,80 @@ ${Dynamic_content}
 					);
 				},
 				BV_AV_trans: (inputcontent) => {
-					//bvav互转
-					var table =
-						"fZodR9XQDSUm21yCkr6zBqiveYah8bt4xsWpHnJE7jL5VG3guMTKNPAwcF";
-					var tr = {};
-					for (let i = 0; i < 58; i++) {
-						tr[table[i]] = i;
+					let XOR_CODE = 23442827791579n;
+					let MASK_CODE = 2251799813685247n;
+					let MAX_AID = 1n << 51n;
+					let BASE = 58n;
+					let data = [
+						"F",
+						"c",
+						"w",
+						"A",
+						"P",
+						"N",
+						"K",
+						"T",
+						"M",
+						"u",
+						"g",
+						"3",
+						"G",
+						"V",
+						"5",
+						"L",
+						"j",
+						"7",
+						"E",
+						"J",
+						"n",
+						"H",
+						"p",
+						"W",
+						"s",
+						"x",
+						"4",
+						"t",
+						"b",
+						"8",
+						"h",
+						"a",
+						"Y",
+						"e",
+						"v",
+						"i",
+						"q",
+						"B",
+						"z",
+						"6",
+						"r",
+						"k",
+						"C",
+						"y",
+						"1",
+						"2",
+						"m",
+						"U",
+						"S",
+						"D",
+						"Q",
+						"X",
+						"9",
+						"R",
+						"d",
+						"o",
+						"Z",
+						"f",
+					];
+					let bvidArr = Array.from(inputcontent);
+					[bvidArr[3], bvidArr[9]] = [bvidArr[9], bvidArr[3]];
+					[bvidArr[4], bvidArr[7]] = [bvidArr[7], bvidArr[4]];
+					bvidArr.splice(0, 3);
+					let tmp = 0n;
+					for (let i = 0; i < bvidArr.length; i++) {
+						let idx = data.indexOf(bvidArr[i]);
+						tmp = tmp * BASE + BigInt(idx);
 					}
-					var s = [11, 10, 3, 8, 4, 6];
-					var xor = 177451812,
-						add = 8728348608;
-
-					function dec(x) {
-						var r = 0;
-						for (let i = 0; i < 6; i++) {
-							r += tr[x[s[i]]] * Math.pow(58, i);
-						}
-						return (r - add) ^ xor;
-					}
-
-					function enc(x) {
-						x = (x ^ xor) + add;
-						var r = "BV1  4 1 7  ".split("");
-						for (let i = 0; i < 6; i++) {
-							r[s[i]] =
-								table[Math.floor(x / Math.pow(58, i)) % 58];
-						}
-						return r.join("");
-					}
-					inputcontent = String(inputcontent);
-					if (inputcontent.toUpperCase().includes("BV")) {
-						//bv2av
-						return dec(inputcontent);
-					} else {
-						return enc(inputcontent);
-					}
+					return Number((tmp & MASK_CODE) ^ XOR_CODE);
 				},
 				draw_dynamic_id: (dynamic_url) => {
 					return /\d+/g.exec(dynamic_url).pop();

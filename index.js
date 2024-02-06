@@ -2,7 +2,7 @@
  * @Author: 星瞳 1944637830@qq.com
  * @Date: 2023-11-12 23:55:03
  * @LastEditors: 星瞳 1944637830@qq.com
- * @LastEditTime: 2024-01-18 13:36:58
+ * @LastEditTime: 2024-02-03 19:27:41
  * @FilePath: \tampermonkey\index.js
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -52,7 +52,7 @@ async function gen_lot_file(start_time) {
 			.toString();
 		let latest_lot_dyn_data = latest_lot_dyn.split("\n");
 		let get_lot_dyn = await axios.get(
-			"http://127.0.0.1:23333/get_others_lot_dyn/"
+			"http://127.0.0.1:23333/get_others_lot_dyn"
 		);
 		let lot_dyn_data = get_lot_dyn.data;
 		if (
@@ -96,22 +96,22 @@ async function main() {
 	let lottery_setting_filename_list = [
 		//抽奖设置的名称
 		"lottery_setting1",
-		// "lottery_setting3",
+		"lottery_setting3",
 		"lottery_setting2",
 		"lottery_setting5",
-		// "lottery_setting8",
-		// "lottery_setting9",
-		// "lottery_setting10",
-		// "lottery_setting11",
-		// "lottery_setting12",
-		// "lottery_setting13",
-		// "lottery_setting14",
+		"lottery_setting8",
+		"lottery_setting9",
+		"lottery_setting10",
+		"lottery_setting11",
+		"lottery_setting12",
+		"lottery_setting13",
+		"lottery_setting14",
 		// 养成四级号再跑脚本
 		// 'lottery_setting7',//G
 		// 'lottery_setting6',//G
 	];
-	let unfollow_mode = 0; //是否开启取关模式
-	let auto_mode = 0; //是否开启全自动抽奖模式
+	let unfollow_mode = 0; //是否开启取关模式，开启后只启动取关模块，其他啥也不干
+	let auto_mode = 1; //是否开启全自动抽奖模式
 	let browser_mode = 0; //是否只打开浏览器，不进行抽奖
 	let live_mode = 1; //是否开始直播抽奖模块
 	let gen_lot_file_mark = false; //抽奖文件获取完成
@@ -172,6 +172,7 @@ async function main() {
 			}
 		}
 	}
+	if (unfollow_mode) return;
 
 	if (live_mode) {
 		if (!event_bus.event_list.includes(EVENT_NAME_MAP.ALL_LIVE_LOT)) {

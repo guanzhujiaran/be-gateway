@@ -559,7 +559,7 @@ class DO_Lottery {
 				"--ignore-certifcate-errors",
 				"--ignore-certifcate-errors-spki-list"
 			);
-			for (let retry = 0; retry <= 5; retry++) {
+			for (let retry = 0; retry < 5; retry++) {
 				//五次重试启动浏览器的机会
 				try {
 					if (lottery_setting.CONFIG.UserDataDir) {
@@ -650,7 +650,7 @@ class DO_Lottery {
 				}
 			}
 		}
-		if (this.global_page.isClosed()) {
+		if (this.global_page && this.global_page.isClosed()) {
 			//浏览器未关闭，抽奖页面已关闭
 			let br = this.global_page.browser();
 			let new_pg = await br.newPage();
@@ -970,7 +970,7 @@ class DO_Lottery {
 			 * 开始抽奖
 			 * @param {*} goto_url
 			 * @param {*} opus_dynamic
-			 * @returns
+			 * @returns {Promise<boolean>}
 			 */
 			let do_lottery = async (goto_url, opus_dynamic = false) => {
 				try {
@@ -980,7 +980,7 @@ class DO_Lottery {
 						}\t开始抽奖\t${goto_url}\t${new Date().toLocaleTimeString()}`
 					);
 					global_var.Getter.check_login_status();
-					let pageurl = await global_var.page.url();
+					let pageurl = global_var.page.url();
 					if (pageurl.includes("opus")) {
 						console.log(
 							`${
@@ -1606,15 +1606,13 @@ class DO_Lottery {
 								break;
 							}
 						}
-						for (let pg of await global_var.page
-							.browser()
-							.pages()) {
-							if (
-								pg.url().includes("t.bilibili.com/") ||
-								pg.url().includes("www.bilibili.com/opus")
-							) {
-								await utl.check_page_is_front(global_var.page);
-							}
+						if (
+							!(await pptr_op.check_page_is_front(
+								global_var.page
+							))
+						) {
+							await this.account_init(false);
+							await global_var.page.goto(goto_url);
 						}
 						await global_var.page.evaluate(() => {
 							this.scrollTo(0, 1500);
@@ -1714,16 +1712,16 @@ class DO_Lottery {
 					);
 					return true;
 				} catch (e) {
-					console.warn(
+					console.error(
 						`${
 							global_var.user_info.uname
 						}\tdo_lottery函数执行失败\t${new Date().toLocaleTimeString()}`
 					);
-					console.warn(e);
+					console.error(e);
 					global_var.Getter.check_login_status();
-					if (global_var.page.isClosed()) {
-						await this.account_init();
-						// return false;
+					if (!(await pptr_op.check_page_is_front(global_var.page))) {
+						await this.account_init(false);
+						return await do_lottery(goto_url, opus_dynamic); //如果只是页面或浏览器被关了，就继续执行抽奖
 					}
 					await sleep(10e3);
 					await utl.my_throw(
@@ -1946,11 +1944,25 @@ class DO_Lottery {
 								global_var.pageurl = all_dynamic_id_list[i];
 								await utl.check_page_is_front(global_var.page);
 								if (opus_dynamic) {
-									await global_var.page.goto(
-										`https://www.bilibili.com/opus/${MYAPI.BiliAPI.draw_dynamic_id(
-											all_dynamic_id_list[i]
-										)}`
-									);
+									let break_time = 0;
+									while (break_time <= 3) {
+										break_time++;
+										try {
+											await global_var.page.goto(
+												`https://www.bilibili.com/opus/${MYAPI.BiliAPI.draw_dynamic_id(
+													all_dynamic_id_list[i]
+												)}`
+											);
+											break;
+										} catch (e) {
+											console.error(
+												`前往页面失败！https://www.bilibili.com/opus/${MYAPI.BiliAPI.draw_dynamic_id(
+													all_dynamic_id_list[i]
+												)}\t${e}\n${e.stack}`
+											);
+											await sleep(10e3);
+										}
+									}
 								} else {
 									await global_var.page.goto(
 										all_dynamic_id_list[i]
@@ -2598,7 +2610,13 @@ class DO_Lottery {
 							await global_var.page.goto(
 								"https://www.bilibili.com"
 							);
-							await my_operator.prevent_filter_module.prevent_filter_init();
+							try {
+								await my_operator.prevent_filter_module.prevent_filter_init();
+							} catch (e) {
+								console.error(
+									`放过滤操作失败！${e}\n${e.stack}`
+								);
+							}
 						} else {
 							console.warn(
 								"登陆失败" + JSON.stringify(global_var)
@@ -2620,7 +2638,10 @@ class DO_Lottery {
 				if (global_var.user_info.uid) {
 					await pptr_op.check_page_is_front(global_var.page);
 					if ((await global_var.page.browser().pages()).length != 0) {
-						let unfollow_pg = await await global_var.page
+						console.log(
+							`${global_var.user_info.uname}\t开始执行取关模块`
+						);
+						let unfollow_pg = await global_var.page
 							.browser()
 							.newPage();
 						await unfollow_op(
@@ -2710,11 +2731,12 @@ class DO_Lottery {
 
 			this._setLotFlag(true);
 			this.login_status = await Init(); //初始化抽奖，同时开始抽奖
+
+			//动态抽奖任务完成之后
 			this._setGlobalPage(global_var.page);
 			await sleep(60e3);
 			this._setLotFlag(false);
 			if (!browser_mode && global_var.user_info.uid) {
-				//全部任务完成之后
 				if (global_var.response.msgfeed_unread) {
 					if (
 						global_var.response.msgfeed_unread.data.at > 0 ||
@@ -2725,7 +2747,7 @@ class DO_Lottery {
 							`${global_var.user_info.uname} 有新的回复或at`,
 							`at数量：${global_var.response.msgfeed_unread.data.at}\n回复数量：${global_var.response.msgfeed_unread.data.reply}`
 						);
-						if (await global_var.page.isClosed()) {
+						if (global_var.page.isClosed()) {
 						} //页面关了全都不管
 						else {
 							await global_var.page.goto(`about:blank`);
@@ -2756,7 +2778,6 @@ class DO_Lottery {
 					}
 				} catch (e) {
 					console.error(`发生致命错误！${e}\n${e.stack}`);
-
 					await global_var.page.close();
 				}
 			}

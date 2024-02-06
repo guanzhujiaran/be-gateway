@@ -77,7 +77,6 @@ class NewBingReply {
         }
         if (!(await this.page.url()).includes(`www.bing.com/search?q=Bing+AI&showconv=1&FORM=hpcodx`)) {
             await this.page.goto(`https://www.bing.com/search?q=Bing+AI&showconv=1&FORM=hpcodx`)
-            await this.page.waitForNavigation()
         }
         try {
             let input_text_area = await this.page.evaluateHandle(`document.querySelector("#b_sydConvCont > cib-serp").shadowRoot.querySelector("#cib-action-bar-main").shadowRoot.querySelector("div > div.main-container.body-2 > div.input-container.as-ghost-placement > cib-text-input").shadowRoot.querySelector("#searchbox")`)

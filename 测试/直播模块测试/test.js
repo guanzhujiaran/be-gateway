@@ -24,7 +24,7 @@ async function main() {
 				.toString();
 			let latest_lot_dyn_data = latest_lot_dyn.split("\n");
 			let get_lot_dyn = await axios.get(
-				"http://127.0.0.1:23333/get_others_lot_dyn/"
+				"http://127.0.0.1:23333/get_others_lot_dyn"
 			);
 			let lot_dyn_data = get_lot_dyn.data;
 			if (
