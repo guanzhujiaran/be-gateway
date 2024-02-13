@@ -1463,9 +1463,13 @@ class DO_Lottery {
 										console.error(
 											`${
 												global_var.user_info.uname
-											}\t关注失败，${JSON.stringify(
-												e
-											)}\n${e.stack}`
+											}\t关注 https://space.bilibili.com/${
+												global_var.response
+													.global_dynamic_data.item
+													.modules.module_author.mid
+											} 失败，${JSON.stringify(e)}\n${
+												e.stack
+											}`
 										);
 										await sleep(3e3);
 										if (!follow_pg.isClosed()) {
@@ -1595,7 +1599,9 @@ class DO_Lottery {
 												`${global_var.user_info.uname}\t关注失败，${e}`
 											);
 										}
-										console.warn(e);
+										console.warn(
+											`${global_var.user_info.uname}\t关注失败\n${e}\n${e.stack}`
+										);
 										await sleep(3e3);
 										await global_var.page.evaluate(() => {
 											this.scrollTo(0, 2500);
@@ -1715,7 +1721,9 @@ class DO_Lottery {
 					console.error(
 						`${
 							global_var.user_info.uname
-						}\tdo_lottery函数执行失败\t${new Date().toLocaleTimeString()}`
+						}\tdo_lottery函数执行失败\t${new Date().toLocaleTimeString()}\n${e}\n${
+							e.stack
+						}`
 					);
 					console.error(e);
 					global_var.Getter.check_login_status();
@@ -1956,7 +1964,9 @@ class DO_Lottery {
 											break;
 										} catch (e) {
 											console.error(
-												`前往页面失败！https://www.bilibili.com/opus/${MYAPI.BiliAPI.draw_dynamic_id(
+												`${
+													global_var.user_info.uname
+												}\t前往页面失败！https://www.bilibili.com/opus/${MYAPI.BiliAPI.draw_dynamic_id(
 													all_dynamic_id_list[i]
 												)}\t${e}\n${e.stack}`
 											);
@@ -2713,7 +2723,7 @@ class DO_Lottery {
 						}\t每日投币经验任务失败\t${new Date().toLocaleTimeString()}\n`
 					);
 					console.warn(e);
-					await global_var.page.goto("chrome://new-tab-page/");
+					await global_var.page.goto("about:blank");
 				} finally {
 					try {
 						await global_var.page.goto("about:blank");

@@ -4,6 +4,7 @@ const fs = require("fs");
 const QueryWbiEnc = require("../lib/helper/encbiliWbiQuery");
 const { Page } = require("puppeteer-core");
 const GLOBAL_CONFIG = require("../CONFIG.Default");
+const { pptr_op } = require("./util/common_utl");
 const __dirpath = "./木偶模块/";
 if (!fs.existsSync(__dirpath)) {
 	//创建文件目录
@@ -429,6 +430,7 @@ class ENVIRONMENT {
 					}
 				} catch (e) {
 					console.error(`将浏览器切换至前台失败！${e}\n${e.stack}`);
+					await sleep(1e3);
 				}
 				return is_front;
 			},
@@ -485,7 +487,7 @@ class ENVIRONMENT {
 				/**@property 非抽奖时间段*/
 				None_Lottery_Time: ["2:00", "9:00"],
 				/**@property 参加x秒以内必须参加的预约抽奖 */
-				Reserve_Lottery_time: 7 * 3600 * 24,
+				Reserve_Lottery_time: 30 * 3600 * 24,
 			},
 			/**@property 所有的响应类 */
 			response: {
@@ -968,7 +970,7 @@ class ENVIRONMENT {
 						// }
 					} catch (e) {
 						console.error(
-							`动态转发失败，dynamic_repost，${e}\n${e.stack}`
+							`${global_var.user_info.uname}\t${global_var.pageurl}动态转发失败，dynamic_repost，${e}\n${e.stack}`
 						);
 						await utl.my_throw(
 							`动态转发失败，dynamic_repost，${e}`
@@ -1462,15 +1464,11 @@ class ENVIRONMENT {
 			 */
 			video_operator: {
 				goto_video_page: async function (pageurl) {
-					await global_var.page.goto(pageurl, {
-						waitUntil: "networkidle2",
-					});
+					await global_var.page.goto(pageurl);
 					await global_var.page.waitForSelector(
 						`.bpx-player-video-area`
 					);
-					await sleep(3e3);
-					await global_var.page.click(`.bpx-player-video-area`);
-					console.log(`点击了暂停视频`);
+					await pptr_op.remove_video_player(global_var.page);
 				},
 				sanlian: async function (pageurl) {
 					let thumb_btn = await global_var.page.$(
@@ -2404,8 +2402,8 @@ class ENVIRONMENT {
 										lottery_setting.at_member
 								  )) +
 							" ";
-						for (let i = 0; i < num - 1; i++) {
-							at_up = "";
+						for (let i = 0; i < at_times - 1; i++) {
+							let at_up = "";
 							while (!choose_Up_list.includes(at_up)) {
 								at_up = utl.random_choice(
 									lottery_setting.at_member
@@ -3187,7 +3185,7 @@ class ENVIRONMENT {
 												global_var.response
 													.global_dynamic_data.item
 													.basic.comment_type == 8 ||
-												1==1
+												1 == 1
 											) {
 												copy_msg =
 													await my_operator.copy_reply_module.get_copy_reply(
@@ -3707,9 +3705,7 @@ class ENVIRONMENT {
 						await global_var.page.waitForSelector(
 							`.bpx-player-video-area`
 						);
-						await sleep(3e3);
-						await global_var.page.click(`.bpx-player-video-area`);
-						console.log(`点击了暂停视频`);
+						await pptr_op.remove_video_player(global_var.page);
 						for (let __ = 0; __ < 5; __++) {
 							try {
 								await sleep(3e3);
@@ -4000,7 +3996,6 @@ class ENVIRONMENT {
 										global_var.page
 									);
 									await global_var.page.goto(video_elem);
-									await sleep(10e3);
 									try {
 										await share_video_operator(
 											lottery_setting.prevent_module

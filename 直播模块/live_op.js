@@ -2,7 +2,7 @@
  * @Author: 星瞳 1944637830@qq.com
  * @Date: 2023-11-07 22:44:13
  * @LastEditors: 星瞳 1944637830@qq.com
- * @LastEditTime: 2024-02-06 20:46:58
+ * @LastEditTime: 2024-02-10 12:25:37
  * @FilePath: \tampermonkey\直播模块\live_op.js
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -48,6 +48,7 @@ const live_op = {
 			join_btn: ".bl-button.bl-button--primary", //参加金宝箱按钮
 		},
 		rightArrow_btn: ".pointer.arrow-box", //直播的功能展开箭头
+		live_player: `#live-player-ctnr`, //直播播放器！
 	},
 	/**
 	 * 初始化一个新的页面，专门进行直播操作，并注册一个拦截直播流的事件
@@ -66,8 +67,8 @@ const live_op = {
 						await sleep(100);
 					}
 				}
-				await pptr_op.check_page_is_front(pg);
 				let new_pg = await pg.browser().newPage();
+				await pptr_op.check_page_is_front(new_pg);
 				await new_pg.setRequestInterception(true);
 				new_pg.on("request", async (req) => {
 					try {
@@ -141,7 +142,7 @@ const live_op = {
 					if (elementToRemove) {
 						elementToRemove.remove();
 					}
-				}, `#live-player-ctnr`); //移除播放器
+				}, live_op.element_map.live_player); //移除播放器
 				await pg.evaluate((selector) => {
 					const elementToRemove = document.querySelector(selector);
 					if (elementToRemove) {
@@ -1139,9 +1140,9 @@ class LIVE_LOT {
 					this.CONFIG.anchor.joined_anchor_id_list.slice(-50);
 			}
 			await pptr_op.check_page_is_front(anchor_page);
-			await anchor_page.waitForSelector(live_op.element_map.rightArrow_btn, {
-				timeout: 180e3,
-			});
+			await anchor_page.waitForSelector(
+				live_op.element_map.rightArrow_btn,
+			);
 			let rightArrow_btn = await anchor_page.$(
 				live_op.element_map.rightArrow_btn
 			);
