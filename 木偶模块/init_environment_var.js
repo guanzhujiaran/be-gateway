@@ -5241,7 +5241,12 @@ ${Dynamic_content}
 				get: async (api, params) => {
 					let query = new URLSearchParams(params).toString();
 					if (api.includes("wbi")) {
-						query = await QueryWbiEnc(params);
+						try{
+							query = await QueryWbiEnc(params);
+						}
+						catch(e){
+							console.error(`wbi加密失败！${api}\t${JSON.stringify(params)}\n${e.stack}`);
+						}
 					}
 					console.debug(`使用api获取响应！${api}?${query}`);
 					let resp = await new Promise((resolve, reject) => {

@@ -543,7 +543,7 @@ class DO_Lottery {
 				"--disable-gpu",
 				"--disable-dev-shm-usage",
 				"--no-first-run",
-				//'--mute-audio',
+				"--mute-audio",
 				"--disable-extensions",
 				"--no-zygote",
 				"--disable-xss-auditor",
@@ -596,25 +596,7 @@ class DO_Lottery {
 								width: 1920,
 								height: 1080,
 							},
-							args: [
-								`--start-stack-profiler`,
-								//`--load-extension=${ext1}`,
-								"--disable-notifications=true",
-								// '--no-sandbox',
-								"-–ignore-certificate-errors",
-								"--disable-infobars",
-								"--disable-session-crashed-bubble",
-								// '--disable-web-security',
-								"--disable-gpu",
-								"--disable-dev-shm-usage",
-								"--no-first-run",
-								//'--mute-audio',
-								"--no-zygote",
-								// '--single-process',
-								`--profile-directory=${lottery_setting.CONFIG.ProfileDir}`,
-								// "--disable-features=IsolateOrigins,site-per-process",
-								`--start-maximized`,
-							],
+							args: __args,
 							ignoreDefaultArgs: [
 								"--enable-automation",
 								"--disable-extensions",
@@ -774,7 +756,25 @@ class DO_Lottery {
 					);
 					global_var.response.space_reservation = undefined;
 					try {
-						global_var.page.goto(reserve_url); //异步前往页面，之后等待响应
+						await global_var.page
+							.goto(reserve_url)
+							.then(async () => {
+								try {
+									await global_var.page.waitForResponse(
+										(response) =>
+											response
+												.url()
+												.includes(
+													`/space/reservation`
+												) && response.status() === 200,
+										{ timeout: 30e3 }
+									);
+								} catch (e) {
+									console.warn(
+										`${global_var.user_info.uname}\t等待space/reservation响应失败\t${reserve_url}`
+									);
+								}
+							});
 					} catch (e) {
 						console.warn(
 							`${global_var.user_info.uname}\t前往预约页面${reserve_url}失败\nreserve_lottery_loop\n`,
@@ -782,20 +782,7 @@ class DO_Lottery {
 						);
 						continue;
 					}
-					try {
-						await global_var.page.waitForResponse(
-							(response) =>
-								response.url().includes(`/space/reservation`) &&
-								response.status() === 200,
-							{ timeout: 30e3 }
-						);
-					} catch (e) {
-						console.warn(
-							`${global_var.user_info.uname}\t等待space/reservation响应失败\t${reserve_url}`
-						);
-					}
 					await sleep(3e3);
-
 					let reserve_index; //预约抽奖的序号
 					if (global_var.response.space_reservation) {
 						//如果获取到空间预约响应，则判断时间是否符合
@@ -2701,7 +2688,10 @@ class DO_Lottery {
 						}
 					}
 				} catch (e) {
-					console.warn("登陆出错：\n", e);
+					console.warn(
+						`${lottery_setting.CONFIG.COOKIENAME}登陆出错：\n`,
+						e
+					);
 					return login_status;
 				}
 				if (!global_var.user_info.uname) {

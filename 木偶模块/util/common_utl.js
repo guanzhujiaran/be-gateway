@@ -2,7 +2,7 @@
  * @Author: 星瞳 1944637830@qq.com
  * @Date: 2023-11-08 13:34:47
  * @LastEditors: 星瞳 1944637830@qq.com
- * @LastEditTime: 2024-02-07 00:01:58
+ * @LastEditTime: 2024-02-14 17:47:48
  * @FilePath: \tampermonkey\木偶模块\util\common_utl.js
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -21,8 +21,8 @@ const pptr_op = {
 	check_page_is_front: async (pg) => {
 		let is_front = false;
 		try {
-			if(pg && pg.isClosed()){
-				return
+			if (pg && pg.isClosed()) {
+				return;
 			}
 			is_front = await pg.evaluate(
 				() => document.visibilityState === "visible"
@@ -42,10 +42,16 @@ const pptr_op = {
 	 * @returns {Promise<string>} - bili_cjt 也就是csrf_token和csrf
 	 */
 	get_bili_cjt: async (pg) => {
+		if (pg && pg.isClosed()) {
+			return;
+		}
 		let cks = await pg.cookies("https://www.bilibili.com");
 		return cks.find((el) => el.name == "bili_jct").value;
 	},
 	get_uid: async (pg) => {
+		if (pg && pg.isClosed()) {
+			return;
+		}
 		let cks = await pg.cookies("https://www.bilibili.com");
 		return cks.find((el) => el.name == "DedeUserID").value;
 	},
@@ -65,22 +71,25 @@ const pptr_op = {
 		}
 		return promise_list;
 	},
-			/**
-		 * 移除视频播放器
-		 * @param {Page} pg 
-		 */
-			remove_video_player:async (pg) => {
-				try {
-					await pg.evaluate((selector) => {
-						const elementToRemove = document.querySelector(selector);
-						if (elementToRemove) {
-							elementToRemove.remove();
-						}
-					}, `.bpx-player-primary-area`); //移除播放器
-				} catch (e) {
-					console.error(`${e}\n${e.stack}\n移除直播间的播放器元素失败！`);
+	/**
+	 * 移除视频播放器
+	 * @param {Page} pg
+	 */
+	remove_video_player: async (pg) => {
+		try {
+			if (pg && pg.isClosed()) {
+				return;
+			}
+			await pg.evaluate((selector) => {
+				const elementToRemove = document.querySelector(selector);
+				if (elementToRemove) {
+					elementToRemove.remove();
 				}
-			},
+			}, `.bpx-player-primary-area`); //移除播放器
+		} catch (e) {
+			console.error(`${e}\n${e.stack}\n移除直播间的播放器元素失败！`);
+		}
+	},
 };
 
 module.exports = {

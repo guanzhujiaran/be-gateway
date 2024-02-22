@@ -8,32 +8,31 @@ async function launchBrowser(userProfile) {
 	try {
 		let __args = [];
 		__args.push(
-			`--start-stack-profiler`,
+			// `--start-stack-profiler`,
 			//`--load-extension=${ext1}`,
-			"--disable-notifications=true",
-			"--no-sandbox",
-			"-–ignore-certificate-errors",
-			"--disable-infobars",
-			"--disable-session-crashed-bubble",
-			"--disable-web-security",
-			"--disable-gpu",
-			"--disable-dev-shm-usage",
-			"--no-first-run",
-			//'--mute-audio',
-			"--disable-extensions",
-			"--no-zygote",
-			"--disable-xss-auditor",
-			"--disable-popup-blocking",
-			"--disable-setuid-sandbox",
-			//'--disable-accelerated-2d-canvas',
+			// "--disable-notifications=true",
+			// "--no-sandbox",
+			// "-–ignore-certificate-errors",
+			// "--disable-session-crashed-bubble",
+			// "--disable-web-security",
+			// "--disable-gpu",
+			// "--disable-dev-shm-usage",
+			// "--no-first-run",
+			// "--mute-audio",
+			// "--disable-extensions",
+			// "--no-zygote",
+			// "--disable-xss-auditor",
+			// "--disable-popup-blocking",
+			// "--disable-setuid-sandbox",
+			// "--disable-accelerated-2d-canvas",
 			// '--single-process',
 			`--profile-directory=${userProfile}`,
 			// "--disable-features=IsolateOrigins,site-per-process",
-			`--start-maximized`,
-			"--disable-infobars",
-			"--window-position=0,0",
-			"--ignore-certifcate-errors",
-			"--ignore-certifcate-errors-spki-list"
+			// `--start-maximized`,
+			// "--disable-infobars",
+			// "--window-position=0,0",
+			// "--ignore-certifcate-errors",
+			// "--ignore-certifcate-errors-spki-list",
 		);
 		let browser = await puppeteer.launch({
 			executablePath: `C:\\Program Files (x86)\\Microsoft\\Edge Dev\\Application\\msedge.exe`, //浏览器路径
@@ -49,9 +48,9 @@ async function launchBrowser(userProfile) {
 				"C:\\Users\\Acer\\AppData\\Local\\Microsoft\\Edge Dev\\User Data\\",
 			ignoreDefaultArgs: [
 				"--enable-automation",
-				"--disable-extensions",
-				"--disable-client-side-phishing-detection",
-				"--disable-sync",
+				// "--disable-extensions",
+				// "--disable-client-side-phishing-detection",
+				// "--disable-sync",
 			],
 			ignoreHTTPSErrors: true,
 		});
@@ -108,6 +107,14 @@ class chatgptOP {
 				let res = await func.apply(this, args);
 				return res;
 			} catch (e) {
+				if (
+					this.chatpage
+						.url()
+						.includes("https://chat.openai.com/auth/login") ||
+					this.chatpage.url().includes("auth0.openai.com/authorize")
+				) {
+					await this.sleep(600e3);
+				}
 				this.chatpage.screenshot({
 					path: `./ChatGPT/err_pic/ChatGPT_Error_${Date.now()}_${
 						arguments[0].name
@@ -162,7 +169,9 @@ class chatgptOP {
 		}
 	}
 	async __submit_click() {
-		await this.chatpage.click("button.absolute.transition-colors", { delay: 20 });
+		await this.chatpage.click("button.absolute.transition-colors", {
+			delay: 20,
+		});
 	}
 
 	async __get_answer() {

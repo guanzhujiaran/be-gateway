@@ -2,7 +2,7 @@
  * @Author: 星瞳 1944637830@qq.com
  * @Date: 2023-11-07 22:44:13
  * @LastEditors: 星瞳 1944637830@qq.com
- * @LastEditTime: 2024-02-10 12:25:37
+ * @LastEditTime: 2024-02-21 20:08:44
  * @FilePath: \tampermonkey\直播模块\live_op.js
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -542,24 +542,30 @@ class LIVE_LOT {
 					},
 				});
 			}
+
 			await pptr_op.check_page_is_front(this.live_pg);
-			await this.live_pg.goto(
-				"https://live.bilibili.com/all?spm_id_from=333.1296.0.0"
-			);
-			await live_op.basic_op.remove_live_player(this.live_pg);
-			let response = await BAPI.get_user_info(this.live_pg);
-			if (response.code == 0) {
-				this.CONFIG.live_info.uname = response?.data?.uname;
-				this.CONFIG.live_info.uid = response?.data?.uid;
-				this.CONFIG.live_info.user_level = response?.data?.user_level;
-			} else {
-				throw new Error(
-					`登录状态获取失败！${JSON.stringify(response)}`
+			if (!this.CONFIG.live_info.uname) {
+				await this.live_pg.goto(
+					"https://live.bilibili.com/all?spm_id_from=333.1296.0.0"
 				);
+				await live_op.basic_op.remove_live_player(this.live_pg);
+				let response = await BAPI.get_user_info(this.live_pg);
+				if (response.code == 0) {
+					this.CONFIG.live_info.uname = response?.data?.uname;
+					this.CONFIG.live_info.uid = response?.data?.uid;
+					this.CONFIG.live_info.user_level =
+						response?.data?.user_level;
+				} else {
+					throw new Error(
+						`登录状态获取失败！${JSON.stringify(response)}`
+					);
+				}
+				this.API = new API(this.CONFIG.live_info.uname);
+				this.Lot_log = new LOT_LOG(this.CONFIG.live_info.uname);
+				await this.#init_following_list();
+				this.API = new API(this.CONFIG.live_info.uname);
+				this.Lot_log = new LOT_LOG(this.CONFIG.live_info.uname);
 			}
-			this.API = new API(this.CONFIG.live_info.uname);
-			this.Lot_log = new LOT_LOG(this.CONFIG.live_info.uname);
-			await this.#init_following_list();
 			await this.live_pg.goto("about:blank");
 			await pptr_op.check_page_is_front(
 				this.__DO_Lottery_class.global_page
@@ -662,7 +668,7 @@ class LIVE_LOT {
 				},
 			});
 			await new_pg.goto(`https://live.bilibili.com/${room_id}`);
-			await live_op.basic_op.remove_live_player(new_pg);
+			// await live_op.basic_op.remove_live_player(new_pg);
 			this.CONFIG.redpacket.joined_redpacket_lot_id_list.push(lot_id);
 			if (
 				this.CONFIG.redpacket.joined_redpacket_lot_id_list.length > 200
@@ -1100,11 +1106,6 @@ class LIVE_LOT {
 			} //获取csrf
 			/**@type {Page} 专门抽天选的*/
 			anchor_page = await pg.browser().newPage();
-			setTimeout(async () => {
-				if (anchor_page && !anchor_page.isClosed()) {
-					await anchor_page.close();
-				}
-			}, 15 * 60 * 1e3);
 			await live_op.basic_op.hook_teck_logdata(anchor_page);
 			await pptr_op.check_page_is_front(anchor_page);
 			await anchor_page.goto(`https://live.bilibili.com/${room_id}`, {
@@ -1140,13 +1141,19 @@ class LIVE_LOT {
 					this.CONFIG.anchor.joined_anchor_id_list.slice(-50);
 			}
 			await pptr_op.check_page_is_front(anchor_page);
-			await anchor_page.waitForSelector(
-				live_op.element_map.rightArrow_btn,
-			);
-			let rightArrow_btn = await anchor_page.$(
-				live_op.element_map.rightArrow_btn
-			);
-			await rightArrow_btn.click();
+			try {
+				await anchor_page.waitForSelector(
+					live_op.element_map.rightArrow_btn,
+					{ timeout: 10e3 }
+				);
+				let rightArrow_btn = await anchor_page.$(
+					live_op.element_map.rightArrow_btn
+				);
+				await rightArrow_btn.click();
+			} catch (e) {
+				console.error(`获取直播间右箭头失败！\n${e.stack}`);
+			}
+
 			await anchor_page.waitForSelector(live_op.element_map.anchor_icon, {
 				timeout: 180e3,
 			});
@@ -1313,6 +1320,7 @@ class LIVE_LOT {
 				await anchor_page.close();
 			}
 		}
+		return anchor_page;
 	};
 	/**
 	   * 
@@ -1611,7 +1619,11 @@ class LIVE_LOT {
 					await new_pg.close();
 				}
 				if ((await new_pg.browser().pages()).length != 0) {
-					if (this.__DO_Lottery_class.goldbox_lottery_flag) return;
+					if (
+						this.__DO_Lottery_class.goldbox_lottery_flag ||
+						this.__DO_Lottery_class.browser_mode
+					)
+						return;
 					if (this.__DO_Lottery_class.lottery_setting.CONFIG.LIVE_LOT)
 						return;
 					if (this.__DO_Lottery_class.lotFlag) return;
@@ -1625,7 +1637,7 @@ class LIVE_LOT {
 			} catch (e) {
 				console.error(`检查是否需要关闭浏览器失败！${e}\n${e.stack}`);
 			}
-		}, 600e3);
+		}, 30 * 60 * 1e3);
 	};
 	/**
 	 *
@@ -1646,13 +1658,13 @@ class LIVE_LOT {
 				try {
 					{
 						await this.#check_browser();
-						if (!this.CONFIG.live_info.uname) {
-							this.API.chatLog(
-								`账号登录状态出错！退出！`,
-								"error"
-							);
-							return;
-						}
+						// if (!this.CONFIG.live_info.uname) {
+						// 	this.API.chatLog(
+						// 		`账号登录状态出错！退出！`,
+						// 		"error"
+						// 	);
+						// 	return;
+						// }
 						if (this.CONFIG.RECORDER.lot_id.includes(da.lot_id)) {
 							continue;
 						}
@@ -1755,16 +1767,29 @@ class LIVE_LOT {
 			this.API.chatLog(`开始天选抽奖 ${url} `);
 			//await pptr_op.check_page_is_front(this.live_pg);
 			// await this.live_pg.goto(url);
-			await this.#join_anchor_lot_html(
-				this.live_pg,
-				da.lot_id,
-				da.gift_num,
-				da.gift_price,
-				da.anchor_uid,
-				da.room_id,
-				da.require_type
-			);
-			await sleep(180e3);
+			try {
+				let anchor_page = await this.#join_anchor_lot_html(
+					this.live_pg,
+					da.lot_id,
+					da.gift_num,
+					da.gift_price,
+					da.anchor_uid,
+					da.room_id,
+					da.require_type
+				);
+				await sleep(180e3);
+				setTimeout(async () => {
+					try {
+						if (anchor_page && !anchor_page.isClosed()) {
+							await anchor_page.close();
+						}
+					} catch (e) {
+						console.error(`关闭抽奖浏览器页面失败！${e}`);
+					}
+				}, 15 * 60e3);
+			} catch (e) {
+				console.error(`天选参加失败！${e}\n${e.stack}`);
+			}
 			await this.check_is_need_to_close_browser(this.live_pg);
 			await pptr_op.check_page_is_front(
 				this.__DO_Lottery_class.global_page
