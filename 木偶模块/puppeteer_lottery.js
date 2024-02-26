@@ -482,22 +482,54 @@ class DO_Lottery {
 					);
 				}
 			});
+			let blockUrl = [
+				"data.bilibili.com/log/web?013324",
+				"data.bilibili.com/log/web?000017",
+				"data.bilibili.com/log/web?000527",
+			];
+			let blockedResources = [
+				// "document",
+				// "stylesheet",
+				"image",
+				"media",
+				"font",
+				// "script",
+				"texttrack",
+				// "xhr",
+				// "fetch",
+				// "prefetch",
+				// "eventsource",
+				// "websocket",
+				// "manifest",
+				// "signedexchange",
+				// "ping",
+				// "cspviolationreport",
+				// "preflight",
+				// "other",
+			];
 			global_var.page.on("request", async (interceptedRequest) => {
 				try {
+					if (
+						blockedResources.includes(
+							interceptedRequest.resourceType()
+						)
+					) {
+						return interceptedRequest.abort();
+					}
 					if (interceptedRequest.method().toLowerCase() == "post") {
 						if (
-							interceptedRequest
-								.url()
-								.includes("data.bilibili.com/log/web?013324")
+							blockUrl.filter((el) =>
+								interceptedRequest.url().includes(el)
+							).length != 0
 						) {
 							//如果是浏览器要发起检测到作弊的请求，就拦截下来，不让它发出去！
-							interceptedRequest.abort();
+							return interceptedRequest.abort();
 							//console.log(`成功拦截科技识别请求：${interceptedRequest.url()}`);
 						} else {
-							interceptedRequest.continue();
+							return interceptedRequest.continue();
 						}
 					} else {
-						interceptedRequest.continue();
+						return interceptedRequest.continue();
 					}
 				} catch (e) {
 					console.warn(
@@ -532,32 +564,27 @@ class DO_Lottery {
 				__args.push(`--proxy-server=${lottery_setting.CONFIG.proxy}`);
 			}
 			__args.push(
-				`--start-stack-profiler`,
-				//`--load-extension=${ext1}`,
-				"--disable-notifications=true",
-				// '--no-sandbox',
+				"--start-stack-profiler",
 				"-–ignore-certificate-errors",
 				"--disable-infobars",
 				"--disable-session-crashed-bubble",
-				// '--disable-web-security',
 				"--disable-gpu",
 				"--disable-dev-shm-usage",
-				"--no-first-run",
 				"--mute-audio",
 				"--disable-extensions",
 				"--no-zygote",
 				"--disable-xss-auditor",
 				"--disable-popup-blocking",
-				// '--disable-setuid-sandbox',
-				//'--disable-accelerated-2d-canvas',
-				// '--single-process',
-				`--profile-directory=${lottery_setting.CONFIG.ProfileDir}`,
-				// "--disable-features=IsolateOrigins,site-per-process",
-				`--start-maximized`,
+				"--start-maximized",
 				"--disable-infobars",
 				"--window-position=0,0",
 				"--ignore-certifcate-errors",
-				"--ignore-certifcate-errors-spki-list"
+				"--ignore-certifcate-errors-spki-list",
+				"--window-size=1920,1080",
+				"--disable-accelerated-2d-canvas",
+				"--no-sandbox",
+				"--disable-setuid-sandbox",
+				`--profile-directory=${lottery_setting.CONFIG.ProfileDir}`
 			);
 			for (let retry = 0; retry < 5; retry++) {
 				//五次重试启动浏览器的机会
@@ -580,6 +607,7 @@ class DO_Lottery {
 								"--disable-extensions",
 								"--disable-client-side-phishing-detection",
 								"--disable-sync",
+								"--no-first-run",
 							],
 							ignoreHTTPSErrors: true,
 						});
@@ -755,31 +783,26 @@ class DO_Lottery {
 						`${global_var.user_info.uname}\t前往预约页面: ${reserve_url}\n`
 					);
 					global_var.response.space_reservation = undefined;
-					try {
-						await global_var.page
-							.goto(reserve_url)
-							.then(async () => {
-								try {
-									await global_var.page.waitForResponse(
-										(response) =>
-											response
-												.url()
-												.includes(
-													`/space/reservation`
-												) && response.status() === 200,
-										{ timeout: 30e3 }
-									);
-								} catch (e) {
-									console.warn(
-										`${global_var.user_info.uname}\t等待space/reservation响应失败\t${reserve_url}`
-									);
-								}
-							});
-					} catch (e) {
-						console.warn(
-							`${global_var.user_info.uname}\t前往预约页面${reserve_url}失败\nreserve_lottery_loop\n`,
-							e
-						);
+					await pptr_op.check_page_is_front(global_var.page);
+					await global_var.page
+						.goto(reserve_url)
+						.then(async () => {
+							await global_var.page.waitForResponse(
+								(response) =>
+									response
+										.url()
+										.includes(`/space/reservation`) &&
+									response.status() === 200,
+								{ timeout: 30e3 }
+							);
+						})
+						.catch((e) => {
+							console.warn(
+								`${global_var.user_info.uname}\t前往预约页面${reserve_url}失败\nreserve_lottery_loop\n`,
+								e
+							);
+						});
+					if (!global_var.response.space_reservation) {
 						continue;
 					}
 					await sleep(3e3);
@@ -1176,7 +1199,7 @@ class DO_Lottery {
 					//     return
 					// }
 					let is_past =
-						await my_operator.judge_lottery_time.judge_official_lottery();
+						my_operator.judge_lottery_time.judge_official_lottery();
 					if (is_past == true) {
 						await sleep(
 							utl.random_choice(
@@ -1423,7 +1446,7 @@ class DO_Lottery {
 													break;
 												} else {
 													await utl.my_throw(
-														`${goto_url}\t${global_var.user_info.uname}\t因为被拉黑导致点击关注失败 https://space.bilibili.com/${global_var.response.global_dynamic_data.item.modules.module_author.mid}`
+														`${goto_url}\t${global_var.user_info.uname}\t被拉黑了，不抽了 https://space.bilibili.com/${global_var.response.global_dynamic_data.item.modules.module_author.mid}`
 													);
 													if (!follow_pg.isClosed()) {
 														await follow_pg.close();
@@ -2455,6 +2478,9 @@ class DO_Lottery {
 					lottery_setting.CONFIG.Only_Comment_Lottery_Switch = false; //关闭只抽普通抽奖
 					let must_join_lottery_result = [];
 					if (finally_mustjoin_lottery_dynaimc.length != 0) {
+						console.log(
+							`${global_var.user_info.uname}\t开始官方抽奖！`
+						);
 						must_join_lottery_result = await lottery_loop(
 							finally_mustjoin_lottery_dynaimc
 						);

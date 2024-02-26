@@ -2,7 +2,7 @@
  * @Author: 星瞳 1944637830@qq.com
  * @Date: 2023-11-12 23:55:03
  * @LastEditors: 星瞳 1944637830@qq.com
- * @LastEditTime: 2024-02-15 11:20:45
+ * @LastEditTime: 2024-02-23 22:56:15
  * @FilePath: \tampermonkey\index.js
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -76,6 +76,26 @@ async function gen_lot_file(start_time) {
 		fs.writeFileSync("./木偶模块/一般的抽奖动态id.txt", "");
 		await sleep(100e3);
 		return await gen_lot_file(start_time);
+	}
+	try {
+		let get_lot_dyn = await axios.get(
+			"http://127.0.0.1:23333/get_others_official_lot_dyn"
+		);
+		let lot_dyn_data = get_lot_dyn.data;
+		if (lot_dyn_data && lot_dyn_data.length != 0) {
+			fs.writeFileSync(
+				"./木偶模块/官方抽奖动态id.txt",
+				lot_dyn_data.join("\n") + "\n",
+				{ flag: "a+" }
+			);
+			console.log(
+				`官方抽奖获取完成。写入文件 ./木偶模块/官方抽奖动态id.txt 共计${
+					lot_dyn_data.length
+				}条抽奖！--${start_time.toLocaleString()}`
+			);
+		}
+	} catch (e) {
+		console.error(`获取官方抽奖动态失败！${e}\n${e.stack}`);
 	}
 }
 /**
@@ -201,7 +221,10 @@ async function main() {
 	while (1) {
 		//触发动态抽奖事件
 		if (!gen_lot_file_mark && auto_mode) {
-			await sleep(1e3);
+			await sleep(10e3);
+			console.log(
+				`正在获取抽奖动态中！----${new Date().toLocaleString()}`
+			);
 			continue;
 		}
 		for (let i of lottery_setting_filename_list) {

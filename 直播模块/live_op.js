@@ -2,7 +2,7 @@
  * @Author: 星瞳 1944637830@qq.com
  * @Date: 2023-11-07 22:44:13
  * @LastEditors: 星瞳 1944637830@qq.com
- * @LastEditTime: 2024-02-21 20:08:44
+ * @LastEditTime: 2024-02-25 21:33:18
  * @FilePath: \tampermonkey\直播模块\live_op.js
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -137,6 +137,9 @@ const live_op = {
 		 */
 		remove_live_player: async (pg) => {
 			try {
+				await pg.evaluate(() => {
+					window.EmbedPlayer && window.EmbedPlayer.instance.freeze();
+				});
 				await pg.evaluate((selector) => {
 					const elementToRemove = document.querySelector(selector);
 					if (elementToRemove) {
@@ -162,10 +165,14 @@ const live_op = {
 			pg.on("request", async (req) => {
 				try {
 					// 拦截直播流
-					if (req.url().includes("bilivideo")) {
-						req.abort();
-						// console.log(`成功拦截直播流：${interceptedRequest.url()}`);
-						return;
+					if (req.url().includes(".bilivideo.com")) {
+						return req.abort();
+					}
+					if (
+						req.resourceType() == "image" ||
+						req.resourceType() == "media"
+					) {
+						return req.abort();
 					}
 					if (req.method().toLowerCase() == "post") {
 						if (
@@ -175,12 +182,13 @@ const live_op = {
 							req
 								.url()
 								.includes("data.bilibili.com/log/web?000527") ||
-							req.url().includes("data.bilibili.com/log/web?0000")
+							req
+								.url()
+								.includes("data.bilibili.com/log/web?000017")
 						) {
 							//如果是浏览器要发起检测到作弊的请求，就拦截下来，不让它发出去！
-							req.abort();
+							return req.abort();
 							//console.log(`成功拦截科技识别请求：${interceptedRequest.url()}`);
-							return;
 						}
 					}
 					req.continue();
@@ -531,7 +539,7 @@ class LIVE_LOT {
 				await this.live_pg.emulate({
 					name: "Redmi K30 Pro",
 					userAgent:
-						"Mozilla/5.0 BiliDroid/6.79.0 (bbcallen@gmail.com) os/android model/Redmi K30 Pro mobi_app/android build/6790300 channel/360 innerVer/6790310 osVer/11 network/2",
+						"Mozilla/5.0 BiliDroid/7.58.0 (bbcallen@gmail.com) os/android model/Redmi K30 Pro mobi_app/android build/7580300 channel/bili innerVer/7580310 osVer/11 network/2",
 					viewport: {
 						width: 600,
 						height: 1024,
@@ -690,16 +698,16 @@ class LIVE_LOT {
 					formData.set("ruid", anchor_uid);
 					formData.set("spm_id", "444.8.red_envelope.extract");
 					formData.set("jump_from", "26000");
-					formData.set("build", "6790300");
+					formData.set("build", "7580300");
 					formData.set("c_locale", "en_US");
-					formData.set("channel", "360");
+					formData.set("channel", "bili");
 					formData.set("device", "android");
 					formData.set("mobi_app", "android");
 					formData.set("platform", "android");
-					formData.set("version", "6.79.0");
+					formData.set("version", "7.58.0");
 					formData.set(
 						"statistics",
-						"%7B%22appId%22%3A1%2C%22platform%22%3A3%2C%22version%22%3A%227.54.0%22%2C%22abtest%22%3A%22%22%7D"
+						"%7B%22appId%22%3A1%2C%22platform%22%3A3%2C%22version%22%3A%227.58.0%22%2C%22abtest%22%3A%22%22%7D"
 					);
 					formData.set("csrf", csrf_token);
 					formData.set("csrf_token", csrf_token);
@@ -709,7 +717,7 @@ class LIVE_LOT {
 					let headers = new Headers();
 					headers.set(
 						"User-Agent",
-						"Mozilla/5.0 BiliDroid/6.79.0 (bbcallen@gmail.com) os/android model/Redmi K30 Pro mobi_app/android build/6790300 channel/360 innerVer/6790310 osVer/11 network/2"
+						"Mozilla/5.0 BiliDroid/7.58.0 (bbcallen@gmail.com) os/android model/Redmi K30 Pro mobi_app/android build/7580300 channel/bili innerVer/7580310 osVer/11 network/2"
 					);
 					let resp = await fetch(url, {
 						method: method,
@@ -1491,6 +1499,7 @@ class LIVE_LOT {
 					"error"
 				);
 				await sleep(10e3);
+				return await this.#glod_box_draw(round, pg, aid);
 			}
 		}
 	};

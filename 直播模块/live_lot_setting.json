@@ -1,19 +1,21 @@
 {
-    "unignore_anchor_key_word":[
-        "手办",
-        "ps",
-        "旗舰手机",
-        "铁三角",
-        "海盗船",
-        "轻薄本",
-        "华硕",
-        "ROG",
-        "耳机",
-        "手机",
-        "Mate",
-        "mate",
-        "Pro",
-        "Pro",
-        "Galaxy"
-    ]
+	"unignore_anchor_key_word": [
+		"手办",
+		"ps",
+		"旗舰手机",
+		"铁三角",
+		"海盗船",
+		"轻薄本",
+		"华硕",
+		"ROG",
+		"耳机",
+		"手机",
+		"Mate",
+		"mate",
+		"Pro",
+		"Pro",
+		"Galaxy",
+		"ultra",
+		"Ultra"
+	]
 }

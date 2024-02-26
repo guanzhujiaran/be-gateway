@@ -683,7 +683,7 @@ class ENVIRONMENT {
 								`.side-toolbar__action.like`
 							);
 							await sleep(1e3);
-							for (let i = 0; i < 5; i++) {
+							for (let i = 0; i < 2; i++) {
 								if (
 									await global_var.page.$(
 										`.side-toolbar__action.like.is-active`
@@ -767,6 +767,7 @@ class ENVIRONMENT {
 					}
 					//点击转发
 					global_var.Getter.check_login_status();
+					await pptr_op.check_page_is_front(global_var.page);
 					let pageurl = global_var.page.url();
 					if (pageurl.includes("opus")) {
 						opus_dynamic = true;
@@ -1478,11 +1479,10 @@ class ENVIRONMENT {
 					let coin_btn = await global_var.page.$(
 						`.video-coin.video-toolbar-left-item`
 					);
-					let coin_btn_title = await coin_btn.evaluate(
-						(el) => el.title,
-						coin_btn
+					let coin_btn_On = await global_var.page.$(
+						`.video-coin.video-toolbar-left-item.on`
 					);
-					if (coin_btn_title == "对本稿件的投币枚数已用完") {
+					if (coin_btn_On) {
 						console.log(
 							`${
 								global_var.user_info.uname
@@ -3540,45 +3540,21 @@ class ENVIRONMENT {
 				},
 			},
 			judge_lottery_time: {
-				judge_official_lottery: async () => {
-					//官方抽奖判断 没过期返回false 过期了返回true
-					if (
-						((await global_var.page.$(
-							".bili-rich-text-module.lottery"
-						)) ||
-							(await global_var.page.$(
-								`.opus-text-rich-hl.lottery`
-							))) &&
-						JSON.stringify(
-							global_var.response.global_dynamic_data.item.modules
-								.module_dynamic.desc
-						).includes("RICH_TEXT_NODE_TYPE_LOTTERY")
-					) {
-						//选取互动抽奖蓝标
-						if (lottery_setting.official_lottery_switch) {
-						} else {
-							return true;
-						}
-						//utl.simulate(document.getElementsByClassName('bili-rich-text-module lottery')[0], 'click')
-						//await sleep(2 * utl.random_choice(lottery_setting.Working_clearance_time))
-						try {
-							if (1) {
-								//document.getElementsByClassName('bili-popup__content__browser')[0].contentWindow.document.getElementsByClassName('countdown')[0]) {//没过期
-								//await sleep(utl.random_choice(lottery_setting.Working_clearance_time))
-								//utl.simulate(document.getElementsByClassName('bili-popup__header__close')[0], 'click')
-								//await sleep(utl.random_choice(lottery_setting.Working_clearance_time))//暂时不判断官方抽奖是否过期
-								return false;
-							} else {
-								await utl.my_throw("过期的官方抽奖");
-								return true;
-							}
-						} catch {
-							await utl.my_throw("官抽信息获取失败或者过期");
-							return true;
-						}
-					} else {
+				judge_official_lottery: () => {
+					//官方抽奖判断 没过期返回false 过期了返回true ,undefinde是普通抽奖
+					let lot_rich_text =
+						global_var.response.global_dynamic_data?.item?.modules?.module_dynamic?.major?.opus?.summary?.rich_text_nodes?.filter(
+							(el) => el.type == "RICH_TEXT_NODE_TYPE_LOTTERY"
+						);
+					if (lot_rich_text == undefined) {
 						return undefined;
 					}
+					if (lot_rich_text && lot_rich_text.length > 0) {
+						return false;
+					} else {
+						return true;
+					}
+					return;
 				},
 				judge_charge_lottery: async () => {
 					if (
@@ -3974,6 +3950,9 @@ class ENVIRONMENT {
 													2
 												)
 											) - new Date().getHours();
+										await global_var.page.goto(
+											"about:blank"
+										);
 										await sleep(sleep_hour * 3600e3);
 									}
 									lottery_setting.prevent_module.share_video_url =
@@ -5241,11 +5220,14 @@ ${Dynamic_content}
 				get: async (api, params) => {
 					let query = new URLSearchParams(params).toString();
 					if (api.includes("wbi")) {
-						try{
+						try {
 							query = await QueryWbiEnc(params);
-						}
-						catch(e){
-							console.error(`wbi加密失败！${api}\t${JSON.stringify(params)}\n${e.stack}`);
+						} catch (e) {
+							console.error(
+								`wbi加密失败！${api}\t${JSON.stringify(
+									params
+								)}\n${e.stack}`
+							);
 						}
 					}
 					console.debug(`使用api获取响应！${api}?${query}`);
