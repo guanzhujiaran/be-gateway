@@ -2,7 +2,7 @@
  * @Author: 星瞳 1944637830@qq.com
  * @Date: 2023-11-07 22:44:13
  * @LastEditors: 星瞳 1944637830@qq.com
- * @LastEditTime: 2024-02-25 21:33:18
+ * @LastEditTime: 2024-03-22 01:18:01
  * @FilePath: \tampermonkey\直播模块\live_op.js
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -10,7 +10,7 @@
  * 直播抽奖功能
  */
 const { Page } = require("puppeteer-core");
-const event_bus = require("../lib/helper/event_bus"); //注册事件用的，每一轮都要重新注册！
+const { event_bus, EVENT_NAME_MAP } = require("../lib/helper/event_bus"); //注册事件用的，每一轮都要重新注册！
 const { sleep, pptr_op } = require("../木偶模块/util/common_utl");
 const { DO_Lottery } = require("../木偶模块/puppeteer_lottery");
 const axios = require("axios");
@@ -18,7 +18,6 @@ const fs = require("fs");
 const { BAPI } = require("../lib/helper/BAPI.js");
 const { API } = require("./LIVETOOL");
 const GLOBAL_CONFIG = require("../CONFIG.Default");
-
 const utl = {
 	random_choice: function (input_list) {
 		let index = Math.floor(Math.random() * input_list.length);
@@ -62,7 +61,7 @@ const live_op = {
 				if (!pg || (await pg.browser().pages()).length === 0) {
 					await DO_Lottery_class.account_init(false);
 					await sleep(5e3);
-					while (!pg) {
+					while (!(await pg?.browser()?.pages())?.length){
 						pg = DO_Lottery_class.global_page;
 						await sleep(100);
 					}
@@ -111,7 +110,7 @@ const live_op = {
 				if (err_times > 3) {
 					throw e;
 				}
-				console.error(`直播抽奖浏览器页面初始化失败！${e}\n${e.stack}`);
+				console.error(`${DO_Lottery_class.lottery_name}\t直播抽奖浏览器页面初始化失败！${e}\n${e.stack}`);
 				await sleep(10e3);
 			}
 		}
@@ -522,6 +521,9 @@ class LIVE_LOT {
 			/**@type {number[]} 已经前往的金宝箱直播间url */
 			has_gone_to_live_room_aid_list: [],
 		};
+		this.emulate_ua =
+			"Mozilla/5.0 BiliDroid/6.79.0 (bbcallen@gmail.com) os/android model/Redmi K30 Pro mobi_app/android build/6790300 channel/360 innerVer/6790310 osVer/11 network/2";
+
 		console.log(`创建了新的直播抽奖实例`);
 	}
 	/**
@@ -538,8 +540,7 @@ class LIVE_LOT {
 			if (android_emulate) {
 				await this.live_pg.emulate({
 					name: "Redmi K30 Pro",
-					userAgent:
-						"Mozilla/5.0 BiliDroid/7.58.0 (bbcallen@gmail.com) os/android model/Redmi K30 Pro mobi_app/android build/7580300 channel/bili innerVer/7580310 osVer/11 network/2",
+					userAgent: this.emulate_ua,
 					viewport: {
 						width: 600,
 						height: 1024,
@@ -604,11 +605,30 @@ class LIVE_LOT {
 			if (data.code == 0) {
 				this.API.chatLog(`全部关注数：【${data.data.list.length}】个`);
 				this.CONFIG.live_info.ALLFollowingList = data.data.list;
-				if (data.data.list.length > 2800) {
+				if (data.data.list.length > 2000) {
 					this.API.chatLog(
 						`直播主播关注数达到${data.data.list.length}，注意满3000关注后，将无法新增关注，会影响中奖！`,
 						"warning"
 					);
+					if (this.live_lot_switch) {
+						this.API.chatLog(
+							`直播抽奖flag开启中，自动执行取关脚本！`,
+							"info"
+						);
+						let event_name = `${EVENT_NAME_MAP.lot_unfollow}_${this.__DO_Lottery_class.lottery_name}`;
+						if (event_bus.event_list.indexOf(event_name) == -1) {
+							event_bus.on(event_name, async () => {
+								try {
+									await this.__DO_Lottery_class.unfollow_module(
+										2000
+									);
+								} catch (e) {
+									this.API.chatLog(`取关脚本执行失败！${e}`);
+								}
+							});
+						}
+						event_bus.emit(event_name);
+					}
 				}
 			}
 		});
@@ -664,8 +684,7 @@ class LIVE_LOT {
 			await live_op.basic_op.hook_teck_logdata(new_pg);
 			await new_pg.emulate({
 				name: "Redmi K30 Pro",
-				userAgent:
-					"Mozilla/5.0 BiliDroid/6.79.0 (bbcallen@gmail.com) os/android model/Redmi K30 Pro mobi_app/android build/6790300 channel/360 innerVer/6790310 osVer/11 network/2",
+				userAgent: this.emulate_ua,
 				viewport: {
 					width: 600,
 					height: 1024,
@@ -700,14 +719,14 @@ class LIVE_LOT {
 					formData.set("jump_from", "26000");
 					formData.set("build", "7580300");
 					formData.set("c_locale", "en_US");
-					formData.set("channel", "bili");
+					formData.set("channel", "360");
 					formData.set("device", "android");
 					formData.set("mobi_app", "android");
 					formData.set("platform", "android");
-					formData.set("version", "7.58.0");
+					formData.set("version", "6.79.0");
 					formData.set(
 						"statistics",
-						"%7B%22appId%22%3A1%2C%22platform%22%3A3%2C%22version%22%3A%227.58.0%22%2C%22abtest%22%3A%22%22%7D"
+						"%7B%22appId%22%3A1%2C%22platform%22%3A3%2C%22version%22%3A%226.79.0%22%2C%22abtest%22%3A%22%22%7D"
 					);
 					formData.set("csrf", csrf_token);
 					formData.set("csrf_token", csrf_token);
@@ -715,10 +734,7 @@ class LIVE_LOT {
 					let url = `https://api.live.bilibili.com/xlive/lottery-interface/v1/popularityRedPocket/RedPocketDraw`;
 					let method = "post";
 					let headers = new Headers();
-					headers.set(
-						"User-Agent",
-						"Mozilla/5.0 BiliDroid/7.58.0 (bbcallen@gmail.com) os/android model/Redmi K30 Pro mobi_app/android build/7580300 channel/bili innerVer/7580310 osVer/11 network/2"
-					);
+					headers.set("User-Agent", this.emulate_ua);
 					let resp = await fetch(url, {
 						method: method,
 						headers: headers,
@@ -737,7 +753,11 @@ class LIVE_LOT {
 			);
 			setTimeout(async () => {
 				if (new_pg && !new_pg.isClosed()) {
-					await new_pg.close();
+					try {
+						await new_pg.close();
+					} catch (e) {
+						console.error(`关闭直播浏览器页面失败！\n${e}`);
+					}
 				}
 			}, 180e3);
 			if (resp_data.code == 0) {
@@ -1215,7 +1235,8 @@ class LIVE_LOT {
 			} catch (e) {
 				console.error(`等待参与天选抽奖响应失败！${e}\n${e.stack}`);
 			}
-			let anchor_join_resp = await __anchor_join.json();
+			let anchor_join_resp = {};
+			if (__anchor_join) anchor_join_resp = await __anchor_join.json();
 			if ((anchor_join_resp.code == 400) & (gift_num * gift_price != 0)) {
 				console.log(
 					`【天选抽奖 ${
@@ -1482,6 +1503,9 @@ class LIVE_LOT {
 						`https://live.bilibili.com/p/html/live-room-treasurebox/index.html?aid=${aid}#/`
 					);
 				}
+				await sleep(
+					utl.random_choice([5e3, 10e3, 15e3, 20e3, 25e3, 30e3, 35e3])
+				);
 				await pptr_op.check_page_is_front(pg);
 				let round_items = await pg.$$(
 					live_op.element_map.live_room_treasurebox.round_item
@@ -1505,10 +1529,10 @@ class LIVE_LOT {
 	};
 
 	/**
-	 *
+	 *	参加金宝箱抽奖主函数
 	 * @param {number} aid
 	 */
-	glod_box_main = async (aid) => {
+	gold_box_main = async (aid) => {
 		/**
 		 * 监控是否有金宝箱对应的直播间
 		 * @param {number} lottery_start_ts 抽奖开始时间（秒
@@ -1572,7 +1596,7 @@ class LIVE_LOT {
 			}
 		};
 		try {
-			this.__DO_Lottery_class.goldbox_lottery_flag = true;
+			this.__DO_Lottery_class.no_exit_falg.goldbox_lottery_flag = true;
 			await this.#check_browser();
 			let new_pg = await this.live_pg.browser().newPage();
 			await new_pg.setExtraHTTPHeaders({
@@ -1604,7 +1628,7 @@ class LIVE_LOT {
 					: undefined;
 			}
 			setTimeout(async () => {
-				this.__DO_Lottery_class.goldbox_lottery_flag = false;
+				this.__DO_Lottery_class.no_exit_falg.goldbox_lottery_flag = false;
 				this.check_is_need_to_close_browser(new_pg);
 			}, rounds[rounds.length - 1].join_end_time * 1e3 - Date.now());
 			monitor_aid_live_url();
@@ -1613,8 +1637,8 @@ class LIVE_LOT {
 				`${this.__DO_Lottery_class.lottery_name}执行金宝箱抽奖失败！${e}\n${e.stack}`
 			);
 			await sleep(10e3);
-			return this.gold_box_main;
 			this.__DO_Lottery_class.goldbox_lottery_flag = false;
+			return this.gold_box_main(aid);
 		}
 	};
 	/**
@@ -1629,13 +1653,24 @@ class LIVE_LOT {
 				}
 				if ((await new_pg.browser().pages()).length != 0) {
 					if (
-						this.__DO_Lottery_class.goldbox_lottery_flag ||
+						Object.keys(this.__DO_Lottery_class.no_exit_falg).some(
+							(k) => this.__DO_Lottery_class.no_exit_falg[k]
+						) ||
 						this.__DO_Lottery_class.browser_mode
-					)
+					) {
+						this.API.chatLog(
+							`检测到有任务未完成，不许关闭浏览器！`
+						);
 						return;
+					}
 					if (this.__DO_Lottery_class.lottery_setting.CONFIG.LIVE_LOT)
 						return;
-					if (this.__DO_Lottery_class.lotFlag) return;
+					if (this.__DO_Lottery_class.lotFlag) {
+						this.API.chatLog(
+							`检测到有任务未完成，不许关闭浏览器！`
+						);
+						return;
+					}
 					if (
 						this.__DO_Lottery_class.global_var.page &&
 						this.__DO_Lottery_class.global_var.page.isClosed()
@@ -1944,7 +1979,7 @@ class LIVE_LOT_Service {
 								let promise_list = [];
 								for (let LIVE_LOT of this.ALL_LIVE_LOT) {
 									promise_list.push(
-										LIVE_LOT.glod_box_main(goldbox.aid)
+										LIVE_LOT.gold_box_main(goldbox.aid)
 									);
 									await sleep(21e3);
 								}

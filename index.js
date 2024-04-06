@@ -2,7 +2,7 @@
  * @Author: 星瞳 1944637830@qq.com
  * @Date: 2023-11-12 23:55:03
  * @LastEditors: 星瞳 1944637830@qq.com
- * @LastEditTime: 2024-02-23 22:56:15
+ * @LastEditTime: 2024-04-06 14:23:57
  * @FilePath: \tampermonkey\index.js
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -35,10 +35,10 @@
 let { DO_Lottery, sleep } = require("./木偶模块/puppeteer_lottery.js");
 let { LIVE_LOT_Service } = require("./直播模块/live_op.js");
 let { live_dm_wss_service } = require("./直播模块/live_dm_server.js");
-let event_bus = require("./lib/helper/event_bus"); //注册事件用的，每一轮都要重新注册！
+let { event_bus, EVENT_NAME_MAP } = require("./lib/helper/event_bus"); //注册事件用的，每一轮都要重新注册！
 let axios = require("axios");
 let fs = require("fs");
-
+const global_config = require("./CONFIG.Default.js");
 /**
  * 生成抽奖文件
  * @param {Date} start_time
@@ -81,21 +81,85 @@ async function gen_lot_file(start_time) {
 		let get_lot_dyn = await axios.get(
 			"http://127.0.0.1:23333/get_others_official_lot_dyn"
 		);
+		let latest_lot_dyn = fs
+			.readFileSync("./木偶模块/官方抽奖动态id.txt")
+			.toString();
+		let latest_lot_dyn_data = latest_lot_dyn.split("\n");
 		let lot_dyn_data = get_lot_dyn.data;
 		if (lot_dyn_data && lot_dyn_data.length != 0) {
+			let result = Array.from(
+				new Set(latest_lot_dyn_data.concat(lot_dyn_data))
+			);
 			fs.writeFileSync(
 				"./木偶模块/官方抽奖动态id.txt",
-				lot_dyn_data.join("\n") + "\n",
-				{ flag: "a+" }
+				result.join("\n") + "\n",
+				{ flag: "w" }
 			);
 			console.log(
-				`官方抽奖获取完成。写入文件 ./木偶模块/官方抽奖动态id.txt 共计${
+				`官方抽奖获取完成。写入文件 ./木偶模块/官方抽奖动态id.txt 本轮新增${
 					lot_dyn_data.length
-				}条抽奖！--${start_time.toLocaleString()}`
+				}条官方抽奖！--${start_time.toLocaleString()}`
 			);
 		}
 	} catch (e) {
 		console.error(`获取官方抽奖动态失败！${e}\n${e.stack}`);
+	}
+
+	try {
+		let get_lot_dyn = await axios.get(
+			"http://127.0.0.1:23333/get_others_big_lot"
+		);
+		let latest_lot_dyn = fs
+			.readFileSync("./木偶模块/必抽的大奖.txt")
+			.toString();
+		let latest_lot_dyn_data = latest_lot_dyn.split("\n");
+		let lot_dyn_data = get_lot_dyn.data;
+		if (lot_dyn_data && lot_dyn_data.length != 0) {
+			let result = Array.from(
+				new Set(latest_lot_dyn_data.concat(lot_dyn_data))
+			);
+			fs.writeFileSync(
+				"./木偶模块/必抽的大奖.txt",
+				result.join("\n") + "\n",
+				{ flag: "w" }
+			);
+			console.log(
+				`必抽的大奖获取完成。写入文件 ./木偶模块/必抽的大奖.txt 本轮新增${
+					lot_dyn_data.length
+				}条必抽的大奖！--${start_time.toLocaleString()}`
+			);
+		}
+	} catch (e) {
+		console.error(`获取必抽的大奖动态失败！${e}\n${e.stack}`);
+	}
+
+	try {
+		let get_lot_dyn = await axios.get(
+			"http://127.0.0.1:23333/get_others_big_reserve"
+		);
+		let latest_lot_dyn = fs
+			.readFileSync("./木偶模块/必抽的预约抽奖.txt")
+			.toString();
+		/**@type {Array<Object>} */
+		let latest_lot_dyn_data =latest_lot_dyn.trim()? JSON.parse(latest_lot_dyn):[]
+		let lot_dyn_data = get_lot_dyn.data;
+		if (lot_dyn_data && lot_dyn_data.length != 0) {
+			let result = Array.from(
+				new Set(latest_lot_dyn_data.concat(lot_dyn_data))
+			);
+			fs.writeFileSync(
+				"./木偶模块/必抽的预约抽奖.txt",
+				JSON.stringify(result,"","\t"),
+				{ flag: "w" }
+			);
+			console.log(
+				`必抽的预约抽奖获取完成。写入文件 ./木偶模块/必抽的预约抽奖.txt 本轮新增${
+					lot_dyn_data.length
+				}条必抽的预约抽奖！--${start_time.toLocaleString()}`
+			);
+		}
+	} catch (e) {
+		console.error(`获取必抽的预约抽奖失败！${e}\n${e.stack}`);
 	}
 }
 /**
@@ -103,20 +167,12 @@ async function gen_lot_file(start_time) {
  */
 const MYLOTLIST = []; // 全局变量，存放所有的抽奖实例{event_name:event_name,lot:lot}
 
-const EVENT_NAME_MAP = {
-	//事件名称
-	lot_unfollow: "lot_unfollow", //取关
-	lot: "lot", //动态抽奖
-	ALL_LIVE_LOT: "ALL_LIVE_LOT", //直播抽奖
-	LIVE_SEND_DM_SERVICE: "LIVE_SEND_DM_SERVICE", //直播刷弹幕
-};
-
 async function main() {
 	let start_time = new Date();
 	let lottery_setting_filename_list = [
 		//抽奖设置的名称
-		"lottery_setting1",
-		"lottery_setting3",
+		// "lottery_setting1",
+		// "lottery_setting3",
 		"lottery_setting2",
 		"lottery_setting5",
 		"lottery_setting8",
@@ -131,7 +187,7 @@ async function main() {
 		// 'lottery_setting6',//G
 	];
 	let unfollow_mode = 0; //是否开启取关模式，开启后只启动取关模块，其他啥也不干
-	let auto_mode = 1; //是否开启全自动抽奖模式
+	let auto_mode = 0; //是否开启全自动抽奖模式
 	let browser_mode = 0; //是否只打开浏览器，不进行抽奖
 	let live_mode = 1; //是否开始直播抽奖模块
 	let gen_lot_file_mark = false; //抽奖文件获取完成
@@ -221,10 +277,7 @@ async function main() {
 	while (1) {
 		//触发动态抽奖事件
 		if (!gen_lot_file_mark && auto_mode) {
-			await sleep(10e3);
-			console.log(
-				`正在获取抽奖动态中！----${new Date().toLocaleString()}`
-			);
+			await sleep(5e3);
 			continue;
 		}
 		for (let i of lottery_setting_filename_list) {
@@ -269,9 +322,11 @@ async function main() {
 				let ii = parseInt(shh / 60);
 				let ss = shh - ii * 60;
 				tomorrow - now < 0
-					? console.log("本轮抽奖完成，立刻执行下一轮！")
+					? console.log(
+							`本轮抽奖启动于：${start_time.toLocaleString()} 已完成，立刻执行下一轮！`
+					  )
 					: console.log(
-							`本轮抽奖已完成，下一轮将在 ${
+							`本轮抽奖启动于：${start_time.toLocaleString()} 已完成，下一轮将在 ${
 								(hh < 10 ? "0" + hh : hh) +
 								"小时" +
 								(ii < 10 ? "0" + ii : ii) +

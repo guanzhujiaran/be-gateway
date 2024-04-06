@@ -21,7 +21,9 @@ async function generate_unfollow_file(pg, uid) {
 				console.log(
 					`${uid}\t全部关注数：【${data.data.list.length}】个`
 				);
-				console.log(`${uid}\t正在获取取关列表中！`);
+				console.log(
+					`${uid}\t正在获取取关列表中！--${new Date().toLocaleString()}`
+				);
 				return await MYAPI.get_unlot_following(data.data.list);
 			} else {
 				console.error(`获取关注列表失败！${data}`);
@@ -51,9 +53,14 @@ async function generate_unfollow_file(pg, uid) {
  *执行取关
  * @param {Page} pg
  * @param {number} uid
+ * @param {number} limit_follower_num -- 最大关注数量
  * @returns
  */
-async function do_unfollow(pg, uid = 1) {
+async function do_unfollow(
+	pg,
+	uid = 1,
+	limit_follower_num = global_config.unfollow_module.max_follow_num
+) {
 	try {
 		let basic_url = `https://space.bilibili.com/${uid}/fans/follow`;
 		await pptr_op.check_page_is_front(pg);
@@ -69,11 +76,10 @@ async function do_unfollow(pg, uid = 1) {
 		}
 		if (
 			!nav_stat?.data?.following ||
-			nav_stat?.data?.following <=
-				global_config.unfollow_module.max_follow_num
+			nav_stat?.data?.following <= limit_follower_num
 		) {
 			console.log(
-				`${uid} 当前关注数${nav_stat?.data?.following}个 不满足取关条件（大于${global_config.unfollow_module.max_follow_num}个）`
+				`${uid} 当前关注数${nav_stat?.data?.following}个 不满足取关条件（大于${limit_follower_num}个）`
 			);
 			return;
 		}
@@ -98,6 +104,9 @@ async function do_unfollow(pg, uid = 1) {
 		for (let unfollow_raw of unfollow_arr) {
 			try {
 				await pptr_op.check_page_is_front(pg);
+				if(!pg.url().includes("bilibili")){
+					await pg.goto(basic_url);
+				}
 				let unfollow_arr_trim = unfollow_raw.trim();
 				if (unfollow_arr_trim) {
 					let unfollow_mid = unfollow_arr_trim

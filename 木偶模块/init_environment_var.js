@@ -5,6 +5,7 @@ const QueryWbiEnc = require("../lib/helper/encbiliWbiQuery");
 const { Page } = require("puppeteer-core");
 const GLOBAL_CONFIG = require("../CONFIG.Default");
 const { pptr_op } = require("./util/common_utl");
+const { error } = require("console");
 const __dirpath = "./木偶模块/";
 if (!fs.existsSync(__dirpath)) {
 	//创建文件目录
@@ -400,6 +401,7 @@ class ENVIRONMENT {
 					return newArr;
 				} catch (e) {
 					console.warn(e, `${global_var.user_info.uname}\tnoRepeat`);
+					return arr;
 				}
 				return newArr;
 			},
@@ -1472,16 +1474,25 @@ class ENVIRONMENT {
 					await pptr_op.remove_video_player(global_var.page);
 				},
 				sanlian: async function (pageurl) {
-					let thumb_btn = await global_var.page.$(
-						`.video-like.video-toolbar-left-item`
-					);
-					await thumb_btn.click({ delay: 10e3 });
+					let thumb_btn = await global_var.page
+						.waitForSelector(`.video-like.video-toolbar-left-item`)
+						.then(async (thumb_btn_element) => {
+							await thumb_btn_element.click({ delay:10e3 });
+						})
+						.catch((e) => {
+							console.error(`获取点赞按钮失败！${e}`);
+						});
 					let coin_btn = await global_var.page.$(
 						`.video-coin.video-toolbar-left-item`
 					);
-					let coin_btn_On = await global_var.page.$(
-						`.video-coin.video-toolbar-left-item.on`
-					);
+					let coin_btn_On = await global_var.page
+						.waitForSelector(
+							`.video-coin.video-toolbar-left-item.on`
+						)
+						.catch((e) => {
+							console.log(`等待硬币是否投出失败！${e}`);
+							return null;
+						});
 					if (coin_btn_On) {
 						console.log(
 							`${
@@ -1498,10 +1509,12 @@ class ENVIRONMENT {
 					}
 				},
 				toubi: async function (coin_num, pageurl) {
-					let coin_btn = await global_var.page.$(
+					let coin_btn = await global_var.page.waitForSelector(
 						`.video-coin.video-toolbar-left-item`
-					);
-					await coin_btn.click();
+					).then(async coin_btn_ele=>{
+						await coin_btn_ele.click()
+						return coin_btn_ele
+					});
 					if (coin_num == 1) {
 						let one_coin_box = await global_var.page.$(
 							`.mc-box.left-con`
@@ -1923,7 +1936,11 @@ class ENVIRONMENT {
 									}
 									return ret_msg;
 								} catch (e) {
-									console.error(`up置顶的回复获取失败`, e);
+									console.error(
+										`up置顶的回复获取失败`,
+										e,
+										global_var.response.reply_main
+									);
 									await utl.my_throw("up置顶的回复获取失败");
 									return "";
 								}
@@ -2548,6 +2565,78 @@ class ENVIRONMENT {
 					}
 					return premsg;
 				},
+				/**
+				 * 预处理动态内容
+				 */
+				pre_process_dynamic_content: (dynamic_content) => {
+					try {
+						dynamic_content = dynamic_content.replaceAll(
+							/「/gim,
+							"【"
+						);
+						dynamic_content = dynamic_content.replaceAll(
+							/」/gim,
+							"】"
+						);
+						dynamic_content = dynamic_content.replaceAll(
+							/〗/gim,
+							"】"
+						);
+						dynamic_content = dynamic_content.replaceAll(
+							/〖/gim,
+							"【"
+						);
+						dynamic_content = dynamic_content.replaceAll(
+							/“/gim,
+							'"'
+						);
+						dynamic_content = dynamic_content.replaceAll(
+							/”/gim,
+							'"'
+						);
+						dynamic_content = dynamic_content.replaceAll(
+							/＠/gim,
+							"@"
+						);
+						dynamic_content = dynamic_content.replaceAll(
+							/@.{0,8} /gim,
+							""
+						);
+						dynamic_content = dynamic_content.replaceAll(
+							/好友/gim,
+							"朋友"
+						);
+						dynamic_content = dynamic_content.replaceAll(
+							/伙伴/gim,
+							"朋友"
+						);
+						dynamic_content = dynamic_content.replaceAll(
+							/安利/gim,
+							"分享"
+						);
+						dynamic_content = dynamic_content.replaceAll(
+							/【关注】/gim,
+							""
+						);
+						dynamic_content = dynamic_content.replaceAll(
+							/添加话题/gim,
+							"带话题"
+						);
+
+						dynamic_content = dynamic_content.replaceAll(
+							/[\?|❓]/gim,
+							"？"
+						);
+						return dynamic_content;
+					} catch {
+						return dynamic_content;
+					}
+				},
+				/**
+				 * 判断是否需要人工回复
+				 * @param {string} dynamic_content
+				 * @returns {boolean} - true ：人工回复 false：自动评论
+				 */
 				manual_reply_judge: function (dynamic_content) {
 					//判断是否需要人工回复 返回true需要人工判断  返回null不需要人工判断
 					//64和67用作判断是否能使用关键词回复
@@ -2776,7 +2865,7 @@ class ENVIRONMENT {
 							dynamic_content
 						);
 					let manual_re6 =
-						/.*@TA|.*@.{0,15}朋友|.*艾特|.*@.{0,3}你的|.*标记.{0,10}朋友|.*@{0,15}赞助商|.*发表你的新年愿望\+个人的昵称|.*抽奖规则请仔细看图片|.*带上用户名|.*活动详情请戳图片|.*@个人用户名|评论.{0,5}附带.{0,10}相关内容|回复.{0,5}视频.{0,10}相关内容|.*评论.{0,5}昵称/gim.test(
+						/.*@TA|.*@.{0,15}朋友|.*艾特|.*@.{0,3}你的|.*标记.{0,10}朋友|.*@{0,15}赞助商|.*发表你的新年愿望\+个人的昵称|.*抽奖规则请仔细看图片|.*带上用户名|.*活动详情请戳图片|.*@个人用户名|评论.{0,5}附带.{0,10}相关内容|回复.{0,5}视频.{0,10}相关内容|.*评论.{0,5}昵称|转发.{0,8}并@/gim.test(
 							dynamic_content
 						);
 					let manual_re62 =
@@ -2883,7 +2972,6 @@ class ENVIRONMENT {
 				},
 				/**
 				 * 返回true代表这个动态不是抽奖up的动态，不能转发评论
-				 * @returns
 				 */
 				non_lottery_up_judge: () => {
 					try {
@@ -3080,12 +3168,26 @@ class ENVIRONMENT {
 					return undefined;
 				},
 				/**
+				 * 判断是否需要转发评论的内容  true:转发评论的内容 false:转发默认内容
+				 */
+				repost_with_comment_judge: (dynamic_content) => {
+					dynamic_content =
+						my_operator.dynamic_comment_operator.pre_process_dynamic_content(
+							dynamic_content
+						);
+					let re_1 = /.*转发.{0,5}含关键词|转发.{0,8}并@/gim.test(
+						dynamic_content
+					);
+					return re_1;
+				},
+				/**
 				 * 如果返回值包含undefined或者不包含需要人工回复就直接开始抽奖
 				 * @param {String} dynamic_content
 				 * @param {String} dynamic_id
 				 * @returns
 				 */
 				reply_comment_generator: async (
+					//返回undefined表示需要人工回复，而不是从预设的回复里面选内容
 					dynamic_content,
 					dynamic_id
 				) => {
@@ -3110,7 +3212,7 @@ class ENVIRONMENT {
 							dynamic_content
 						) ||
 						global_var.response.global_dynamic_data.item.basic
-							.comment_type == 1
+							.comment_type == 1 || pre_msg==undefined
 					) {
 						//先判断是否要人工回复 视频全部抄
 						let key_reply =
@@ -3155,16 +3257,16 @@ class ENVIRONMENT {
 							if (pre_msg == undefined) {
 								//话题获取失败了，直接开抄！
 								if (
-									lottery_setting.copy_reply_module
+									0< lottery_setting.copy_reply_module
 										.comment_copy_chance ||
-									lottery_setting.copy_reply_module
+										0< lottery_setting.copy_reply_module
 										.AI_reply_chance
 								) {
 									e.next = 0;
 									pre_msg = "";
 								}
 							}
-							//0: 抄评论 1:AI回复 2:人工回复
+							//0: 抄评论 1:AI回复 2:人工回复 99: 退出
 							let get_comment_times = 0;
 							while (!comment_msg) {
 								get_comment_times++;
@@ -3210,6 +3312,7 @@ class ENVIRONMENT {
 													global_var.user_info.uname
 												}\t抄取评论：${copy_msg}\t${new Date().toLocaleTimeString()}`
 											);
+											pre_msg = pre_msg?pre_msg:''
 										} catch (e) {
 											console.warn(
 												`${global_var.user_info.uname}\t获取抄评论内容失败，reply_comment_generator\n`,
@@ -3262,10 +3365,11 @@ class ENVIRONMENT {
 											para_msg == ""
 												? copy_msg
 												: para_msg;
-										if (e.prev == 1) {
-											if (get_comment_times > 3) {
-												e.next = 2;
-											}
+										if (get_comment_times >= 3) {
+											console.warn(
+												`${global_var.user_info.uname}\t获取评论次数${get_comment_times}超过3次\t获取评论失败！`
+											);
+											e.next = 99;
 										} else {
 											e.next = 1;
 										}
@@ -3284,11 +3388,11 @@ class ENVIRONMENT {
 											) {
 												if (get_comment_times > 3) {
 													e.next = 0;
+													// 	comment_msg = '人工回复'
+													// await utl.my_throw('需要人工回复的动态')
+													// return undefined;
 												}
 												break;
-												// comment_msg = '人工回复'
-												// await utl.my_throw('需要人工回复的动态')
-												// return undefined;
 											}
 										} catch (__) {
 											console.warn(
@@ -3309,6 +3413,15 @@ class ENVIRONMENT {
 												global_var.user_info.uname
 											}\t需要人工回复的动态\t${dynamic_id}\t${new Date().toLocaleTimeString()}`
 										);
+										await utl.my_throw(
+											"需要人工回复的动态"
+										);
+										return undefined; //返回undefined表示需要人工回复，而不是从预设的回复里面选内容
+									case 99:
+										console.error(
+											`${global_var.user_info.uname}\t生成评论失败！获取评论次数${get_comment_times}超过3次\t获取评论失败！`
+										);
+										comment_msg = "人工回复";
 										await utl.my_throw(
 											"需要人工回复的动态"
 										);
@@ -3410,6 +3523,7 @@ class ENVIRONMENT {
 						pre_msg == undefined
 					) {
 						comment_msg = "回复内容出错";
+						console.error(`${global_var.page.url()}\n回复内容出错:${dynamic_content}`)
 						utl.my_throw("回复内容出错");
 						return undefined;
 					}
@@ -4316,9 +4430,9 @@ class ENVIRONMENT {
 						}
 						console.log(
 							`https://t.bilibili.com/${dynamic_id_or_BVid} ${global_var.user_info.uname}获取到的所有评论，获取了 ${pn_list} 页数\n总获取次数：${loop_times}次！`,
-							all_replies_content,
 							new Date()
 						);
+						console.log(all_replies_content);
 						if (!!ret_reply) {
 							break;
 						}
@@ -4871,6 +4985,9 @@ ${Dynamic_content}
 								},
 								`同义改写内容：${OriginMessage}\n结果：${result}`
 							);
+							if(!result){
+								throw new Error(`同义改写结果为空！${result}`)
+							}
 							return result;
 						} catch (e) {
 							if (try_time > 3) {
@@ -4893,6 +5010,8 @@ ${Dynamic_content}
 				},
 				/**
 				 * 根据动态内容和评论区的内容，判断是否可以抄评论，返回true则是允许抄评论
+				 * @param {string} dynamic_content
+				 * @returns {boolean} - true ：允许抄评论 false ：不许抄！
 				 */
 				copy_reply_judge: (dynamic_content) => {
 					try {
@@ -4928,7 +5047,7 @@ ${Dynamic_content}
 								global_var.response.reply_main.data.replies;
 							for (let reply of replies) {
 								let msg = reply.content.message;
-								let push_msg = utl.remove_emoji_topic_at(msg);
+								let push_msg = utl.remove_emoji_topic_at(msg,dynamic_content);
 								if (push_msg) {
 									rep_content_list.push(push_msg);
 								}
@@ -4977,39 +5096,10 @@ ${Dynamic_content}
 							}
 						}
 					} catch {}
-					dynamic_content = dynamic_content.replaceAll(/「/gim, "【");
-					dynamic_content = dynamic_content.replaceAll(/」/gim, "】");
-					dynamic_content = dynamic_content.replaceAll(/〗/gim, "】");
-					dynamic_content = dynamic_content.replaceAll(/】/gim, "【");
-					dynamic_content = dynamic_content.replaceAll(/“/gim, '"');
-					dynamic_content = dynamic_content.replaceAll(/”/gim, '"');
-					dynamic_content = dynamic_content.replaceAll(/＠/gim, "@");
-					dynamic_content = dynamic_content.replaceAll(
-						/@.{0,8} /gim,
-						""
-					);
-					dynamic_content = dynamic_content.replaceAll(
-						/好友/gim,
-						"朋友"
-					);
-					dynamic_content = dynamic_content.replaceAll(
-						/伙伴/gim,
-						"朋友"
-					);
-					dynamic_content = dynamic_content.replaceAll(
-						/安利/gim,
-						"分享"
-					);
-					dynamic_content = dynamic_content.replaceAll(
-						/【关注】/gim,
-						""
-					);
-					dynamic_content = dynamic_content.replaceAll(
-						/添加话题/gim,
-						"带话题"
-					);
-					dynamic_content = dynamic_content.replaceAll(/\?/gim, "？");
-					dynamic_content = dynamic_content.replaceAll(/:/gim, "：");
+					dynamic_content =
+						this.my_operator.dynamic_comment_operator.pre_process_dynamic_content(
+							dynamic_content
+						);
 					let manual_re67 =
 						/.*[评|带]((?!抽奖|,|，|来).){0,7}“|.*[评|带]((?!抽奖|,|，|来).){0,7}"|.*[评|带]((?!抽奖|,|，|来).){0,7}【|.*[评|带]((?!抽奖|,|，|来).){0,7}：|.*[评|带]((?!抽奖|,|，|来).){0,7}：|.*[评|带]((?!抽奖|,|，|来).){0,7}「|.*带关键词.{0,7}"|.*评论关键词[“”‘’"']|.*留言((?!抽奖|,|，|来).){0,7}“|.*对出.{0,10}下联.{0,5}横批|.*回答.{0,8}问题|.*留下.{0,10}祝福语|.*留下.{0,10}愿望|.*找到.{0,10}不同的.{0,10}留言|.*答案放在评论区|.*几.{0,5}呢？|.*有奖问答|.*想到.{0,19}关于.{0,20}告诉|.*麻烦大伙评论这个|报暗号【.{0,4}】|评论.{0,3}输入.{0,3}["“”:：]|.*评论.{0,7}暗号/gim.test(
 							dynamic_content
@@ -5185,6 +5275,24 @@ ${Dynamic_content}
 					} catch (err) {
 						console.log("Error reading file from disk:", err);
 						return "";
+					}
+				},
+				/**
+				 * 读取json文件
+				 * @param {string} filePath - 文件路径
+				 * @returns {Object}
+				 */
+				json_file: (filePath) => {
+					try {
+						const Str = fs.readFileSync(
+							__dirpath + filePath,
+							"utf8"
+						);
+
+						return JSON.parse(Str);
+					} catch (err) {
+						console.error("Error reading file from disk:", err);
+						return new Object();
 					}
 				},
 			},

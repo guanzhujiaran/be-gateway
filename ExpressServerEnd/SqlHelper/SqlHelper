@@ -1,0 +1,6 @@
+const { Sequelize } = require('sequelize');
+const config = require('dotenv').config();
+let sequelize = new Sequelize({
+  dialect: 'sqlite',
+  storage: config.parsed.ServerDatabaseURI
+});

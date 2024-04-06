@@ -7,6 +7,7 @@ let HTMLOP = require("./util/HTMLop");
 const fs = require("fs");
 const axios = require("axios");
 const unfollow_op = require("./取关脚本/unfollow");
+const global_config = require("../CONFIG.Default.js");
 //导入包
 const __dirpath = "./木偶模块/";
 const { sleep, pptr_op } = require("./util/common_utl");
@@ -84,6 +85,15 @@ class DO_Lottery {
 		 * @type {boolean} other_lottery_flag -  是否有其他抽奖正在进行
 		 */
 		this.goldbox_lottery_flag = false;
+		/**
+		 * @prop {Object} no_exit_falg - 当前抽奖实例的非退出浏览器Flag
+		 * @prop {boolean} no_exit_falg.unread_msg - 未读消息
+		 * @prop {boolean} goldbox_lottery_flag - 金宝箱抽奖
+		 */
+		this.no_exit_falg = {
+			unread_msg: false,
+			goldbox_lottery_flag: false,
+		};
 	}
 	/**
 	 * 检查是否页面还存活着，关了的话开一个新页面并返回
@@ -150,6 +160,9 @@ class DO_Lottery {
 	variable_init = async (lotFlag) => {
 		this.login_status = undefined;
 		this.lotFlag = lotFlag;
+		Object.keys(this.no_exit_falg).map((keys) =>
+			Object.assign(this.no_exit_falg[keys], false)
+		); // 初始化关闭浏览器Flag
 		await this.#init_environment();
 	};
 	_setGlobalPage = (pageHandler) => {
@@ -163,7 +176,9 @@ class DO_Lottery {
 		this.lotFlag = lotFlag;
 	};
 
-	unfollow_module = async () => {
+	unfollow_module = async (
+		limit_follower_num = global_config.unfollow_module.max_follow_num
+	) => {
 		await this.#init_environment();
 		const global_var = this.global_var;
 		let utl = this.utl;
@@ -178,7 +193,11 @@ class DO_Lottery {
 			global_var.page,
 			global_var.page.url()
 		);
-		await unfollow_op(global_var.page, global_var.user_info.uid);
+		await unfollow_op(
+			global_var.page,
+			global_var.user_info.uid,
+			limit_follower_num
+		);
 	};
 	/**
 	 * 主函数
@@ -689,6 +708,7 @@ class DO_Lottery {
 			__push_key: {
 				//专门存放token的地方
 				pushme: "T1cBRRgooZyhfIJMYPjR", //pushme的token
+				push_plus: "044b3325295b47228409452e0e7aeef7",
 			},
 			/**
 			 * pushme推送消息
@@ -706,6 +726,28 @@ class DO_Lottery {
 						console.error(`推送失败！原因：${resp.data}`);
 					}
 				} catch (e) {
+					console.warn(
+						e,
+						"消息推送失败！\n尝试使用push_plus再次推送！"
+					);
+					await my_send_notify.push_plus(title, msg);
+				}
+			},
+			push_plus: async (title, msg) => {
+				try {
+					let resp = await axios.post(
+						"http://www.pushplus.plus/send",
+						{
+							token: my_send_notify.__push_key.push_plus,
+							title: title,
+							content: msg,
+							template: "txt",
+						}
+					);
+					if (resp.code != 200) {
+						console.error(`推送失败！原因：${resp.data}`);
+					}
+				} catch (e) {
 					console.warn(e, "消息推送失败！");
 				}
 			},
@@ -719,122 +761,7 @@ class DO_Lottery {
 		(async () => {
 			///////////////////抽预约抽奖
 			/**
-			 * 预约抽奖循环程序，返回参加失败的列表
-			 * @param {Object[]} loop_list
-			 * @returns
-			 */
-			async function reserve_lottery_loop(loop_list) {
-				let mustjoin_reserve_record_path_name = `抽奖记录/必抽的预约抽奖记录/${global_var.user_info.uname}_参加过的预约抽奖.txt`;
-				let joined_lottery_record = MYAPI.fileRead.lottery_dynamic_ids(
-					mustjoin_reserve_record_path_name
-				);
-				joined_lottery_record = utl.noRepeatArr(joined_lottery_record); //参加过的必抽的大奖
-
-				/**确认参加的列表*/
-				let checked_loop_list = [];
-				let joinfail_list = [];
-				let before_reserve_list = [];
-				/**
-				 * [{xx:xx,xx:xx}]参加成功的列表
-				 */
-				let joinsuccess_list = [];
-				let reserve_record =
-					MYAPI.fileRead.getFileContent("JsonData/预约抽奖.json");
-				let new_reserve_data = { data: [] }; //最终还要把它写回文件
-				if (reserve_record) {
-					let reserve_data = JSON.parse(reserve_record);
-					reserve_data.data.map((el) => {
-						if (!loop_list.includes(el.url)) {
-							checked_loop_list.push(el.url);
-						}
-						if (!joined_lottery_record.includes(el.jump_url)) {
-							checked_loop_list.push(el.url);
-						}
-					});
-					for (let d of reserve_data.data) {
-						let sep_time = d.etime - Math.floor(Date.now() / 1000);
-						if (sep_time < 0) {
-							//过期的预约抽奖
-						}
-						if (
-							Math.floor(Date.now()) - d.add_ts_scond >
-							1 * 3600 * 24 * 1e3
-						) {
-							//每天一更新
-							checked_loop_list.push(d);
-							continue;
-						}
-						if (sep_time > global_var.TIME.Reserve_Lottery_time) {
-							//时间未到的预约抽奖
-							before_reserve_list.push(d.url);
-							new_reserve_data.data.push(d);
-						} else {
-							checked_loop_list.push(d); //时间到了的就去参加
-						}
-					}
-				}
-
-				console.log(
-					`${global_var.user_info.uname}\t总共${loop_list.length}条预约抽奖 \n其中需要参加或访问${checked_loop_list.length}条\n时间未到${before_reserve_list.length}条\n`
-				);
-				for (let reserve_url of loop_list) {
-					let record_data = undefined;
-					console.log(
-						`${global_var.user_info.uname}\t前往预约页面: ${reserve_url}\n`
-					);
-					global_var.response.space_reservation = undefined;
-					await pptr_op.check_page_is_front(global_var.page);
-					await global_var.page
-						.goto(reserve_url)
-						.then(async () => {
-							await global_var.page.waitForResponse(
-								(response) =>
-									response
-										.url()
-										.includes(`/space/reservation`) &&
-									response.status() === 200,
-								{ timeout: 30e3 }
-							);
-						})
-						.catch((e) => {
-							console.warn(
-								`${global_var.user_info.uname}\t前往预约页面${reserve_url}失败\nreserve_lottery_loop\n`,
-								e
-							);
-						});
-					if (!global_var.response.space_reservation) {
-						continue;
-					}
-					await sleep(3e3);
-					let reserve_index; //预约抽奖的序号
-					if (global_var.response.space_reservation) {
-						//如果获取到空间预约响应，则判断时间是否符合
-						if (global_var.response.space_reservation.data) {
-							if (
-								global_var.response.space_reservation.data.filter(
-									(el) => el.lottery_type != 0
-								).length == 0
-							) {
-								continue;
-							}
-							let lottery_data_list =
-								global_var.response.space_reservation.data.filter(
-									(el) =>
-										el.lottery_type && el.lottery_type != 0
-								);
-							for (let lottery_data of lottery_data_list) {
-								reserve_index =
-									global_var.response.space_reservation.data.indexOf(
-										lottery_data
-									);
-								let etime = lottery_data.etime;
-								let lottery_prize_info =
-									lottery_data.lottery_prize_info.text;
-								let jump_url =
-									lottery_data.lottery_prize_info.jump_url;
-								let sep_time =
-									etime - Math.floor(Date.now() / 1000);
-								record_data = {
+			 * {
 									url: reserve_url,
 									etime: etime,
 									lottery_prize_info: lottery_prize_info,
@@ -844,113 +771,202 @@ class DO_Lottery {
 									jump_url: jump_url,
 									add_ts_scond: Math.floor(Date.now() / 1000),
 								};
-								new_reserve_data.data.push(record_data);
-								if (
-									sep_time >
-									global_var.TIME.Reserve_Lottery_time
-								) {
-									console.log(
-										`${
-											global_var.user_info.uname
-										}\t当前预约：${reserve_url}\n开奖时间为：${new Date(
-											etime * 1000
-										).toLocaleString()}\n未到参与时间\跳过！`
-									);
-									before_reserve_list.push(reserve_url);
-									continue;
-								}
 
-								let btn_subscribe_btn_cancel; //检测是否已经参与了
+			 * @typedef {Object} TYPE_reserve_data
+			 * @property {String} reserve_url 空间动态链接 like https://space.bilibili.com/1927279531
+			 * @property {number} etime - 结束时间(秒)
+			 * @property {String} lottery_prize_info - 奖品名称
+			 * @property {String} jump_url  - 单独抽奖的跳转链接，like https://www.bilibili.com/h5/lottery/result?business_id=3640758&business_type=10
+			 * @property {number} reserve_sid - 直播预约sid
+			 * @property {boolean} available - 预约是否正常存在
+			 * 
+			 */
+			/**
+			 * 预约抽奖循环程序，返回参加失败的列表
+			 * JsonData/预约抽奖.json 这个文件里面的内容是给人看的
+			 * 调用api接口存储的抽奖数据都通过后台过滤好，然后放进来，js就不需要再次过滤了
+			 * @param {TYPE_reserve_data[]} loop_list
+			 * @returns
+			 */
+			async function reserve_lottery_loop(loop_list) {
+				//TODO: 重写预约抽奖的执行和获取数据的后端！ 抽奖记录里面保存直播预约的sid 通过判断直播预约的sid是否在记录里面来过滤抽过的内容
+
+				let mustjoin_reserve_record_path_name = `抽奖记录/必抽的预约抽奖记录/${global_var.user_info.uname}_参加过的预约抽奖.txt`;
+				let joined_lottery_record = MYAPI.fileRead.lottery_dynamic_ids(
+					mustjoin_reserve_record_path_name
+				);
+				joined_lottery_record = utl.noRepeatArr(joined_lottery_record); //参加过的必抽的大奖
+
+				/**确认参加的列表*/
+				/**@type {TYPE_reserve_data[]} 存放确定要去执行参与的数据 */
+				let checked_loop_list = [];
+				let joinfail_list = [];
+				/**@type {Object[]} 存放JSONDATA里面的数据*/
+				let new_reserve_data = [];
+				/**@type {TYPE_reserve_data[]} 参加成功的列表*/
+				let joinsuccess_list = [];
+				for (let i of loop_list) {
+					if (
+						!joined_lottery_record.includes(
+							JSON.stringify(i.reserve_sid)
+						)
+					) {
+						// 记录中不包含sid则添加进抽奖列表
+						checked_loop_list.push(i);
+					}
+				}
+
+				console.log(
+					`${global_var.user_info.uname}\t总共${loop_list.length}条预约抽奖 \n其中需要参加或访问${checked_loop_list.length}条\n`
+				);
+				for (let reserve_info of loop_list) {
+					if (!checked_loop_list.includes(reserve_info)) {
+						console.log(
+							`${global_var.user_info.uname}\t${reserve_info.reserve_url}\t非需要参加或访问的预约！`
+						);
+						continue;
+					}
+					let record_data = undefined;
+					console.log(
+						`${global_var.user_info.uname}\t前往预约页面: ${reserve_info.reserve_url}\n`
+					);
+					global_var.response.space_reservation = undefined;
+					await pptr_op.check_page_is_front(global_var.page);
+					try {
+						global_var.page.goto(reserve_info.reserve_url);
+						global_var.response.space_reservation = await (
+							await global_var.page.waitForResponse(
+								(response) =>
+									response
+										.url()
+										.includes(`/space/reservation`) &&
+									response.status() === 200,
+								{ timeout: 30e3 }
+							)
+						).json();
+					} catch (e) {
+						console.warn(
+							`${global_var.user_info.uname}\t前往预约页面 ${reserve_info.reserve_url} 失败\nreserve_lottery_loop\n`,
+							e
+						);
+					}
+					if (!global_var.response.space_reservation) {
+						console.warn(
+							`${global_var.user_info.uname}\t未获取到预约响应！`
+						);
+						continue;
+					}
+					await sleep(3e3);
+					let reserve_index; //预约抽奖的序号
+					if (global_var.response.space_reservation) {
+						//如果获取到空间预约响应，则判断时间是否符合
+						if (global_var.response.space_reservation.data) {
+							let reserve_datas =
+								global_var.response.space_reservation.data;
+							reserve_index = reserve_datas.indexOf(
+								reserve_datas.find(
+									(el) => el.sid == reserve_info.reserve_sid
+								)
+							);
+							if (reserve_index == -1) {
+								console.error(
+									`未在空间 ${reserve_info.reserve_url} 找到sid为${reserve_info.reserve_sid}的直播预约`
+								);
+								reserve_info.available = false;
+								continue;
+							}
+							let lottery_data = reserve_datas[reserve_index];
+							let etime = lottery_data.etime;
+							let lottery_prize_info =
+								lottery_data.lottery_prize_info.text;
+							let jump_url =
+								lottery_data.lottery_prize_info.jump_url;
+							record_data = {
+								url: reserve_info.reserve_url,
+								etime: etime,
+								lottery_prize_info: lottery_prize_info,
+								开奖时间: new Date(
+									etime * 1e3
+								).toLocaleString(),
+								jump_url: jump_url,
+								add_ts_scond: Math.floor(Date.now() / 1000),
+							};
+							new_reserve_data.push(record_data);
+
+							let btn_subscribe_btn_cancel; //检测是否已经参与了
+							let reserve_card;
+							let reserve_cards = await global_var.page.$$(
+								`.subscribe-list li`,
+								{ timeout: 10e3 }
+							);
+							if (
+								reserve_cards &&
+								reserve_cards.length >= reserve_index
+							) {
+								reserve_card = reserve_cards[reserve_index];
+							}
+							try {
+								btn_subscribe_btn_cancel = await reserve_card.$(
+									`.btn-subscribe.btn-cancel`
+								);
+							} catch (e) {}
+							if (!btn_subscribe_btn_cancel && reserve_card) {
+								let reserve_btn; //点击参与部分
 								try {
-									btn_subscribe_btn_cancel =
-										await global_var.page.$$(
-											".btn-subscribe.btn-cancel",
-											{ timeout: 10e3 }
-										);
-								} catch (e) {}
-								if (
-									btn_subscribe_btn_cancel.length <
-									lottery_data_list.length
-								) {
-									//如果取消预约抽奖的按钮数量小于预约数据的数量则可能有一个没参加，尝试参加
-									if (
-										global_var.response.space_reservation
-											.data[reserve_index]
-											.reserve_record_ctime
-									) {
-										//如果响应的record有时间那么就是参加了
-										continue;
-									}
-									let reserve_btn; //点击参与部分
-									try {
-										let all_subscribe_btns =
-											await global_var.page.$$(
-												".btn-subscribe",
-												{ timeout: 10e3 }
-											);
-										if (
-											all_subscribe_btns &&
-											reserve_index != undefined
-										) {
-											reserve_btn =
-												all_subscribe_btns[
-													reserve_index
-												];
-										} else {
-											reserve_btn =
-												all_subscribe_btns.slice(-1)[0];
-										}
-									} catch {}
-									if (reserve_btn) {
-										//如果找到了预约按钮
-										await reserve_btn.click();
-									} else {
-										joinfail_list.push(reserve_url);
-										console.warn(
-											`预约参加失败，reserv_btn`
-										);
-									}
-									await sleep(3e3);
-									let reserve_btn_cancel;
-									try {
-										reserve_btn_cancel =
-											await global_var.page.$$(
-												".btn-subscribe.btn-cancel",
-												{ timeout: 10e3 }
-											);
-									} catch {}
-									if (reserve_btn_cancel.length > 0) {
-										console.log(
-											`${global_var.user_info.uname} 参与预约抽奖：${reserve_url} 成功！`
-										);
-										joinsuccess_list.push(record_data);
-									} else {
-										console.warn(
-											`${global_var.user_info.uname} 参与预约抽奖：${reserve_url} 失败！`
-										);
-										joinfail_list.push(reserve_url);
-									}
-									/**
-									 * //点击参与部分结束
-									 */
-								} else {
-									console.log(
-										`${global_var.user_info.uname} 已经参与预约抽奖：${reserve_url}`
+									reserve_btn = await reserve_card.$(
+										`.btn-subscribe`
 									);
-									joinsuccess_list.push(record_data);
+								} catch {}
+								if (reserve_btn) {
+									//如果找到了预约按钮
+									await reserve_btn.click();
+								} else {
+									joinfail_list.push(
+										reserve_info.reserve_url
+									);
+									console.warn(`预约参加失败，reserv_btn`);
 								}
+								await sleep(3e3);
+								let reserve_btn_cancel;
+								try {
+									reserve_btn_cancel = await reserve_card.$$(
+										".btn-subscribe.btn-cancel",
+										{ timeout: 10e3 }
+									);
+								} catch {}
+								if (reserve_btn_cancel.length > 0) {
+									console.log(
+										`${global_var.user_info.uname} 参与预约抽奖：${reserve_info.reserve_url} 成功！`
+									);
+									joinsuccess_list.push(reserve_info);
+								} else {
+									console.warn(
+										`${global_var.user_info.uname} 参与预约抽奖：${reserve_info.reserve_url} 失败！`
+									);
+									joinfail_list.push(
+										reserve_info.reserve_url
+									);
+								}
+								/**
+								 * //点击参与部分结束
+								 */
+							} else {
+								console.log(
+									`${global_var.user_info.uname} 已经参与预约抽奖：${reserve_info.jump_url}`
+								);
+								joinsuccess_list.push(reserve_info);
 							}
 						} else {
 							console.warn(
-								`${global_var.user_info.uname} 预约抽奖响应中未包含抽奖信息！\t${reserve_url} `
+								`${global_var.user_info.uname} 预约抽奖响应中未包含抽奖信息！\t${reserve_info.reserve_url} `
 							);
-							joinfail_list.push(reserve_url);
+							joinfail_list.push(reserve_info.reserve_url);
 						}
 					} else {
 						console.warn(
-							`${global_var.user_info.uname} 获取预约抽奖响应：${reserve_url} 失败！`
+							`${global_var.user_info.uname} 获取预约抽奖响应：${reserve_info.reserve_url} 失败！`
 						);
-						joinfail_list.push(reserve_url);
+						joinfail_list.push(reserve_info);
 						continue;
 					}
 				}
@@ -959,17 +975,15 @@ class DO_Lottery {
 					"JsonData/预约抽奖.json",
 					JSON.stringify(new_reserve_data, "", "\t")
 				);
-				let write_in_must_reserve = [];
-				for (let i of new_reserve_data.data) {
-					write_in_must_reserve.push(i.url);
-				}
+				let available_reserve_infos = loop_list.filter(
+					(el) => el.available != false && el.etime > Date.now() / 1e3
+				);
 				MYAPI.fileWrite(
 					"必抽的预约抽奖.txt",
-					write_in_must_reserve.join("\n")
+					JSON.stringify(available_reserve_infos, "", "\t")
 				);
 				return {
 					joinfail_list: joinfail_list,
-					before_reserve_list: before_reserve_list,
 					joinsuccess_list: joinsuccess_list,
 				};
 			}
@@ -1046,9 +1060,7 @@ class DO_Lottery {
 								console.warn(
 									`${
 										global_var.user_info.uname
-									}\t评论失败，api被412风控，等待240分钟\t${goto_url}\t${
-										new Date().toLocaleTimeString
-									}`
+									}\t评论失败，api被412风控，等待240分钟\t${goto_url}\t${new Date().toLocaleTimeString()}`
 								);
 								await utl.my_throw(
 									`${global_var.user_info.uname}\t评论失败，api被412风控\t${goto_url}`
@@ -1679,7 +1691,10 @@ class DO_Lottery {
 								Math.random() * 0.6 <
 									lottery_setting.repostchance ||
 								comment_msg.includes("#") ||
-								global_var.response.reply_main.code == 12061
+								global_var.response.reply_main.code == 12061 ||
+								my_operator.dynamic_comment_operator.repost_with_comment_judge(
+									dynamic_content
+								)
 								// 	dynamic_content.length > 200) &&
 							) {
 								// if (pageurl.includes("opus")) {
@@ -1751,9 +1766,10 @@ class DO_Lottery {
 			/**
 			 * 抽奖循环，返回参与成功的抽奖
 			 * @param {Array} all_dynamic_id_list
+			 * @param {string} task_name --执行的任务名称
 			 * @returns
 			 */
-			let lottery_loop = async (all_dynamic_id_list) => {
+			let lottery_loop = async (all_dynamic_id_list, task_name = "") => {
 				//对抽奖队列进行循环
 				all_dynamic_id_list = utl.part_shuffle(
 					parseInt(0.1 * all_dynamic_id_list.length),
@@ -1935,9 +1951,9 @@ class DO_Lottery {
 								console.log(
 									`${
 										global_var.user_info.uname
-									}\t当前进度：  【${i + 1}/${
-										all_dynamic_id_list.length
-									}】\t\t${
+									}\t当前任务【${task_name}】进度：  【${
+										i + 1
+									}/${all_dynamic_id_list.length}】\t\t${
 										all_dynamic_id_list[i]
 									} ${d.toLocaleTimeString()}`
 								);
@@ -2048,7 +2064,7 @@ class DO_Lottery {
 											st / 1000
 										}秒\t${new Date().toLocaleTimeString()}`
 									);
-									await sleep(st);
+									await sleep(st); // 单个抽奖结束后等待时间
 								}
 								try {
 									if (
@@ -2248,115 +2264,207 @@ class DO_Lottery {
 			 * 检查每天是否投币经验满了
 			 */
 			async function Daily_rewards() {
-				if (lottery_setting.CONFIG.AUTO_DailyReward) {
-					let my_coin = global_var.user_nav.data.money;
-					if (my_coin < 1) {
-						console.log(
-							`${
-								global_var.user_info.uname
-							}\t没有硬币了，跳过每日经验奖励\t${new Date().toLocaleTimeString()}`
+				let MyDailyFuncMap = {
+					sanlian: async () => {
+						let my_coin = global_var.user_nav.data.money;
+						if (my_coin < 1) {
+							console.log(
+								`${
+									global_var.user_info.uname
+								}\t硬币不够三连，跳过每日投币经验奖励\t${new Date().toLocaleTimeString()}`
+							);
+							return;
+						}
+						let my_level;
+						try {
+							my_level =
+								global_var.user_nav.data.level_info
+									.current_level;
+						} catch {}
+						if (my_level == 6) {
+							console.log(
+								`${
+									global_var.user_info.uname
+								}\t等级满了，跳过每日投币经验奖励\t${new Date().toLocaleTimeString()}`
+							);
+							return;
+						}
+						await global_var.page.goto(
+							`https://account.bilibili.com/account/home`,
+							{ waitUntil: "networkidle2" }
 						);
-						return;
-					}
-					let my_level;
-					try {
-						my_level =
-							global_var.user_nav.data.level_info.current_level;
-					} catch {}
-					if (my_level == 6) {
-						console.log(
-							`${
-								global_var.user_info.uname
-							}\t等级满了，跳过每日经验奖励\t${new Date().toLocaleTimeString()}`
-						);
-						return;
-					}
-					await global_var.page.goto(
-						`https://account.bilibili.com/account/home`,
-						{ waitUntil: "networkidle2" }
-					);
-					let exp_text = await global_var.page.$$eval(
-						`.home-dialy-exp-item`,
-						(els) => {
-							try {
-								for (taskel of els) {
-									if (
-										taskel.getElementsByClassName(
-											"re-exp-info"
-										)[0].textContent == "每日投币"
-									) {
+						let exp_text = await global_var.page.$$eval(
+							`.home-dialy-exp-item`,
+							(els) => {
+								try {
+									for (taskel of els) {
 										if (
 											taskel.getElementsByClassName(
-												"re-exp-none"
-											)
+												"re-exp-info"
+											)[0].textContent == "每日投币"
 										) {
-											return taskel.getElementsByClassName(
-												"re-exp-none"
-											)[0].textContent;
-										} else {
-											return null;
+											if (
+												taskel.getElementsByClassName(
+													"re-exp-none"
+												)
+											) {
+												return taskel.getElementsByClassName(
+													"re-exp-none"
+												)[0].textContent;
+											} else {
+												return null;
+											}
 										}
 									}
+								} catch {
+									return null;
 								}
-							} catch {
-								return null;
 							}
-						}
-					);
-					let exp_re = /([0-9]+)\/([0-9]+)/gi.exec(exp_text);
-					if (exp_re) {
-						let exp_min = parseInt(exp_re[1]);
-						let exp_max = parseInt(exp_re[2]);
-						let coin_thow_num = (exp_max - exp_min) / 10;
-						coin_thow_num =
-							coin_thow_num > parseInt(my_coin)
-								? parseInt(my_coin)
-								: coin_thow_num;
-						console.log(
-							`${
-								global_var.user_info.uname
-							}\t需要投${coin_thow_num}个硬币\t${new Date().toLocaleTimeString()}`
 						);
-						let video_num = Math.ceil(coin_thow_num / 2);
-						let sanlian_num = parseInt(coin_thow_num / 2);
-						let toubi_num = coin_thow_num % 2;
-						let share_video_links =
-							await my_operator.prevent_filter_module.get_video_list(
-								video_num
+						let exp_re = /([0-9]+)\/([0-9]+)/gi.exec(exp_text);
+						if (exp_re) {
+							let exp_min = parseInt(exp_re[1]);
+							let exp_max = parseInt(exp_re[2]);
+							let coin_thow_num = (exp_max - exp_min) / 10;
+							coin_thow_num =
+								coin_thow_num > parseInt(my_coin)
+									? parseInt(my_coin)
+									: coin_thow_num;
+							console.log(
+								`${
+									global_var.user_info.uname
+								}\t需要投${coin_thow_num}个硬币\t${new Date().toLocaleTimeString()}`
 							);
-						for (let v_link of share_video_links) {
-							if (sanlian_num) {
-								await my_operator.video_operator.goto_video_page(
-									v_link
+							let video_num = Math.ceil(coin_thow_num / 2);
+							let sanlian_num = parseInt(coin_thow_num / 2);
+							let toubi_num = coin_thow_num % 2;
+							let share_video_links =
+								await my_operator.prevent_filter_module.get_video_list(
+									video_num
 								);
-								await my_operator.video_operator.sanlian(
-									v_link
-								);
-								sanlian_num -= 1;
-								continue;
+							for (let v_link of share_video_links) {
+								if (sanlian_num) {
+									await my_operator.video_operator.goto_video_page(
+										v_link
+									);
+									await my_operator.video_operator.sanlian(
+										v_link
+									);
+									sanlian_num -= 1;
+									continue;
+								}
+								if (toubi_num) {
+									await my_operator.video_operator.goto_video_page(
+										v_link
+									);
+									await my_operator.video_operator.toubi(
+										1,
+										v_link
+									);
+									toubi_num -= 1;
+								}
 							}
-							if (toubi_num) {
-								await my_operator.video_operator.goto_video_page(
-									v_link
+							console.log(
+								`${
+									global_var.user_info.uname
+								}\t每日投币经验任务完成\t${new Date().toLocaleTimeString()}`
+							);
+						} else {
+							console.log(
+								`${
+									global_var.user_info.uname
+								}\t投币经验已满\t${new Date().toLocaleTimeString()}`
+							);
+						}
+					},
+					VipGetBCoin: async () => {
+						let vipStatus = global_var.user_nav?.data?.vipStatus;
+						let vipType = global_var.user_nav?.data?.vipType;
+						if (vipType == 2 && vipStatus == 1) {
+							let bcoin_get = false;
+							await global_var.page.goto(
+								`https://account.bilibili.com/account/big/myPackage`,
+								{ waitUntil: "networkidle2" }
+							);
+							let coupon_contents = await global_var.page.$$(
+								`.coupon-content`
+							);
+							for (let coupon_content of coupon_contents) {
+								console.log(
+									`${
+										global_var.user_info.uname
+									}\n当前大会员权益：${await coupon_content.$eval(
+										".coupon-content-con",
+										(el) => el.innerText
+									)}`
 								);
-								await my_operator.video_operator.toubi(
-									1,
-									v_link
+								if (
+									(
+										await coupon_content.$eval(
+											".coupon-btn",
+											(el) => el.getAttribute("class")
+										)
+									).includes(`coupon-btn-disable`)
+								) {
+									continue;
+								} else {
+									bcoin_get = true;
+									await global_var.page
+										.waitForSelector(".coupon-btn")
+										.then(async (jshandle) => {
+											await jshandle.click();
+										});
+									await global_var.page
+										.waitForSelector(`.dialog-close-icon`)
+										.then(async (jshandle) => {
+											await jshandle.click();
+										});
+								}
+							}
+							if (bcoin_get) {
+								await global_var.page.goto(
+									`https://link.bilibili.com/p/center/index#/user-center/my-info/operation`,
+									{ waitUntil: "networkidle2" }
 								);
-								toubi_num -= 1;
+								await global_var.page.waitForSelector(
+									`.user .pay-button`,
+									async (jshandle) => {
+										await jshandle.click();
+									}
+								);
+								await global_var.page.waitForSelector(
+									`.gold-store .sub-tab-box .list :not(.active)`,
+									async (jshandle) => {
+										await jshandle.click();
+									}
+								);
+								await global_var.page.waitForSelector(
+									`.ipt-number`,
+									async (jshandle) => {
+										await jshandle.type("5");
+									}
+								);
+								await global_var.page.waitForSelector(
+									`input.pointer`,
+									async (jshandle) => {
+										await jshandle.click();
+									}
+								);
+								await global_var.page.click(`.bl-button`);
 							}
 						}
-						console.log(
-							`${
-								global_var.user_info.uname
-							}\t每日投币经验任务完成\t${new Date().toLocaleTimeString()}`
-						);
-					} else {
-						console.log(
-							`${
-								global_var.user_info.uname
-							}\t投币经验已满\t${new Date().toLocaleTimeString()}`
-						);
+					},
+				};
+				if (lottery_setting.CONFIG.AUTO_DailyReward) {
+					try {
+						await MyDailyFuncMap.sanlian();
+					} catch (e) {
+						console.error(`三连失败！`, e);
+					}
+					try {
+						await MyDailyFuncMap.VipGetBCoin();
+					} catch (e) {
+						console.error(`兑换电池失败！`, e);
 					}
 				}
 			}
@@ -2374,9 +2482,7 @@ class DO_Lottery {
 
 				async function 必抽的预约抽奖() {
 					let reserve_lottery_sapce_list =
-						MYAPI.fileRead.lottery_dynamic_ids(
-							"必抽的预约抽奖.txt"
-						);
+						MYAPI.fileRead.json_file("必抽的预约抽奖.txt");
 					reserve_lottery_sapce_list = utl.noRepeatArr(
 						reserve_lottery_sapce_list
 					); //参加过的必抽的大奖
@@ -2389,14 +2495,13 @@ class DO_Lottery {
 						joined_lottery_record
 					); //参加过的必抽的大奖
 					utl.part_shuffle(
-						joined_lottery_record,
-						joined_lottery_record.length
+						reserve_lottery_sapce_list,
+						reserve_lottery_sapce_list.length
 					); //打乱顺序
 					/** @member {Array} 参加失败或者没参加的预约抽奖*/
 					let joinfail_list = [];
-					/** @member {Array} 参加成功或者超时的预约抽奖*/
+					/** @type {TYPE_reserve_data[]} 参加成功或者超时的预约抽奖*/
 					let success_list = [];
-					let before_reserve_list = [];
 					if (reserve_lottery_sapce_list.length != 0) {
 						console.log(
 							`${global_var.user_info.uname}\t开始执行任务：必抽的预约抽奖`
@@ -2405,7 +2510,6 @@ class DO_Lottery {
 							reserve_lottery_sapce_list
 						);
 						joinfail_list = result.joinfail_list;
-						before_reserve_list = result.before_reserve_list;
 						success_list = result.joinsuccess_list;
 						console.log(
 							`${global_var.user_info.uname}\t任务完成：必抽的预约抽奖`
@@ -2428,7 +2532,7 @@ class DO_Lottery {
 						);
 					}
 					success_list.map((el) =>
-						joined_lottery_record.push(el.jump_url)
+						joined_lottery_record.push(el.reserve_sid)
 					); //参与成功的预约抽奖写进记录里
 					joined_lottery_record = utl.noRepeatArr(
 						joined_lottery_record
@@ -2479,10 +2583,11 @@ class DO_Lottery {
 					let must_join_lottery_result = [];
 					if (finally_mustjoin_lottery_dynaimc.length != 0) {
 						console.log(
-							`${global_var.user_info.uname}\t开始官方抽奖！`
+							`${global_var.user_info.uname}\t开始必抽的大奖！`
 						);
 						must_join_lottery_result = await lottery_loop(
-							finally_mustjoin_lottery_dynaimc
+							finally_mustjoin_lottery_dynaimc,
+							"必抽的大奖"
 						);
 					} //必抽的大奖
 					MYAPI.fileWrite(
@@ -2513,15 +2618,17 @@ class DO_Lottery {
 					lottery_setting.official_lottery_switch = true; //开启官方抽奖
 					lottery_setting.CONFIG.Only_Comment_Lottery_Switch = false; //关闭只抽评论抽奖
 					lottery_setting.lottery_sep_time = utl.generater_step_Array(
-						10e3,
-						60e3,
+						// 控制官方抽奖单个抽奖完成后的休眠时间
+						30e3,
+						180e3,
 						1e3
 					);
 					lottery_setting.CONFIG.lottery_sep_time_type = 2;
 					let official_lottery_result = [];
 					if (finally_repost_official_dynaimc.length != 0) {
 						official_lottery_result = await lottery_loop(
-							finally_repost_official_dynaimc
+							finally_repost_official_dynaimc,
+							"必抽的官抽"
 						);
 					} //必抽的官抽
 					MYAPI.fileWrite(
@@ -2546,7 +2653,7 @@ class DO_Lottery {
 							); //获取抽奖动态id
 						all_dynamic_id_list =
 							utl.noRepeatArr(all_dynamic_id_list);
-						await lottery_loop(all_dynamic_id_list);
+						await lottery_loop(all_dynamic_id_list, "一般抽奖");
 					} else {
 						console.log(
 							`${global_var.user_info.uname}\t未开启开关，跳过任务：普通抽奖`
@@ -2768,6 +2875,7 @@ class DO_Lottery {
 						global_var.response.msgfeed_unread.data.at > 0 ||
 						global_var.response.msgfeed_unread.data.reply > 0
 					) {
+						this.no_exit_falg.unread_msg = true;
 						//如果有回复或者@就不退出浏览器
 						await my_send_notify.push_me(
 							`${global_var.user_info.uname} 有新的回复或at`,
@@ -2785,9 +2893,11 @@ class DO_Lottery {
 					if (
 						global_var.page.isClosed() ||
 						lottery_setting.CONFIG.LIVE_LOT ||
-						this.goldbox_lottery_flag
+						Object.keys(this.no_exit_falg).some(
+							(k) => this.no_exit_falg[k]
+						) //反射的方式查看设置的标志是否符合不是全为true
 					) {
-						//页面关了全都不管
+						//页面关了或者有其他事件不关浏览器
 					} else {
 						if (!global_var.user_info.uid) {
 							console.error(
@@ -2832,10 +2942,5 @@ class DO_Lottery {
 		}
 	};
 }
-
-/**
- * @todo 增加chatgpt类似的AI回复 √ （已实现使用pptr获取chatgpt自动回复功能）
- * @todo 增加自动获取色图并且发送的功能或者是转发色图up的动态？
- */
 
 module.exports = { DO_Lottery, sleep };

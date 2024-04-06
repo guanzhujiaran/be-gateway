@@ -1,6 +1,6 @@
 let { DO_Lottery, sleep } = require("../../木偶模块/puppeteer_lottery.js");
 let { LIVE_LOT } = require("../../直播模块/live_op.js");
-let event_bus = require("../../lib/helper/event_bus"); //注册事件用的，每一轮都要重新注册！
+let {event_bus} = require("../../lib/helper/event_bus"); //注册事件用的，每一轮都要重新注册！
 let axios = require("axios");
 let fs = require("fs");
 async function main() {
