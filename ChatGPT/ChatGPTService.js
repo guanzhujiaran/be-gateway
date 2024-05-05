@@ -2,7 +2,7 @@
  * @Author: 星瞳 1944637830@qq.com
  * @Date: 2023-08-18 17:24:27
  * @LastEditors: 星瞳 1944637830@qq.com
- * @LastEditTime: 2023-12-09 12:49:36
+ * @LastEditTime: 2024-04-18 13:08:07
  * @FilePath: \tampermonkey\ChatGPT\ChatGPTService.js
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -37,7 +37,12 @@ app.post("/ChatGPT/ask", async (req, res) => {
 	let bt = 0;
 	try {
 		while (1) {
-			if (!my_chat.chatpage || (await my_chat.chatpage.isClosed())) {
+			if (
+				!my_chat.chatpage ||
+				(await my_chat.chatpage.isClosed()) ||
+				!my_chat.qianwen_page ||
+				(await my_chat.qianwen_page.isClosed())
+			) {
 				await my_chat.init();
 			}
 			if (my_chat.isAvailable) {
@@ -47,14 +52,17 @@ app.post("/ChatGPT/ask", async (req, res) => {
 				}
 				let processedText = await my_chat.askquestion(inputText);
 				processedText = processedText
-					? processedText
-							.replace("jsonCopy code", "")
-							.replace("data{", "{")
+					? JSON.parse(
+							processedText
+								.replace("jsonCopy code", "")
+								.replace("data{", "{")
+								.trim()
+					  )
 					: undefined;
 				if (!processedText) {
-					throw `获取的答案为空！`;
+					throw Error(`获取的答案为空！`);
 				}
-				console.log(`回复内容：${processedText}`);
+				console.log(`回复内容：${JSON.stringify(processedText)}`);
 				writeToFile(
 					ChatGPT_log_filePath,
 					JSON.stringify(processedText) + "\n"
@@ -73,9 +81,7 @@ app.post("/ChatGPT/ask", async (req, res) => {
 		}
 	} catch (e) {
 		console.warn(
-			`${
-				req.body.data
-			}\n回复失败！当前尝试次数${bt}次！\n${e.toString()}`,
+			`${req.body.data}\n回复失败！当前尝试次数${bt}次！\n${e.stack}`,
 			new Date().toLocaleString()
 		);
 	}

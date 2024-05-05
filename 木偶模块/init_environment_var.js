@@ -554,6 +554,13 @@ class ENVIRONMENT {
 				check_reply: async (response_json, dynamic_id) => {
 					if (response_json) {
 						try {
+							if (response_json.code == 12051) {
+								console.warn(
+									`${global_var.user_info.uname}\t检查评论失败！`,
+									JSON.stringify(response_json)
+								);
+								return true;
+							}
 							let type = response_json.data.reply.type;
 							let oid =
 								global_var.response.global_dynamic_data.item
@@ -577,7 +584,11 @@ class ENVIRONMENT {
 							);
 							return check_flag;
 						} catch (e) {
-							console.warn(e);
+							console.warn(
+								`${global_var.user_info.uname}\t检查评论失败！${e}`,
+								JSON.stringify(response_json)
+							);
+							if (response_json.code == 12051) return true;
 							return false;
 						}
 					}
@@ -680,16 +691,24 @@ class ENVIRONMENT {
 						}
 
 						if (opus_dynamic || 1) {
-							await sleep(2e3);
-							await global_var.page.click(
-								`.side-toolbar__action.like`
-							);
-							await sleep(1e3);
 							for (let i = 0; i < 2; i++) {
+								await sleep(2e3);
+								await global_var.page.click(
+									`.side-toolbar__action.like`
+								);
+								await sleep(1e3);
 								if (
-									await global_var.page.$(
-										`.side-toolbar__action.like.is-active`
-									)
+									await global_var.page
+										.waitForSelector(
+											`.side-toolbar__action.like.is-active`
+										)
+										.then((el) => true)
+										.catch((e) => {
+											console.error(
+												`${global_var.user_info.uname}\t${pageurl}\t动态点赞图标获取失败`
+											);
+											return false;
+										})
 								) {
 									console.log(
 										`${global_var.user_info.uname}\t${pageurl}\t动态点赞成功`
@@ -762,7 +781,7 @@ class ENVIRONMENT {
 							console.error(
 								`${global_var.user_info.uname}\t${
 									global_var.pageurl
-								}动态评论失败，评论被隐藏，不进行动态转发！\t${new Date().toLocaleTimeString()}`
+								} 动态评论失败，评论被隐藏，不进行动态转发！\t${new Date().toLocaleTimeString()}`
 							);
 							return;
 						}
@@ -890,10 +909,11 @@ class ENVIRONMENT {
 									}
 								}
 							}
-							let repost_launcher = await global_var.page.$(
-								`.bili-dyn-share-publishing__action.launcher`
-							);
-							await repost_launcher.click();
+							let repost_launcher = await global_var.page
+								.waitForSelector(
+									`.bili-dyn-share-publishing__action.launcher`
+								)
+								.then(async (el) => await el.click());
 							await sleep(6e3);
 						}
 						// else {
@@ -973,7 +993,7 @@ class ENVIRONMENT {
 						// }
 					} catch (e) {
 						console.error(
-							`${global_var.user_info.uname}\t${global_var.pageurl}动态转发失败，dynamic_repost，${e}\n${e.stack}`
+							`${global_var.user_info.uname}\t${global_var.pageurl} 动态转发失败，dynamic_repost，${e}\n${e.stack}`
 						);
 						await utl.my_throw(
 							`动态转发失败，dynamic_repost，${e}`
@@ -1032,7 +1052,7 @@ class ENVIRONMENT {
 						await sleep(3e3);
 					}
 					global_var.Getter.check_login_status();
-					let pageurl = await global_var.page.url();
+					let pageurl = global_var.page.url();
 					if (global_var.response.reply_main.code == 12061) {
 						//UP主已关闭评论区
 						return;
@@ -1067,13 +1087,9 @@ class ENVIRONMENT {
 
 						try {
 							if (opus_dynamic || 1) {
-								let msg_box;
-								await global_var.page.waitForSelector(
+								let msg_box= await global_var.page.waitForSelector(
 									`.reply-box-textarea`,
-									{ timeout: 10e3 }
-								);
-								msg_box = await global_var.page.$(
-									`.reply-box-textarea`
+									{ timeout: 30e3 }
 								);
 								await msg_box.click();
 								let msg_box_content =
@@ -1146,125 +1162,15 @@ class ENVIRONMENT {
 									_bt += 1;
 								}
 								await sleep(1e3);
-								await global_var.page.click(`.send-text`);
+								global_var.page.click(`.send-text`);
 								await MYAPI.PageFunc.waitForResponse(
 									global_var.page,
 									"reply/add"
-								);
+								).catch(e=>{throw Error(e)});
 								await sleep(1e3);
 
 								await CheckRisk();
 							}
-							// else {
-							// 	//老版动态评论
-							// 	let msg_box;
-							// 	let comment_box_jquery = `textarea[name=msg]`;
-							// 	try {
-							// 		await global_var.page.waitForSelector(
-							// 			`.reply-box-textarea`,
-							// 			{ timeout: 10e3 }
-							// 		);
-							// 		comment_box_jquery = `.reply-box-textarea`;
-							// 	} catch {
-							// 		comment_box_jquery = `textarea[name=msg]`;
-							// 	}
-							// 	msg_box = await global_var.page.$(
-							// 		comment_box_jquery
-							// 	);
-							// 	await msg_box.focus();
-							// 	let msg_box_content =
-							// 		await global_var.page.$eval(
-							// 			comment_box_jquery,
-							// 			(el) => el.value
-							// 		);
-							// 	let _bt = 0;
-							// 	while (msg_box_content != comment_msg) {
-							// 		//回复栏里的东西等于回复内容时break
-							// 		await msg_box.focus();
-							// 		await sleep(
-							// 			utl.random_choice(
-							// 				3 *
-							// 					lottery_setting.Working_clearance_time
-							// 			)
-							// 		);
-							// 		await msg_box.type(comment_msg, {
-							// 			delay: 20,
-							// 		});
-							// 		await sleep(1e3);
-							// 		msg_box_content =
-							// 			await global_var.page.$eval(
-							// 				comment_box_jquery,
-							// 				(el) => el.value
-							// 			);
-							// 		if (
-							// 			utl.remove_invisible_char(
-							// 				msg_box_content.replaceAll(
-							// 					/[\uD800-\uDBFF][\uDC00-\uDFFF]/g,
-							// 					""
-							// 				)
-							// 			) !=
-							// 			utl.remove_invisible_char(
-							// 				comment_msg.replaceAll(
-							// 					/[\uD800-\uDBFF][\uDC00-\uDFFF]/g,
-							// 					""
-							// 				)
-							// 			)
-							// 		) {
-							// 			//如果不等就删掉重新输入
-							// 			await sleep(1e3);
-							// 			await msg_box.focus();
-							// 			await global_var.page.keyboard.down(
-							// 				"Control"
-							// 			);
-							// 			await global_var.page.keyboard.press(
-							// 				"A"
-							// 			);
-							// 			await global_var.page.keyboard.up(
-							// 				"Control"
-							// 			);
-							// 			await sleep(1e3);
-							// 			await global_var.page.keyboard.press(
-							// 				"Backspace"
-							// 			);
-							// 			console.log(
-							// 				"输入框里内容与评论不符，删除输入框里内容",
-							// 				`\nmsg_box_content:${msg_box_content}\ncomment_msg:${comment_msg}`
-							// 			);
-							// 		} else {
-							// 			//相等了就break出去
-							// 			break;
-							// 		}
-							// 		if (_bt >= 5) {
-							// 			console.log("输入框里输入内容失败");
-							// 			await utl.my_throw("动态评论失败");
-							// 			throw `动态评论失败`;
-							// 		}
-							// 		_bt += 1;
-							// 	}
-							// 	await sleep(1e3);
-							// 	let comment_submit_jquert = `.comment-submit`;
-							// 	try {
-							// 		if (
-							// 			await global_var.page.$(
-							// 				`.reply-box-send`
-							// 			)
-							// 		) {
-							// 			comment_submit_jquert = `.reply-box-send`;
-							// 		} else {
-							// 			comment_submit_jquert = `.comment-submit`;
-							// 		}
-							// 	} catch {
-							// 		comment_submit_jquert = `.comment-submit`;
-							// 	}
-							// 	await global_var.page.click(
-							// 		comment_submit_jquert
-							// 	);
-							// 	await MYAPI.PageFunc.waitForResponse(
-							// 		global_var.page,
-							// 		"reply/add"
-							// 	);
-							// 	await sleep(1e3);
-							// }
 							break;
 						} catch (e) {
 							bt++;
@@ -1274,24 +1180,23 @@ class ENVIRONMENT {
 								`第${i + 1}次尝试输入动态评论！`,
 								e
 							);
-							await utl.check_page_is_front(global_var.page);
 							if (
 								global_var.response.comment_dyn_response
 									?.code == 12051
 							) {
-								break;
+								break;	
 							}
 							if (bt >= 5) {
 								throw e;
 							}
-							await global_var.page.reload();
+							await global_var.page.reload({waitUntil:"networkidle2"});
 							await sleep(3e3);
 							await global_var.page.evaluate(() => {
 								this.scrollTo(0, 1500);
 							});
-							await global_var.page.evaluate(() => {
-								this.scrollTo(0, -1500);
-							});
+							// await global_var.page.evaluate(() => {
+							// 	this.scrollTo(0, -1500);
+							// });
 							await sleep(3e3);
 						}
 					}
@@ -1314,10 +1219,15 @@ class ENVIRONMENT {
 								console.log(
 									`${
 										global_var.user_info.uname
-									}\t${await global_var.page.url()}\t评论成功，躲过阿瓦隆\t${new Date().toLocaleString()}`
+									}\t${global_var.page.url()}\t评论成功，躲过阿瓦隆\t${new Date().toLocaleString()}`
 								);
 								break;
 							} else {
+								console.error(
+									`${
+										global_var.user_info.uname
+									}\t${global_var.page.url()}\t动态评论失败，评论被隐藏\t${new Date().toLocaleString()}`
+								);
 								await utl.my_throw("动态评论失败，评论被隐藏");
 								break;
 							}
@@ -1474,17 +1384,27 @@ class ENVIRONMENT {
 					await pptr_op.remove_video_player(global_var.page);
 				},
 				sanlian: async function (pageurl) {
-					let thumb_btn = await global_var.page
-						.waitForSelector(`.video-like.video-toolbar-left-item`)
-						.then(async (thumb_btn_element) => {
-							await thumb_btn_element.click({ delay:10e3 });
-						})
-						.catch((e) => {
-							console.error(`获取点赞按钮失败！${e}`);
-						});
-					let coin_btn = await global_var.page.$(
-						`.video-coin.video-toolbar-left-item`
+					await sleep(10e3);
+					await global_var.page.evaluate(
+						() => {
+							this.scrollTo(
+								0,
+								1500
+							);
+						}
 					);
+					await global_var.page.keyboard.press("q", { delay: 10e3 });
+					// let thumb_btn = await global_var.page
+					// 	.waitForSelector(`.video-like.video-toolbar-left-item`)
+					// 	.then(async (thumb_btn_element) => {
+					// 		await thumb_btn_element.click({ delay: 10e3 });
+					// 	})
+					// 	.catch((e) => {
+					// 		console.error(`获取点赞按钮失败！${e}`);
+					// 	});
+					// let coin_btn = await global_var.page.$(
+					// 	`.video-coin.video-toolbar-left-item`
+					// );
 					let coin_btn_On = await global_var.page
 						.waitForSelector(
 							`.video-coin.video-toolbar-left-item.on`
@@ -1509,22 +1429,20 @@ class ENVIRONMENT {
 					}
 				},
 				toubi: async function (coin_num, pageurl) {
-					let coin_btn = await global_var.page.waitForSelector(
-						`.video-coin.video-toolbar-left-item`
-					).then(async coin_btn_ele=>{
-						await coin_btn_ele.click()
-						return coin_btn_ele
-					});
+					let coin_btn = await global_var.page
+						.waitForSelector(`.video-coin.video-toolbar-left-item`)
+						.then(async (coin_btn_ele) => {
+							await coin_btn_ele.click();
+							return coin_btn_ele;
+						});
 					if (coin_num == 1) {
-						let one_coin_box = await global_var.page.$(
-							`.mc-box.left-con`
-						);
-						await one_coin_box.click();
+						let one_coin_box = await global_var.page
+							.waitForSelector(`.mc-box.left-con`)
+							.then(async (el) => await el.click());
 					}
-					let coin_confirm_btn = await global_var.page.$(
-						`.coin-bottom>.bi-btn`
-					);
-					await coin_confirm_btn.click();
+					let coin_confirm_btn = await global_var.page
+						.waitForSelector(`.coin-bottom>.bi-btn`)
+						.then(async (el) => await el.click());
 					let coin_btn_title = await coin_btn.evaluate(
 						(el) => el.title,
 						coin_btn
@@ -1960,7 +1878,7 @@ class ENVIRONMENT {
 							dynamic_data = (
 								await MYAPI.BiliAPI.get_dynamic_v1_detail(
 									MYAPI.BiliAPI.draw_dynamic_id(
-										await global_var.page.url()
+										global_var.page.url()
 									)
 								)
 							).data;
@@ -2443,75 +2361,83 @@ class ENVIRONMENT {
 					} else if (topobj2 != null) {
 						msg = /带tag#(.{0,20})#.*/gim
 							.exec(dynamic_content)
-							.slice(1);
-						for (let _ = 0; _ < msg.length; _++) {
-							if (msg[_] != null && msg[_] != undefined) {
-								premsg += "#" + msg[_] + "#";
+							?.slice(1);
+						if (msg)
+							for (let _ = 0; _ < msg.length; _++) {
+								if (msg[_] != null && msg[_] != undefined) {
+									premsg += "#" + msg[_] + "#";
+								}
 							}
-						}
 					} else if (topobj3 != null) {
 						msg = /带话题.*?#(.{0,30})#.*/gim
 							.exec(dynamic_content)
-							.slice(1);
-						for (let _ = 0; _ < msg.length; _++) {
-							if (msg[_] != null && msg[_] != undefined) {
-								premsg += "#" + msg[_] + "#";
+							?.slice(1);
+						if (msg)
+							for (let _ = 0; _ < msg.length; _++) {
+								if (msg[_] != null && msg[_] != undefined) {
+									premsg += "#" + msg[_] + "#";
+								}
 							}
-						}
 					} else if (topobj4 != null) {
 						msg = /带上tag#(.{0,30})#.*/gim
 							.exec(dynamic_content)
-							.slice(1);
-						for (let _ = 0; _ < msg.length; _++) {
-							if (msg[_] != null && msg[_] != undefined) {
-								premsg += "#" + msg[_] + "#";
+							?.slice(1);
+						if (msg)
+							for (let _ = 0; _ < msg.length; _++) {
+								if (msg[_] != null && msg[_] != undefined) {
+									premsg += "#" + msg[_] + "#";
+								}
 							}
-						}
 					} else if (topobj5 != null) {
 						msg = /带#(.{0,30})#.{0,10}话题.*/gim
 							.exec(dynamic_content)
-							.slice(1);
-						for (let _ = 0; _ < msg.length; _++) {
-							if (msg[_] != null && msg[_] != undefined) {
-								premsg += "#" + msg[_] + "#";
+							?.slice(1);
+						if (msg)
+							for (let _ = 0; _ < msg.length; _++) {
+								if (msg[_] != null && msg[_] != undefined) {
+									premsg += "#" + msg[_] + "#";
+								}
 							}
-						}
 					} else if (topobj10 != null) {
 						msg = /带#(.{0,30})#.*/gim
 							.exec(dynamic_content)
-							.slice(1);
-						for (let _ = 0; _ < msg.length; _++) {
-							if (msg[_] != null && msg[_] != undefined) {
-								premsg += "#" + msg[_] + "#";
+							?.slice(1);
+						if (msg)
+							for (let _ = 0; _ < msg.length; _++) {
+								if (msg[_] != null && msg[_] != undefined) {
+									premsg += "#" + msg[_] + "#";
+								}
 							}
-						}
 					} else if (topobj12 != null) {
 						msg = /带.{0,5}#(.{0,30})#.*/gim
 							.exec(dynamic_content)
-							.slice(1);
-						for (let _ = 0; _ < msg.length; _++) {
-							if (msg[_] != null && msg[_] != undefined) {
-								premsg += "#" + msg[_] + "#";
+							?.slice(1);
+						if (msg)
+							for (let _ = 0; _ < msg.length; _++) {
+								if (msg[_] != null && msg[_] != undefined) {
+									premsg += "#" + msg[_] + "#";
+								}
 							}
-						}
 					} else if (topobj13 != null) {
 						msg = /加话题#(.{0,30})#.*/gim
 							.exec(dynamic_content)
-							.slice(1);
-						for (let _ = 0; _ < msg.length; _++) {
-							if (msg[_] != null && msg[_] != undefined) {
-								premsg += "#" + msg[_] + "#";
+							?.slice(1);
+						if (msg)
+							for (let _ = 0; _ < msg.length; _++) {
+								if (msg[_] != null && msg[_] != undefined) {
+									premsg += "#" + msg[_] + "#";
+								}
 							}
-						}
 					} else if (topobj14 != null) {
 						msg = /带标签#(.{0,30})#.*/gim
 							.exec(dynamic_content)
-							.slice(1);
-						for (let _ = 0; _ < msg.length; _++) {
-							if (msg[_] != null && msg[_] != undefined) {
-								premsg += "#" + msg[_] + "#";
+							?.slice(1);
+						if (msg)
+							for (let _ = 0; _ < msg.length; _++) {
+								if (msg[_] != null && msg[_] != undefined) {
+									premsg += "#" + msg[_] + "#";
+								}
 							}
-						}
 					} else if (topobj15 != null) {
 						premsg = `@${utl.random_choice(
 							lottery_setting.at_member
@@ -2521,12 +2447,13 @@ class ENVIRONMENT {
 					} else if (topobj_16 != null) {
 						msg = /带(.{0,3}#.{0,20}) 话题.(?!投稿).*?/gim
 							.exec(dynamic_content)
-							.slice(1);
-						for (let _ = 0; _ < msg.length; _++) {
-							if (msg[_] != null && msg[_] != undefined) {
-								premsg += "#" + msg[_] + "#";
+							?.slice(1);
+						if (msg)
+							for (let _ = 0; _ < msg.length; _++) {
+								if (msg[_] != null && msg[_] != undefined) {
+									premsg += "#" + msg[_] + "#";
+								}
 							}
-						}
 					}
 					if (premsg.indexOf("#") > -1) {
 						let tpremsg = "";
@@ -3212,7 +3139,8 @@ class ENVIRONMENT {
 							dynamic_content
 						) ||
 						global_var.response.global_dynamic_data.item.basic
-							.comment_type == 1 || pre_msg==undefined
+							.comment_type == 1 ||
+						pre_msg == undefined
 					) {
 						//先判断是否要人工回复 视频全部抄
 						let key_reply =
@@ -3257,10 +3185,12 @@ class ENVIRONMENT {
 							if (pre_msg == undefined) {
 								//话题获取失败了，直接开抄！
 								if (
-									0< lottery_setting.copy_reply_module
-										.comment_copy_chance ||
-										0< lottery_setting.copy_reply_module
-										.AI_reply_chance
+									0 <
+										lottery_setting.copy_reply_module
+											.comment_copy_chance ||
+									0 <
+										lottery_setting.copy_reply_module
+											.AI_reply_chance
 								) {
 									e.next = 0;
 									pre_msg = "";
@@ -3312,7 +3242,7 @@ class ENVIRONMENT {
 													global_var.user_info.uname
 												}\t抄取评论：${copy_msg}\t${new Date().toLocaleTimeString()}`
 											);
-											pre_msg = pre_msg?pre_msg:''
+											pre_msg = pre_msg ? pre_msg : "";
 										} catch (e) {
 											console.warn(
 												`${global_var.user_info.uname}\t获取抄评论内容失败，reply_comment_generator\n`,
@@ -3523,7 +3453,9 @@ class ENVIRONMENT {
 						pre_msg == undefined
 					) {
 						comment_msg = "回复内容出错";
-						console.error(`${global_var.page.url()}\n回复内容出错:${dynamic_content}`)
+						console.error(
+							`${global_var.page.url()}\n回复内容出错:${dynamic_content}`
+						);
 						utl.my_throw("回复内容出错");
 						return undefined;
 					}
@@ -3943,7 +3875,7 @@ class ENVIRONMENT {
 													await sleep(1e3);
 													break;
 												} catch (e) {
-													console.error(e);
+													console.error(`${global_var.user_info.uname}\t分享内容失败！`,e);
 													if (bt >= 5) {
 														throw e;
 													}
@@ -3981,9 +3913,9 @@ class ENVIRONMENT {
 									}
 								} catch (e) {
 									console.error(
-										`${global_var.user_info.uname} 获取视频评论内容失败`
+										`${global_var.user_info.uname} 获取视频评论内容失败`,
+										e
 									);
-									console.error(e);
 								}
 								await share_iframe.click(
 									`.share-btn.clickable`
@@ -4985,8 +4917,8 @@ ${Dynamic_content}
 								},
 								`同义改写内容：${OriginMessage}\n结果：${result}`
 							);
-							if(!result){
-								throw new Error(`同义改写结果为空！${result}`)
+							if (!result) {
+								throw new Error(`同义改写结果为空！${result}`);
 							}
 							return result;
 						} catch (e) {
@@ -4997,8 +4929,7 @@ ${Dynamic_content}
 							console.warn(
 								`${
 									global_var.user_info.uname
-								}\tAI同义改写失败！\n同义改写内容：${OriginMessage}\n重试次数：${try_time}\t${new Date().toLocaleTimeString()}`,
-								e
+								}\tAI同义改写失败！\n同义改写内容：${OriginMessage}\n重试次数：${try_time}\t${new Date().toLocaleTimeString()}`
 							);
 							if (global_var.page.isClosed()) {
 								return undefined;
@@ -5047,7 +4978,10 @@ ${Dynamic_content}
 								global_var.response.reply_main.data.replies;
 							for (let reply of replies) {
 								let msg = reply.content.message;
-								let push_msg = utl.remove_emoji_topic_at(msg,dynamic_content);
+								let push_msg = utl.remove_emoji_topic_at(
+									msg,
+									dynamic_content
+								);
 								if (push_msg) {
 									rep_content_list.push(push_msg);
 								}
@@ -5551,7 +5485,7 @@ ${Dynamic_content}
 					return Number((tmp & MASK_CODE) ^ XOR_CODE);
 				},
 				draw_dynamic_id: (dynamic_url) => {
-					return /\d+/g.exec(dynamic_url).pop();
+					return /\d+/g.exec(dynamic_url)?.pop();
 				},
 				archive_stat: (aid) => {
 					return MYAPI.BiliAPI.get(
@@ -5584,23 +5518,34 @@ ${Dynamic_content}
 				 * 等待浏览器响应
 				 * @param {*} page
 				 * @param {string} url_include
+				 * @returns {Promise<JSON|undefined>}
 				 */
 				waitForResponse: async (page, url_include) => {
 					try {
-						await page.waitForResponse(
-							(response) =>
-								response.url().includes(url_include) &&
-								response.status() === 200
-						);
+						return await page
+							.waitForResponse(
+								(response) =>
+									response.url().includes(url_include) &&
+									response.status() === 200
+							)
+							.then(async (response) => await response.json()).catch(e=>{
+								console.error(
+									`${
+										global_var.user_info.uname
+									}\t等待响应${url_include}失败\t${new Date().toLocaleTimeString()}`
+								);
+							});
 					} catch (e) {
-						console.log(
+						console.error(
 							`${
 								global_var.user_info.uname
 							}\t等待响应${url_include}失败\t${new Date().toLocaleTimeString()}`
 						);
-						throw `${
-							global_var.user_info.uname
-						}\t等待响应${url_include}失败\t${new Date().toLocaleTimeString()}`;
+						throw Error(
+							`${
+								global_var.user_info.uname
+							}\t等待响应${url_include}失败\t${new Date().toLocaleTimeString()}`
+						);
 					}
 				},
 			},

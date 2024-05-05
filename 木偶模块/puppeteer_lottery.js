@@ -45,7 +45,7 @@ let lottery_setting_file_reader = async function (filename) {
  * @property {string} recorded_data - 抽奖反馈信息
  * @property {boolean} Pause - 抽奖暂停标志
  * @property {{access_token: undefined, API_Key: string, Secret_key: string, access_token_api: string, paraphrase_api: string, get_result_api: string}} Baidu_wenxin - 百度文心相关属性
- * @property {{check_login_status: function(): void}} Getter
+ * @property {{check_login_status: function(): void}} - Getter
  */
 class DO_Lottery {
 	/**
@@ -112,6 +112,7 @@ class DO_Lottery {
 			if (defaultUrl) {
 				await ret_pg.goto(defaultUrl);
 			}
+			await pptr_op.hook_teck_logdata(ret_pg);
 			return ret_pg;
 		}
 		if (pg.isClosed()) {
@@ -121,6 +122,7 @@ class DO_Lottery {
 					await pptr_op.check_page_is_front(ret_pg);
 					await ret_pg.goto(defaultUrl);
 				}
+				await pptr_op.hook_teck_logdata(ret_pg);
 				return ret_pg;
 			} else {
 				await this.launch_lottery();
@@ -129,6 +131,7 @@ class DO_Lottery {
 					await pptr_op.check_page_is_front(ret_pg);
 					await ret_pg.goto(defaultUrl);
 				}
+				await pptr_op.hook_teck_logdata(ret_pg);
 				return ret_pg;
 			}
 		}
@@ -322,8 +325,15 @@ class DO_Lottery {
 							if (response_json.code == 12051) {
 								//重复评论
 								console.warn(
-									`${global_var.user_info.uname} ${url} 重复评论！${response_json} `
+									`${
+										global_var.user_info.uname
+									} ${url} 重复评论！${JSON.stringify(
+										response_json,
+										"",
+										"\t"
+									)} `
 								);
+
 								return;
 							}
 							let oid;
@@ -414,7 +424,7 @@ class DO_Lottery {
 						}
 						//console.log(`获取评论响应：`, global_var.reply_main);
 					}
-					if (url.includes("/x/web-interface/nav")) {
+					if (url.includes("/x/web-interface/nav") && response.request().method() =='GET') {
 						if (!global_var.user_info.uname) {
 							if (await response.text()) {
 								global_var.user_nav = JSON.parse(
@@ -501,63 +511,7 @@ class DO_Lottery {
 					);
 				}
 			});
-			let blockUrl = [
-				"data.bilibili.com/log/web?013324",
-				"data.bilibili.com/log/web?000017",
-				"data.bilibili.com/log/web?000527",
-			];
-			let blockedResources = [
-				// "document",
-				// "stylesheet",
-				"image",
-				"media",
-				"font",
-				// "script",
-				"texttrack",
-				// "xhr",
-				// "fetch",
-				// "prefetch",
-				// "eventsource",
-				// "websocket",
-				// "manifest",
-				// "signedexchange",
-				// "ping",
-				// "cspviolationreport",
-				// "preflight",
-				// "other",
-			];
-			global_var.page.on("request", async (interceptedRequest) => {
-				try {
-					if (
-						blockedResources.includes(
-							interceptedRequest.resourceType()
-						)
-					) {
-						return interceptedRequest.abort();
-					}
-					if (interceptedRequest.method().toLowerCase() == "post") {
-						if (
-							blockUrl.filter((el) =>
-								interceptedRequest.url().includes(el)
-							).length != 0
-						) {
-							//如果是浏览器要发起检测到作弊的请求，就拦截下来，不让它发出去！
-							return interceptedRequest.abort();
-							//console.log(`成功拦截科技识别请求：${interceptedRequest.url()}`);
-						} else {
-							return interceptedRequest.continue();
-						}
-					} else {
-						return interceptedRequest.continue();
-					}
-				} catch (e) {
-					console.warn(
-						`拦截请求：${interceptedRequest.url()}失败`,
-						e
-					);
-				}
-			});
-		};
+			};
 		if (this.global_page && !this.global_page.isClosed()) {
 			//如果浏览器没关
 			global_var.page = this.global_page;
@@ -631,6 +585,7 @@ class DO_Lottery {
 							ignoreHTTPSErrors: true,
 						});
 						let page = await browser.newPage();
+						await pptr_op.hook_teck_logdata(page);
 						global_var.page = page;
 						this._setGlobalPage(global_var.page);
 						//await global_var.page.setUserAgent(useragent);//设置浏览器ua
@@ -653,6 +608,7 @@ class DO_Lottery {
 							ignoreHTTPSErrors: true,
 						});
 						let page = await browser.newPage();
+						await pptr_op.hook_teck_logdata(page);
 						global_var.page = page;
 						this._setGlobalPage(global_var.page);
 						//await global_var.page.setUserAgent(useragent);
@@ -679,12 +635,13 @@ class DO_Lottery {
 				}
 			}
 		}
-		if (this.global_page && this.global_page.isClosed()) {
+		if (this.global_page && !this.global_page.isClosed()) {
 			//浏览器未关闭，抽奖页面已关闭
 			let br = this.global_page.browser();
 			let new_pg = await br.newPage();
-			this._setGlobalPage(new_pg);
+			await pptr_op.hook_teck_logdata(new_pg);
 			global_var.page = new_pg;
+			this._setGlobalPage(new_pg);
 			this.global_page = new_pg;
 		}
 		await global_page_listen();
@@ -745,7 +702,9 @@ class DO_Lottery {
 						}
 					);
 					if (resp.code != 200) {
-						console.error(`推送失败！原因：${resp.data}`);
+						console.error(
+							`推送失败！原因：${JSON.stringify(resp.data)}`
+						);
 					}
 				} catch (e) {
 					console.warn(e, "消息推送失败！");
@@ -789,8 +748,6 @@ class DO_Lottery {
 			 * @returns
 			 */
 			async function reserve_lottery_loop(loop_list) {
-				//TODO: 重写预约抽奖的执行和获取数据的后端！ 抽奖记录里面保存直播预约的sid 通过判断直播预约的sid是否在记录里面来过滤抽过的内容
-
 				let mustjoin_reserve_record_path_name = `抽奖记录/必抽的预约抽奖记录/${global_var.user_info.uname}_参加过的预约抽奖.txt`;
 				let joined_lottery_record = MYAPI.fileRead.lottery_dynamic_ids(
 					mustjoin_reserve_record_path_name
@@ -822,7 +779,7 @@ class DO_Lottery {
 				for (let reserve_info of loop_list) {
 					if (!checked_loop_list.includes(reserve_info)) {
 						console.log(
-							`${global_var.user_info.uname}\t${reserve_info.reserve_url}\t非需要参加或访问的预约！`
+							`${global_var.user_info.uname}\t${reserve_info.reserve_url}\t已经参加过了的预约抽奖，跳过！`
 						);
 						continue;
 					}
@@ -844,6 +801,7 @@ class DO_Lottery {
 								{ timeout: 30e3 }
 							)
 						).json();
+						await pptr_op.check_page_is_front(global_var.page);
 					} catch (e) {
 						console.warn(
 							`${global_var.user_info.uname}\t前往预约页面 ${reserve_info.reserve_url} 失败\nreserve_lottery_loop\n`,
@@ -1031,7 +989,7 @@ class DO_Lottery {
 						await global_var.page.goto(
 							`https://t.bilibili.com/${global_var.dynamic_id}`
 						);
-						pageurl = await global_var.page.url();
+						pageurl = global_var.page.url();
 					}
 					if (
 						pageurl.includes("www.bilibili.com/404") &&
@@ -1049,28 +1007,14 @@ class DO_Lottery {
 								)}`
 							);
 							await sleep(3e3);
+							pageurl = global_var.page.url();
 							let error_container = await global_var.page.$(
 								".error-container"
-							);
+							); //404动态的那张图片
 							if (
-								!error_container ||
+								error_container ||
 								global_var.response.global_dynamic_data == -412
 							) {
-								//如果不是404的提示页面，那么就是t.bilibili.com的api被412风控了
-								console.warn(
-									`${
-										global_var.user_info.uname
-									}\t评论失败，api被412风控，等待240分钟\t${goto_url}\t${new Date().toLocaleTimeString()}`
-								);
-								await utl.my_throw(
-									`${global_var.user_info.uname}\t评论失败，api被412风控\t${goto_url}`
-								);
-								await sleep(240 * 60e3);
-								await global_var.page.goto(goto_url, {
-									waitUntil: "networkidle2",
-								});
-								pageurl = await global_var.page.url();
-							} else {
 								console.log(
 									`${
 										global_var.user_info.uname
@@ -1083,6 +1027,7 @@ class DO_Lottery {
 								);
 								return;
 							}
+							break;
 						}
 					}
 					if (pageurl.includes("www.bilibili.com/404")) {
@@ -1376,22 +1321,47 @@ class DO_Lottery {
 										await utl.check_page_is_front(
 											follow_pg
 										);
-										let follow_btn =
-											await follow_pg.waitForSelector(
-												".h-f-btn.h-follow"
-											);
-										await follow_btn.click();
-										global_var.response.relation_modify_response =
-											await (
-												await follow_pg.waitForResponse(
-													(resp) =>
+										await Promise.all([
+											follow_pg
+												.waitForSelector(
+													".h-f-btn.h-follow"
+												)
+												.then((el) => el.click())
+												.catch(() => {
+													{
+														status: "fail";
+													}
+												}),
+											(global_var.response.relation_modify_response =
+												await follow_pg
+													.waitForResponse((resp) =>
 														resp
 															.url()
 															.includes(
 																"x/relation/modify"
 															)
-												)
-											).json();
+													)
+													.then(async (response) => {
+														return await response.json();
+													})
+													.catch(() => {
+														status: "fail";
+													})),
+										]).catch((e) => {
+											console.error(
+												`${
+													global_var.user_info.uname
+												}\t关注 https://space.bilibili.com/${
+													global_var.response
+														.global_dynamic_data
+														.item.modules
+														.module_author.mid
+												} 失败，${JSON.stringify(e)}\n${
+													e.stack
+												}`
+											);
+										});
+
 										if (
 											global_var.response
 												.relation_modify_response
@@ -1481,6 +1451,15 @@ class DO_Lottery {
 											await utl.my_throw(
 												`${global_var.user_info.uname}\t关注失败，${e}`
 											);
+										}
+										if (
+											(await follow_pg.$$(`.h-f-icon`))
+												.length > 0
+										) {
+											console.log(
+												`${global_var.user_info.uname}\t关注 https://space.bilibili.com/${global_var.response.global_dynamic_data.item.modules.module_author.mid} 成功了`
+											);
+											break;
 										}
 										console.error(
 											`${
@@ -1746,13 +1725,15 @@ class DO_Lottery {
 					console.error(
 						`${
 							global_var.user_info.uname
-						}\tdo_lottery函数执行失败\t${new Date().toLocaleTimeString()}\n${e}\n${
+						}\tdo_lottery函数执行失败\t${goto_url}\t${new Date().toLocaleTimeString()}\n${e}\n${
 							e.stack
 						}`
 					);
-					console.error(e);
 					global_var.Getter.check_login_status();
-					if (!(await pptr_op.check_page_is_front(global_var.page))) {
+					if (e.toString().includes(`Requesting main frame too early`)||!(await pptr_op.check_page_is_front(global_var.page))) {
+						await global_var.page.close();
+						await global_var.page.browser().close()
+						await sleep(10e3);
 						await this.account_init(false);
 						return await do_lottery(goto_url, opus_dynamic); //如果只是页面或浏览器被关了，就继续执行抽奖
 					}
@@ -1767,7 +1748,7 @@ class DO_Lottery {
 			 * 抽奖循环，返回参与成功的抽奖
 			 * @param {Array} all_dynamic_id_list
 			 * @param {string} task_name --执行的任务名称
-			 * @returns
+			 * @returns {Promise<string[]>} 参与成功的抽奖动态id
 			 */
 			let lottery_loop = async (all_dynamic_id_list, task_name = "") => {
 				//对抽奖队列进行循环
@@ -1994,9 +1975,15 @@ class DO_Lottery {
 													global_var.user_info.uname
 												}\t前往页面失败！https://www.bilibili.com/opus/${MYAPI.BiliAPI.draw_dynamic_id(
 													all_dynamic_id_list[i]
-												)}\t${e}\n${e.stack}`
+												)}\t${e}\n${e.stack}` +
+													(break_time <
+													3
+													? `\n重试第${break_time}次！`
+													: `\n彻底失败！`)
 											);
+											await global_var.page.browser().close()
 											await sleep(10e3);
+											await this.account_init(false);
 										}
 									}
 								} else {
@@ -2390,6 +2377,7 @@ class DO_Lottery {
 								`.coupon-content`
 							);
 							for (let coupon_content of coupon_contents) {
+								await pptr_op.check_page_is_front(global_var.page);
 								console.log(
 									`${
 										global_var.user_info.uname
@@ -2408,17 +2396,34 @@ class DO_Lottery {
 								) {
 									continue;
 								} else {
-									bcoin_get = true;
+									if((await coupon_content.$eval(
+										".coupon-content-con",
+										(el) => el.innerText
+									)).includes(`B币`)){
+										bcoin_get = true; 
+									}
 									await global_var.page
 										.waitForSelector(".coupon-btn")
 										.then(async (jshandle) => {
 											await jshandle.click();
 										});
-									await global_var.page
-										.waitForSelector(`.dialog-close-icon`)
-										.then(async (jshandle) => {
-											await jshandle.click();
-										});
+										try{
+											await global_var.page
+											.waitForSelector(`.dialog-close-icon`)
+											.then(async (jshandle) => {
+												await jshandle.click();
+											});
+										}
+									catch(e){
+										console.log(
+											`${
+												global_var.user_info.uname
+											}\n当前大会员权益：${await coupon_content.$eval(
+												".coupon-content-con",
+												(el) => el.innerText
+											)} 已领取`
+										);
+									}
 								}
 							}
 							if (bcoin_get) {
@@ -2485,7 +2490,7 @@ class DO_Lottery {
 						MYAPI.fileRead.json_file("必抽的预约抽奖.txt");
 					reserve_lottery_sapce_list = utl.noRepeatArr(
 						reserve_lottery_sapce_list
-					); //参加过的必抽的大奖
+					); //参加过的必抽的预约抽奖
 					let mustjoin_reserve_record_path_name = `抽奖记录/必抽的预约抽奖记录/${global_var.user_info.uname}_参加过的预约抽奖.txt`;
 					let joined_lottery_record =
 						MYAPI.fileRead.lottery_dynamic_ids(
@@ -2559,7 +2564,7 @@ class DO_Lottery {
 					let need_mustjoin_lottery_dynamic =
 						MYAPI.fileRead.lottery_dynamic_ids(`必抽的大奖.txt`);
 
-					/////////////////////////////////必抽的大奖，先是必抽的大奖，然后再是官方抽奖，因为有可能会在官抽的评论区加抽
+					//region 必抽的大奖，先是必抽的大奖，然后再是官方抽奖，因为有可能会在官抽的评论区加抽
 					let mustjoin_lottery_record_path_name = `抽奖记录/必抽的大奖记录/${global_var.user_info.uname}_参加过的大奖.txt`;
 					let mustjoin_lottery_record =
 						MYAPI.fileRead.lottery_dynamic_ids(
@@ -2595,6 +2600,7 @@ class DO_Lottery {
 						must_join_lottery_result.join("\n"),
 						"a+"
 					);
+					//endregion
 					//////////////////////////////////////////////
 
 					/////////////////////////////////////////////必抽的官抽
@@ -2765,7 +2771,7 @@ class DO_Lottery {
 					console.error(`分享视频失败！`, e);
 				}
 				///////////////////////////////////开始防过滤操作
-				if (global_var.user_info.uid) {
+				try{if (global_var.user_info.uid) {
 					await pptr_op.check_page_is_front(global_var.page);
 					if ((await global_var.page.browser().pages()).length != 0) {
 						console.log(
@@ -2778,11 +2784,17 @@ class DO_Lottery {
 							unfollow_pg,
 							global_var.user_info.uid
 						);
+						console.log(
+							`${global_var.user_info.uname}\t取关模块执行完毕`
+						);
 					} else {
 						console.log(
 							`${global_var.user_info.uname}浏览器关闭，不执行取关模块！`
 						);
 					}
+				}}
+				catch(e){
+					console.error(`防过滤操作失败`,e)
 				}
 				lottery_setting.FLAG.do_lottery_flag = false;
 				// try {
@@ -2898,6 +2910,15 @@ class DO_Lottery {
 						) //反射的方式查看设置的标志是否符合不是全为true
 					) {
 						//页面关了或者有其他事件不关浏览器
+						console.log(
+							`${
+								global_var.user_info.uname
+							}\t还有任务未完成，不关闭浏览器\n${JSON.stringify(
+								this.no_exit_falg,
+								"",
+								"\t"
+							)}  --${new Date().toLocaleTimeString()}`
+						);
 					} else {
 						if (!global_var.user_info.uid) {
 							console.error(

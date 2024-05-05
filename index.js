@@ -2,7 +2,7 @@
  * @Author: 星瞳 1944637830@qq.com
  * @Date: 2023-11-12 23:55:03
  * @LastEditors: 星瞳 1944637830@qq.com
- * @LastEditTime: 2024-04-06 14:23:57
+ * @LastEditTime: 2024-05-03 10:36:29
  * @FilePath: \tampermonkey\index.js
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -60,6 +60,9 @@ async function gen_lot_file(start_time) {
 			latest_lot_dyn_data.every((v, i) => v === lot_dyn_data[i])
 		) {
 			fs.writeFileSync("./木偶模块/一般的抽奖动态id.txt", "");
+			console.log(
+				`与原来的抽奖内容相同，清空一般的抽奖动态！--${start_time.toLocaleString()}`
+			);
 		} else {
 			fs.writeFileSync(
 				"./木偶模块/一般的抽奖动态id.txt",
@@ -141,7 +144,9 @@ async function gen_lot_file(start_time) {
 			.readFileSync("./木偶模块/必抽的预约抽奖.txt")
 			.toString();
 		/**@type {Array<Object>} */
-		let latest_lot_dyn_data =latest_lot_dyn.trim()? JSON.parse(latest_lot_dyn):[]
+		let latest_lot_dyn_data = latest_lot_dyn.trim()
+			? JSON.parse(latest_lot_dyn)
+			: [];
 		let lot_dyn_data = get_lot_dyn.data;
 		if (lot_dyn_data && lot_dyn_data.length != 0) {
 			let result = Array.from(
@@ -149,7 +154,7 @@ async function gen_lot_file(start_time) {
 			);
 			fs.writeFileSync(
 				"./木偶模块/必抽的预约抽奖.txt",
-				JSON.stringify(result,"","\t"),
+				JSON.stringify(result, "", "\t"),
 				{ flag: "w" }
 			);
 			console.log(
@@ -171,8 +176,8 @@ async function main() {
 	let start_time = new Date();
 	let lottery_setting_filename_list = [
 		//抽奖设置的名称
-		// "lottery_setting1",
-		// "lottery_setting3",
+		"lottery_setting1",
+		"lottery_setting3",
 		"lottery_setting2",
 		"lottery_setting5",
 		"lottery_setting8",
@@ -187,7 +192,7 @@ async function main() {
 		// 'lottery_setting6',//G
 	];
 	let unfollow_mode = 0; //是否开启取关模式，开启后只启动取关模块，其他啥也不干
-	let auto_mode = 0; //是否开启全自动抽奖模式
+	let auto_mode = 1; //是否开启全自动抽奖模式
 	let browser_mode = 0; //是否只打开浏览器，不进行抽奖
 	let live_mode = 1; //是否开始直播抽奖模块
 	let gen_lot_file_mark = false; //抽奖文件获取完成
@@ -289,7 +294,7 @@ async function main() {
 					await sleep((9 - new Date().getHours()) * 3600e3);
 				}
 				event_bus.emit(event_name);
-				await sleep(600e3 * 1.0);
+				await sleep(600e3 * 1); //每个账号的抽奖间隔时间
 			} else {
 				console.error(`未找到动态抽奖${event_name}事件！`);
 			}
@@ -321,20 +326,22 @@ async function main() {
 				let shh = times - hh * 3600;
 				let ii = parseInt(shh / 60);
 				let ss = shh - ii * 60;
-				tomorrow - now < 0
-					? console.log(
-							`本轮抽奖启动于：${start_time.toLocaleString()} 已完成，立刻执行下一轮！`
-					  )
-					: console.log(
-							`本轮抽奖启动于：${start_time.toLocaleString()} 已完成，下一轮将在 ${
-								(hh < 10 ? "0" + hh : hh) +
-								"小时" +
-								(ii < 10 ? "0" + ii : ii) +
-								"分钟" +
-								(ss < 10 ? "0" + ss : ss) +
-								"秒"
-							} 后启动！\n--${new Date().toLocaleString()}`
-					  );
+				if (tomorrow - now < 0) {
+					console.log(
+						`本轮抽奖启动于：${start_time.toLocaleString()} 已完成，立刻执行下一轮！`
+					);
+				} else {
+					console.log(
+						`本轮抽奖启动于：${start_time.toLocaleString()} 已完成，下一轮将在 ${
+							(hh < 10 ? "0" + hh : hh) +
+							"小时" +
+							(ii < 10 ? "0" + ii : ii) +
+							"分钟" +
+							(ss < 10 ? "0" + ss : ss) +
+							"秒"
+						} 后启动！\n--${new Date().toLocaleString()}`
+					);
+				}
 				await sleep(10e3);
 				setTimeout(async () => {
 					// event_bus.flush(); //事件不清空，复用事件！
@@ -344,6 +351,10 @@ async function main() {
 					await main();
 				}, tomorrow - now);
 				return;
+			} else {
+				console.log(
+					`抽奖还在进行中，不获取下一轮！\t\t${new Date().toLocaleTimeString()}`
+				);
 			}
 			await sleep(100e3);
 		}
@@ -351,5 +362,8 @@ async function main() {
 }
 (async function () {
 	// await sleep(7 * 3600 * 1e3);
+	if (process.env.NODE_ENV !== "production") {
+		require("longjohn");
+	}
 	await main();
 })();
