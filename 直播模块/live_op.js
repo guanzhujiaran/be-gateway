@@ -2,7 +2,7 @@
  * @Author: 星瞳 1944637830@qq.com
  * @Date: 2023-11-07 22:44:13
  * @LastEditors: 星瞳 1944637830@qq.com
- * @LastEditTime: 2024-05-03 10:40:20
+ * @LastEditTime: 2024-05-11 10:05:16
  * @FilePath: \tampermonkey\直播模块\live_op.js
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -94,7 +94,24 @@ const live_op = {
 									) ||
 								req
 									.url()
-									.includes("data.bilibili.com/log/web?0000")
+									.includes(
+										"data.bilibili.com/log/web?0000"
+									) ||
+								req
+									.url()
+									.includes(
+										"data.bilibili.com/log/web?001111"
+									) ||
+								req
+									.url()
+									.includes(
+										"data.bilibili.com/log/web?web_location"
+									) ||
+								req
+									.url()
+									.includes(
+										"data.bilibili.com/log/web?content_type"
+									)
 							) {
 								//如果是浏览器要发起检测到作弊的请求，就拦截下来，不让它发出去！
 								req.abort();
@@ -633,6 +650,7 @@ class LIVE_LOT {
 						if (event_bus.event_list.indexOf(event_name) == -1) {
 							event_bus.on(event_name, async () => {
 								try {
+									this.CONFIG.live_info.uid? this.__DO_Lottery_class.global_var.user_info.uid=this.CONFIG.live_info.uid:{};
 									await this.__DO_Lottery_class.unfollow_module(
 										2000
 									);

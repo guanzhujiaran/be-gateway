@@ -2,7 +2,7 @@
  * @Author: 星瞳 1944637830@qq.com
  * @Date: 2023-11-08 13:34:47
  * @LastEditors: 星瞳 1944637830@qq.com
- * @LastEditTime: 2024-05-04 16:58:31
+ * @LastEditTime: 2024-05-05 16:00:10
  * @FilePath: \tampermonkey\木偶模块\util\common_utl.js
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -97,49 +97,10 @@ const pptr_op = {
 		}
 	},
 	hook_teck_logdata: async (pg) => {
+		await pg.setBypassCSP(true);
 		await pg.setRequestInterception(true);
 		pg.on("request", async (req) => {
 			try {
-				if (
-					req
-						.url()
-						.includes(
-							"api.bilibili.com/x/internal/gaia-gateway/ExClimbWuzhi"
-						)
-				) {
-					req.abort();
-					let customResponseData = {
-						code: 0,
-						message: "0",
-						ttl: 1,
-						data: {},
-					};
-					return req.respond({
-						status: 200,
-						body: JSON.stringify(customResponseData),
-					});
-				}
-				if (
-					req.url().includes(".bilivideo.com") || // 拦截直播流
-					req.url().includes("web-frontend/data/collector") || // 前端检测设备的请求，发送多了会触发验证码
-					req.url().includes("player/wbi/playurl") // 拦截播放列表
-				) {
-					req.abort();
-					return req.respond({
-						status:200,
-						data:''
-					})
-				}
-				if (new URL(req.url()).origin.includes(".geetest.com")) {
-					// 放行极验的请求
-					return req.continue();
-				}
-				// if (
-				// 	req.resourceType() == "image" ||
-				// 	req.resourceType() == "media"
-				// ) {
-				// 	return req.abort();
-				// }
 				if (req.method().toLowerCase() == "post") {
 					if (
 						req
@@ -151,18 +112,86 @@ const pptr_op = {
 						req
 							.url()
 							.includes("data.bilibili.com/log/web?000017") ||
-						req.url().includes("data.bilibili.com/log/web?001111")||
-						req.url().includes("data.bilibili.com/log/web?web_location")
+						req
+							.url()
+							.includes("data.bilibili.com/log/web?001111") ||
+						req
+							.url()
+							.includes(
+								"data.bilibili.com/log/web?web_location"
+							) ||
+						req
+							.url()
+							.includes(
+								"data.bilibili.com/log/web?content_type"
+							) ||
+						req.url().includes("cm.bilibili.com/cm/api/fees/pc")
 					) {
 						//如果是浏览器要发起检测到作弊的请求，就拦截下来，不让它发出去！
-						req.abort();
 						return req.respond({
-							status:200,
-							data:'ok'
-						})
+							status: 200,
+							contentType: "text/plain; charset=utf-8",
+							body: "ok",
+						});
 						//console.log(`成功拦截科技识别请求：${interceptedRequest.url()}`);
 					}
 				}
+				if (
+					req
+						.url()
+						.includes(
+							"api.bilibili.com/x/internal/gaia-gateway/ExClimbWuzhi"
+						) &&
+					req.method().toLowerCase() == "post"
+				) {
+					return req.respond({
+						status: 200,
+						contentType:
+							"application/json; text/plain; charset=UTF-8",
+						body: JSON.stringify({
+							code: 0,
+							data: {},
+							message: "0",
+							ttl: 1,
+						}),
+					});
+				}
+				if (
+					req.url().includes(".bilivideo.com") || // 拦截直播流
+					req.url().includes(".bilivideo.cn") ||
+					req.url().includes("web-frontend/data/collector") // 前端检测设备的请求，发送多了会触发验证码
+				) {
+					return req.respond({
+						status: 200,
+						contentType: "application/octet-stream",
+						body: "",
+					});
+				}
+				if (req.url().includes("player/wbi/playurl")) {
+					// 拦截播放列表
+					return req.respond({
+						status: 200,
+						contentType:
+							"application/json; text/plain; charset=utf-8",
+						body: JSON.stringify({
+							code: -412,
+							message: "0",
+							data: null,
+							ttl: 1,
+						}),
+					});
+				}
+				if (new URL(req.url()).origin.includes(".geetest.com")) {
+					// 放行极验的请求
+					return req.continue();
+				}
+				// if (
+				// 	req.resourceType() == "image" ||
+				// 	req.resourceType() == "media"
+				// ) {
+				// 	return req.abort();
+				// }
+
 				req.continue();
 			} catch (e) {
 				console.warn(`拦截请求：${req.url()}失败\n${e.stack}`, e);

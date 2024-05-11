@@ -2,7 +2,7 @@
  * @Author: 星瞳 1944637830@qq.com
  * @Date: 2023-11-12 23:55:03
  * @LastEditors: 星瞳 1944637830@qq.com
- * @LastEditTime: 2024-05-03 10:36:29
+ * @LastEditTime: 2024-05-11 09:56:49
  * @FilePath: \tampermonkey\index.js
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -31,7 +31,10 @@
  * ______#####______;###________###______#________
  * ________##_______####________####______________
  */
-
+if (process.env.NODE_ENV !== "production") {
+	let longjohn= require("longjohn");
+	longjohn.async_trace_limit = -1;
+}
 let { DO_Lottery, sleep } = require("./木偶模块/puppeteer_lottery.js");
 let { LIVE_LOT_Service } = require("./直播模块/live_op.js");
 let { live_dm_wss_service } = require("./直播模块/live_dm_server.js");
@@ -362,8 +365,5 @@ async function main() {
 }
 (async function () {
 	// await sleep(7 * 3600 * 1e3);
-	if (process.env.NODE_ENV !== "production") {
-		require("longjohn");
-	}
 	await main();
 })();

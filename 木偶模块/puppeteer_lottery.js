@@ -260,245 +260,275 @@ class DO_Lottery {
 				//拦截响应的响应
 				let url = response.url();
 				try {
-					if (url.includes(`/x/polymer/web-dynamic/v1/detail?`)) {
-						try {
-							global_var.response.global_dynamic_data = (
-								await response.json()
-							).data;
-						} catch (e) {
-							if ((await response.json()).code == -412) {
-								global_var.response.global_dynamic_data = -412;
-							} else {
-								global_var.response.global_dynamic_data =
-									undefined;
-							}
-							throw `${
-								global_var.user_info.uname
-							}\t${url}\tglobal_dynamic_data\t${
-								(await response.json()).message
-							}\n${e}`;
-						}
-					}
-					if (
-						url.includes("/x/dynamic/feed/create/dyn") ||
-						url.includes("dynamic_repost/reply")
-					) {
-						let req = await response.request();
-						if ((await req.method()).toLowerCase() != "post") {
-							//option是没有数据的
-							console.log(
-								await (await response.request()).method()
-							);
-							return;
-						}
-						try {
-							global_var.response.create_dyn_response =
+					switch (true) {
+						case url.includes(`/space/reservation`) &&
+							response.status() === 200: {
+							global_var.response.space_reservation =
 								await response.json();
-							console.log(
-								`${
-									global_var.user_info.uname
-								}\t转发动态response：\n${JSON.stringify(
-									global_var.response.create_dyn_response
-								)}\n转发生成的动态链接：https://t.bilibili.com/${
-									global_var.response.create_dyn_response
-										?.data?.dynamic_id_str ||
-									global_var.response.create_dyn_response
-										?.data?.dyn_id_str
-								}`
-							);
-						} catch (e) {
-							console.warn(
-								`${
-									global_var.user_info.uname
-								}\t抓取转发动态response失败：\n${e}\n${await response.text()}`
-							);
-							//global_var.response.create_dyn_response = undefined;
-							throw `${global_var.user_info.uname}\tcreate_dyn_response, ${e}, ${global_var.user_info.uname}`;
+							break;
 						}
-					}
-					if (url.includes("/x/v2/reply/add")) {
-						try {
-							let response_json = await response.json();
-							global_var.response.comment_dyn_response =
-								response_json;
-							global_var.FLAG.评论响应标志 = true;
-							if (response_json.code == 12051) {
-								//重复评论
+						case url.includes(
+							`/x/polymer/web-dynamic/v1/detail?`
+						): {
+							try {
+								global_var.response.global_dynamic_data = (
+									await response.json()
+								).data;
+							} catch (e) {
+								if ((await response.json()).code == -412) {
+									global_var.response.global_dynamic_data =
+										-412;
+								} else {
+									global_var.response.global_dynamic_data =
+										undefined;
+								}
+								throw `${
+									global_var.user_info.uname
+								}\t${url}\tglobal_dynamic_data\t${
+									(await response.json()).message
+								}\n${e}`;
+							} finally {
+								break;
+							}
+						}
+						case url.includes("/x/dynamic/feed/create/dyn") ||
+							url.includes("dynamic_repost/reply"): {
+							let req = await response.request();
+							if ((await req.method()).toLowerCase() != "post") {
+								//option是没有数据的
+								console.log(
+									await (await response.request()).method()
+								);
+								return;
+							}
+							try {
+								global_var.response.create_dyn_response =
+									await response.json();
+								console.log(
+									`${
+										global_var.user_info.uname
+									}\t转发动态response：\n${JSON.stringify(
+										global_var.response.create_dyn_response
+									)}\n转发生成的动态链接：https://t.bilibili.com/${
+										global_var.response.create_dyn_response
+											?.data?.dynamic_id_str ||
+										global_var.response.create_dyn_response
+											?.data?.dyn_id_str
+									}`
+								);
+							} catch (e) {
 								console.warn(
 									`${
 										global_var.user_info.uname
-									} ${url} 重复评论！${JSON.stringify(
-										response_json,
-										"",
-										"\t"
-									)} `
+									}\t抓取转发动态response失败：\n${e}\n${await response.text()}`
 								);
-
-								return;
+								//global_var.response.create_dyn_response = undefined;
+								throw `${global_var.user_info.uname}\tcreate_dyn_response, ${e}, ${global_var.user_info.uname}`;
+							} finally {
+								break;
 							}
-							let oid;
-							let type;
-							let rpid;
-							try {
-								type = response_json.data.reply.type;
-							} catch {
-								throw `评论响应type获取出错`;
-							}
-							try {
-								oid = response_json.data.reply.oid;
-							} catch {
-								try {
-									oid =
-										global_var.response.global_dynamic_data
-											.item.basic.comment_id_str;
-								} catch {
-									//throw (`评论响应oid获取出错`)
-								}
-							}
-							try {
-								rpid = response_json.data.reply.rpid_str;
-							} catch {
-								//throw (`评论响应rpid获取出错`)
-							}
-							console.log(
-								`${
-									global_var.user_info.uname
-								}\t获取到评论响应：\t${new Date().toLocaleTimeString()}\n`,
-								`检查阿瓦隆链接：https://api.bilibili.com/x/v2/reply/jump?type=${type}&oid=${oid}&rpid=${rpid}`
-							);
-						} catch (e) {
-							//console.log('动态评论响应',global_var.response.comment_dyn_response);
-							global_var.FLAG.评论响应标志 = false;
-							console.warn(
-								`${
-									global_var.user_info.uname
-								}\t抓取评论动态response失败：\n${e}\n${await response.text()}`
-							);
-							//global_var.response.create_dyn_response = undefined;
-							throw `${url}\t${global_var.user_info.uname}\tcomment_dyn_response, ${e}, ${global_var.user_info.uname}`;
 						}
-					}
-					if (
-						url.includes("/x/v2/reply/main") ||
-						url.includes("/x/v2/reply/wbi/main")
-					) {
-						try {
-							let response_json = await response.text();
-							global_var.response.reply_main =
-								JSON.parse(response_json);
-							if (response_json.code == 0) {
-								let replies = response_json.data.replies;
-								for (
-									let repindex = 0;
-									repindex < replies.length;
-									repindex++
-								) {
+						case url.includes("/x/v2/reply/add"): {
+							try {
+								let response_json = await response.json();
+								global_var.response.comment_dyn_response =
+									response_json;
+								global_var.FLAG.评论响应标志 = true;
+								if (response_json.code == 12051) {
+									//重复评论
+									console.warn(
+										`${
+											global_var.user_info.uname
+										} ${url} 重复评论！${JSON.stringify(
+											response_json,
+											"",
+											"\t"
+										)} `
+									);
+
+									return;
+								}
+								let oid;
+								let type;
+								let rpid;
+								try {
+									type = response_json.data.reply.type;
+								} catch {
+									throw `评论响应type获取出错`;
+								}
+								try {
+									oid = response_json.data.reply.oid;
+								} catch {
 									try {
-										MYAPI.fileWrite(
-											`文案/评论响应.csv`,
-											JSON.stringify(replies[repindex]),
-											"a+"
-										);
+										oid =
+											global_var.response
+												.global_dynamic_data.item.basic
+												.comment_id_str;
 									} catch {
-										console.warn("记录评论内容失败！");
+										//throw (`评论响应oid获取出错`)
 									}
 								}
-							}
-						} catch (e) {
-							try {
-								let response_json = await response.text();
-								global_var.response.reply_main = JSON.parse(
-									/.*?\((.*)\)/gim
-										.exec(response_json)
-										.slice(1)
-										.join("")
+								try {
+									rpid = response_json.data.reply.rpid_str;
+								} catch {
+									//throw (`评论响应rpid获取出错`)
+								}
+								console.log(
+									`${
+										global_var.user_info.uname
+									}\t获取到评论响应：\t${new Date().toLocaleTimeString()}\n`,
+									`检查阿瓦隆链接：https://api.bilibili.com/x/v2/reply/jump?type=${type}&oid=${oid}&rpid=${rpid}`
 								);
 							} catch (e) {
-								throw (
-									(`${
-										global_var.user_info.uname
-									}\treply_main, ${await response.text()},`,
-									e)
-								);
-							}
-						}
-						//console.log(`获取评论响应：`, global_var.reply_main);
-					}
-					if (url.includes("/x/web-interface/nav") && response.request().method() =='GET') {
-						if (!global_var.user_info.uname) {
-							if (await response.text()) {
-								global_var.user_nav = JSON.parse(
-									await response.text()
-								);
-							}
-							try {
-								global_var.user_info.uid =
-									global_var.user_nav.data.mid;
-								global_var.user_info.uname =
-									global_var.user_nav.data.uname;
-							} catch {
-								global_var.user_info.uid = undefined;
-								global_var.user_info.uname = undefined;
+								//console.log('动态评论响应',global_var.response.comment_dyn_response);
+								global_var.FLAG.评论响应标志 = false;
 								console.warn(
-									global_var.user_nav,
-									`获取登陆信息失败，cookie可能过期`
+									`${
+										global_var.user_info.uname
+									}\t抓取评论动态response失败：\n${e}\n${await response.text()}`
 								);
+								//global_var.response.create_dyn_response = undefined;
+								throw `${url}\t${global_var.user_info.uname}\tcomment_dyn_response, ${e}, ${global_var.user_info.uname}`;
+							} finally {
+								break;
 							}
 						}
-					}
-					if (url.includes("/x/relation/modify")) {
-						try {
-							global_var.response.relation_modify_response =
-								await response.json();
-						} catch (e) {
-							//console.log('关注响应',global_var.response.relation_modify_response);
-							global_var.response.relation_modify_response =
-								undefined;
-							throw `relation_modify_response, ${e}, ${global_var.user_info.uname}`;
-						}
-					}
-					if (url.includes("/dynamic_like/v1/dynamic_like/thumb")) {
-						try {
-							global_var.response.dynamic_thumb_response =
-								await response.json();
-						} catch (e) {
-							//console.log('动态点赞响应',global_var.response.dunamic_thumb_response);
-							global_var.response.dynamic_thumb_response =
-								undefined;
-							throw `${global_var.user_info.uname}\tglobal_dynamic_data, ${e}, ${global_var.user_info.uname}`;
-						}
-					}
-					if (url.includes("space/reservation")) {
-						try {
-							global_var.response.space_reservation =
-								await response.json();
-							console.log(
-								`${
-									global_var.user_info.uname
-								}\t空间预约响应：\n${JSON.stringify(
-									global_var.response.space_reservation
-								)}`
-							);
-						} catch (e) {
-							global_var.response.space_reservation = undefined;
-							throw `${global_var.user_info.uname}\nreservation, ${e}`;
-						}
-					}
-					if (url.includes("msgfeed/unread")) {
-						try {
-							let resp_josn = await response.json();
-							if (!resp_josn.code) {
-								global_var.response.msgfeed_unread = resp_josn;
-								// console.log(`${global_var.user_info.uname}\t我的消息响应：\n${JSON.stringify(global_var.response.msgfeed_unread)}`);
+						case url.includes("/x/v2/reply/main") ||
+							url.includes("/x/v2/reply/wbi/main"): {
+							try {
+								let response_json = await response.text();
+								global_var.response.reply_main =
+									JSON.parse(response_json);
+								if (response_json.code == 0) {
+									let replies = response_json.data.replies;
+									for (
+										let repindex = 0;
+										repindex < replies.length;
+										repindex++
+									) {
+										try {
+											MYAPI.fileWrite(
+												`文案/评论响应.csv`,
+												JSON.stringify(
+													replies[repindex]
+												),
+												"a+"
+											);
+										} catch {
+											console.warn("记录评论内容失败！");
+										}
+									}
+								}
+							} catch (e) {
+								try {
+									let response_json = await response.text();
+									global_var.response.reply_main = JSON.parse(
+										/.*?\((.*)\)/gim
+											.exec(response_json)
+											.slice(1)
+											.join("")
+									);
+								} catch (e) {
+									throw (
+										(`${
+											global_var.user_info.uname
+										}\treply_main, ${await response.text()},`,
+										e)
+									);
+								}
+							} finally {
+								break;
 							}
-						} catch (e) {
-							global_var.response.msgfeed_unread = undefined;
-							//throw (`${global_var.user_info.uname}\t我的消息响应获取失败msgfeed/unread, ${e}`);
 						}
-					}
-					if (url.includes("data.bilibili.com/log/web")) {
-						if (url.includes("risk")) {
-							MYAPI.fileWrite("log/log_report.txt", url, "a+");
+						case url.includes("/x/web-interface/nav") &&
+							response.request().method() == "GET": {
+							if (!global_var.user_info.uname) {
+								if (await response.text()) {
+									global_var.user_nav = JSON.parse(
+										await response.text()
+									);
+								}
+								try {
+									global_var.user_info.uid =
+										global_var.user_nav.data.mid;
+									global_var.user_info.uname =
+										global_var.user_nav.data.uname;
+								} catch {
+									global_var.user_info.uid = undefined;
+									global_var.user_info.uname = undefined;
+									console.warn(
+										global_var.user_nav,
+										`获取登陆信息失败，cookie可能过期`
+									);
+								}
+							}
+							break;
+						}
+						case url.includes("/x/relation/modify"): {
+							try {
+								global_var.response.relation_modify_response =
+									await response.json();
+							} catch (e) {
+								//console.log('关注响应',global_var.response.relation_modify_response);
+								global_var.response.relation_modify_response =
+									undefined;
+								throw `relation_modify_response, ${e}, ${global_var.user_info.uname}`;
+							} finally {
+								break;
+							}
+						}
+						case url.includes(
+							"/dynamic_like/v1/dynamic_like/thumb"
+						): {
+							try {
+								global_var.response.dynamic_thumb_response =
+									await response.json();
+							} catch (e) {
+								//console.log('动态点赞响应',global_var.response.dunamic_thumb_response);
+								global_var.response.dynamic_thumb_response =
+									undefined;
+								throw `${global_var.user_info.uname}\tglobal_dynamic_data, ${e}, ${global_var.user_info.uname}`;
+							} finally {
+								break;
+							}
+						}
+						case url.includes("space/reservation"): {
+							try {
+								global_var.response.space_reservation =
+									await response.json();
+								console.log(
+									`${
+										global_var.user_info.uname
+									}\t空间预约响应：\n${JSON.stringify(
+										global_var.response.space_reservation
+									)}`
+								);
+							} catch (e) {
+								global_var.response.space_reservation =
+									undefined;
+								throw `${global_var.user_info.uname}\nreservation, ${e}`;
+							} finally {
+								break;
+							}
+						}
+						case url.includes("msgfeed/unread"): {
+							try {
+								let resp_josn = await response.json();
+								if (!resp_josn.code) {
+									global_var.response.msgfeed_unread =
+										resp_josn;
+									// console.log(`${global_var.user_info.uname}\t我的消息响应：\n${JSON.stringify(global_var.response.msgfeed_unread)}`);
+								}
+							} catch (e) {
+								global_var.response.msgfeed_unread = undefined;
+								//throw (`${global_var.user_info.uname}\t我的消息响应获取失败msgfeed/unread, ${e}`);
+							} finally {
+								break;
+							}
+						}
+						case url.includes("data.bilibili.com/log/web"): {
+						}
+						default: {
 						}
 					}
 				} catch (e) {
@@ -511,7 +541,7 @@ class DO_Lottery {
 					);
 				}
 			});
-			};
+		};
 		if (this.global_page && !this.global_page.isClosed()) {
 			//如果浏览器没关
 			global_var.page = this.global_page;
@@ -537,6 +567,7 @@ class DO_Lottery {
 				__args.push(`--proxy-server=${lottery_setting.CONFIG.proxy}`);
 			}
 			__args.push(
+				"--disable-web-security",
 				"--start-stack-profiler",
 				"-–ignore-certificate-errors",
 				"--disable-infobars",
@@ -790,17 +821,8 @@ class DO_Lottery {
 					global_var.response.space_reservation = undefined;
 					await pptr_op.check_page_is_front(global_var.page);
 					try {
-						global_var.page.goto(reserve_info.reserve_url);
-						global_var.response.space_reservation = await (
-							await global_var.page.waitForResponse(
-								(response) =>
-									response
-										.url()
-										.includes(`/space/reservation`) &&
-									response.status() === 200,
-								{ timeout: 30e3 }
-							)
-						).json();
+						await global_var.page.goto(reserve_info.reserve_url);
+						await sleep(10e3);
 						await pptr_op.check_page_is_front(global_var.page);
 					} catch (e) {
 						console.warn(
@@ -1730,9 +1752,15 @@ class DO_Lottery {
 						}`
 					);
 					global_var.Getter.check_login_status();
-					if (e.toString().includes(`Requesting main frame too early`)||!(await pptr_op.check_page_is_front(global_var.page))) {
-						await global_var.page.close();
-						await global_var.page.browser().close()
+					if (
+						e
+							.toString()
+							.includes(`Requesting main frame too early`) ||
+						!(await pptr_op.check_page_is_front(global_var.page))
+					) {
+						global_var.page.isClosed() &&
+							((await global_var.page.close()) ||
+								(await global_var.page.browser().close()));
 						await sleep(10e3);
 						await this.account_init(false);
 						return await do_lottery(goto_url, opus_dynamic); //如果只是页面或浏览器被关了，就继续执行抽奖
@@ -1976,12 +2004,13 @@ class DO_Lottery {
 												}\t前往页面失败！https://www.bilibili.com/opus/${MYAPI.BiliAPI.draw_dynamic_id(
 													all_dynamic_id_list[i]
 												)}\t${e}\n${e.stack}` +
-													(break_time <
-													3
-													? `\n重试第${break_time}次！`
-													: `\n彻底失败！`)
+													(break_time < 3
+														? `\n重试第${break_time}次！`
+														: `\n彻底失败！`)
 											);
-											await global_var.page.browser().close()
+											await global_var.page
+												.browser()
+												.close();
 											await sleep(10e3);
 											await this.account_init(false);
 										}
@@ -2377,7 +2406,9 @@ class DO_Lottery {
 								`.coupon-content`
 							);
 							for (let coupon_content of coupon_contents) {
-								await pptr_op.check_page_is_front(global_var.page);
+								await pptr_op.check_page_is_front(
+									global_var.page
+								);
 								console.log(
 									`${
 										global_var.user_info.uname
@@ -2396,25 +2427,30 @@ class DO_Lottery {
 								) {
 									continue;
 								} else {
-									if((await coupon_content.$eval(
-										".coupon-content-con",
-										(el) => el.innerText
-									)).includes(`B币`)){
-										bcoin_get = true; 
+									if (
+										(
+											await coupon_content.$eval(
+												".coupon-content-con",
+												(el) => el.innerText
+											)
+										).includes(`B币`)
+									) {
+										bcoin_get = true;
 									}
 									await global_var.page
 										.waitForSelector(".coupon-btn")
 										.then(async (jshandle) => {
 											await jshandle.click();
 										});
-										try{
-											await global_var.page
-											.waitForSelector(`.dialog-close-icon`)
+									try {
+										await global_var.page
+											.waitForSelector(
+												`.dialog-close-icon`
+											)
 											.then(async (jshandle) => {
 												await jshandle.click();
 											});
-										}
-									catch(e){
+									} catch (e) {
 										console.log(
 											`${
 												global_var.user_info.uname
@@ -2673,23 +2709,36 @@ class DO_Lottery {
 					switch (non_random_taskname) {
 						case "必抽的预约抽奖":
 							eval(lottery_setting_string); //重置抽奖设置
-							await 必抽的预约抽奖();
+							try {
+								await 必抽的预约抽奖();
+							} catch (e) {
+								console.error(
+									`${lottery_setting.CONFIG.COOKIENAME} 【必抽的预约抽奖】执行失败`
+								);
+							}
 							break;
 						case "参加点击的活动":
-							let op = JSON.parse(
-								fs.readFileSync(
-									__dirpath + "JsonData/待操作HTML元素.json",
-									"utf-8"
-								)
-							); //require并不是同步地读取文件，如果这个JSON文件是动态变化的话可能无法读取到最新的JSON文件。
-							// require('./JsonData/待操作HTML元素.json');
-							console.log(
-								`${global_var.user_info.uname}\t开始执行任务：参加点击的活动`
-							);
-							await HTMLOP(global_var.page, op.op);
-							console.log(
-								`${global_var.user_info.uname}\t任务完成：参加点击的活动`
-							);
+							try {
+								let op = JSON.parse(
+									fs.readFileSync(
+										__dirpath +
+											"JsonData/待操作HTML元素.json",
+										"utf-8"
+									)
+								); //require并不是同步地读取文件，如果这个JSON文件是动态变化的话可能无法读取到最新的JSON文件。
+								// require('./JsonData/待操作HTML元素.json');
+								console.log(
+									`${global_var.user_info.uname}\t开始执行任务：参加点击的活动`
+								);
+								await HTMLOP(global_var.page, op.op);
+								console.log(
+									`${global_var.user_info.uname}\t任务完成：参加点击的活动`
+								);
+							} catch (e) {
+								console.error(
+									`${lottery_setting.CONFIG.COOKIENAME} 【参加点击的活动】执行失败`
+								);
+							}
 							break;
 					}
 				}
@@ -2771,30 +2820,34 @@ class DO_Lottery {
 					console.error(`分享视频失败！`, e);
 				}
 				///////////////////////////////////开始防过滤操作
-				try{if (global_var.user_info.uid) {
-					await pptr_op.check_page_is_front(global_var.page);
-					if ((await global_var.page.browser().pages()).length != 0) {
-						console.log(
-							`${global_var.user_info.uname}\t开始执行取关模块`
-						);
-						let unfollow_pg = await global_var.page
-							.browser()
-							.newPage();
-						await unfollow_op(
-							unfollow_pg,
-							global_var.user_info.uid
-						);
-						console.log(
-							`${global_var.user_info.uname}\t取关模块执行完毕`
-						);
-					} else {
-						console.log(
-							`${global_var.user_info.uname}浏览器关闭，不执行取关模块！`
-						);
+				try {
+					if (global_var.user_info.uid) {
+						await pptr_op.check_page_is_front(global_var.page);
+						if (
+							(await global_var.page.browser().pages()).length !=
+							0
+						) {
+							console.log(
+								`${global_var.user_info.uname}\t开始执行取关模块`
+							);
+							let unfollow_pg = await global_var.page
+								.browser()
+								.newPage();
+							await unfollow_op(
+								unfollow_pg,
+								global_var.user_info.uid
+							);
+							console.log(
+								`${global_var.user_info.uname}\t取关模块执行完毕`
+							);
+						} else {
+							console.log(
+								`${global_var.user_info.uname}浏览器关闭，不执行取关模块！`
+							);
+						}
 					}
-				}}
-				catch(e){
-					console.error(`防过滤操作失败`,e)
+				} catch (e) {
+					console.error(`防过滤操作失败`, e);
 				}
 				lottery_setting.FLAG.do_lottery_flag = false;
 				// try {

@@ -96,9 +96,18 @@ class chatgptOP {
 		this.askquestion = this.askquestion.bind(this);
 		this.__last_answer = "";
 		this.avaliable_AI = {
-			qianwen: true,
-			chatGPT: true,
+			qianwen: {
+				stat: true,
+				nums: 0,
+				home_page: "https://tongyi.aliyun.com/qianwen",
+			},
+			chatGPT: {
+				stat: true,
+				nums: 0,
+				home_page: "https://chat.openai.com/",
+			},
 		};
+		this.max_nums_per_iter = 10; //每轮session最多询问多少个问题
 	}
 	sleep(ms) {
 		return new Promise((resolve) => setTimeout(resolve, ms));
@@ -131,18 +140,18 @@ class chatgptOP {
 			this.qianwen_page = await this.chatpage.browser().newPage();
 			try {
 				await this.qianwen_page.goto(
-					`https://tongyi.aliyun.com/qianwen`,
+					this.avaliable_AI.qianwen.home_page,
 					{
 						waitUntil: "networkidle0",
 					}
 				);
 			} catch (e) {
-				this.avaliable_AI.qianwen = false;
+				this.avaliable_AI.qianwen.stat = false;
 			}
 			try {
-				await this.chatpage.goto("https://chat.openai.com/");
+				await this.chatpage.goto(this.avaliable_AI.chatGPT.home_page);
 			} catch (e) {
-				this.avaliable_AI.chatGPT = false;
+				this.avaliable_AI.chatGPT.stat = false;
 			}
 			this.isAvailable = true;
 		} catch (e) {
@@ -218,22 +227,25 @@ class chatgptOP {
 				switch (k) {
 					case "qianwen": {
 						ask_channel = "qianwen";
-						if (this.avaliable_AI[ask_channel]) {
+						if (this.avaliable_AI[ask_channel]["stat"]) {
 							return await this.__ask_qianwen(questionMsg);
 						}
 					}
 					case "chatGPT": {
 						ask_channel = "chatGPT";
-						if (this.avaliable_AI[ask_channel]) {
+						if (this.avaliable_AI[ask_channel]["stat"]) {
 							return await this.__ask_chatGpt(questionMsg);
 						}
+					}
+					default: {
+						console.error(`暂时没有可用的AI！！！`);
 					}
 				}
 			}
 		} catch (e) {
-			this.avaliable_AI[ask_channel] = false; // 标记该AI不可用
+			this.avaliable_AI[ask_channel]["stat"] = false; // 标记该AI不可用
 			setTimeout(() => {
-				this.avaliable_AI[ask_channel] = true;
+				this.avaliable_AI[ask_channel]["stat"] = true;
 			}, 2 * 3600e3);
 			console.error(`askquestion 失败！${e.toString()}\n${e.stack}`);
 		} finally {
@@ -256,8 +268,18 @@ class chatgptOP {
 	};
 	__ask_qianwen = async (questionMsg) => {
 		const base_qianwen_op = {
+			check_ask_num: async () => {
+				if (this.avaliable_AI.qianwen.nums >= this.max_nums_per_iter) {
+					this.avaliable_AI.qianwen.nums = 0;
+					await this.qianwen_page.goto(
+						this.avaliable_AI.qianwen.home_page
+					);
+					await this.sleep(10e3);
+				}
+				this.avaliable_AI.qianwen.nums++;
+			},
 			check_login: async () => {
-				let login_btns = this.qianwen_page.$$(`.btn--fywQbiAR`);
+				let login_btns = await this.qianwen_page.$$(`.btn--fywQbiAR`);
 				if (login_btns.length > 0) {
 					throw new Error(`通义千问未登录！`);
 				}
@@ -321,6 +343,14 @@ class chatgptOP {
 				this.__last_answer = ret_answer;
 				return ret_answer;
 			},
+			close_notify: async () => {
+				let guide_close_btn = await this.qianwen_page.$$(
+					`[class^=guideItemWrapperClose]`
+				);
+				guide_close_btn.length > 0
+					? await guide_close_btn[0].click()
+					: null;
+			},
 		};
 		await pptr_op.check_page_is_front(this.qianwen_page);
 		let check_login = this.__check_page_wrapper(
@@ -334,7 +364,9 @@ class chatgptOP {
 			base_qianwen_op.waitForResp
 		);
 		let get_answer = this.__check_page_wrapper(base_qianwen_op.get_answer);
+		await base_qianwen_op.check_ask_num();
 		await check_login();
+		await base_qianwen_op.close_notify();
 		await type_text(questionMsg);
 		await submit_click();
 		await waitForResp();

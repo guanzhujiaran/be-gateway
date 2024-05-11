@@ -22,7 +22,6 @@
 		"jquery": "^3.7.1",
 		"jsdom": "^22.1.0",
 		"jsonwebtoken": "^9.0.2",
-		"longjohn": "^0.2.12",
 		"md5": "^2.3.0",
 		"module-alias": "^2.2.3",
 		"natural": "^6.5.0",
@@ -42,5 +41,8 @@
 		"supervisor": "^0.12.0",
 		"synonyms": "^1.0.1",
 		"uuid": "^9.0.0"
+	},
+	"devDependencies": {
+		"longjohn": "^0.2.12"
 	}
 }

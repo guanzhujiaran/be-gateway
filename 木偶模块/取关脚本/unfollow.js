@@ -19,10 +19,10 @@ async function generate_unfollow_file(pg, uid) {
 		async (data) => {
 			if (data.code == 0) {
 				console.log(
-					`${uid}\t全部关注数：【${data.data.list.length}】个`
+					`【uid】 ${uid}\t全部关注数：【${data.data.list.length}】个`
 				);
 				console.log(
-					`${uid}\t正在获取取关列表中！--${new Date().toLocaleString()}`
+					`【uid】 ${uid}\t正在获取取关列表中！--${new Date().toLocaleString()}`
 				);
 				return await MYAPI.get_unlot_following(data.data.list);
 			} else {
@@ -58,9 +58,12 @@ async function generate_unfollow_file(pg, uid) {
  */
 async function do_unfollow(
 	pg,
-	uid = 1,
+	uid,
 	limit_follower_num = global_config.unfollow_module.max_follow_num
 ) {
+	try{if(!uid){
+		throw Error(`uid不能为空！`)
+	}
 	let rey_counter = 0;
 	while (rey_counter < 3) {
 		rey_counter += 1;
@@ -86,6 +89,7 @@ async function do_unfollow(
 				);
 				return;
 			}
+			console.log(`关注数量信息响应：${JSON.stringify(nav_stat)}`)
 			await generate_unfollow_file(pg, uid);
 			await pptr_op.check_page_is_front(pg);
 			let csrf = await pptr_op.get_bili_cjt(pg);
@@ -194,6 +198,8 @@ async function do_unfollow(
 				}
 			}
 		}
+	}}catch(e){
+		console.error(`${uid} 取关模块执行失败！${e}\n${e.stack}`);
 	}
 }
 
