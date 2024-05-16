@@ -2,7 +2,7 @@
  * @Author: 星瞳 1944637830@qq.com
  * @Date: 2023-11-08 13:34:47
  * @LastEditors: 星瞳 1944637830@qq.com
- * @LastEditTime: 2024-05-05 16:00:10
+ * @LastEditTime: 2024-05-16 22:00:15
  * @FilePath: \tampermonkey\木偶模块\util\common_utl.js
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -125,7 +125,8 @@ const pptr_op = {
 							.includes(
 								"data.bilibili.com/log/web?content_type"
 							) ||
-						req.url().includes("cm.bilibili.com/cm/api/fees/pc")
+						req.url().includes("cm.bilibili.com/cm/api/fees/pc") ||
+						req.url().includes(`data.bilibili.com/v2/log/web`)
 					) {
 						//如果是浏览器要发起检测到作弊的请求，就拦截下来，不让它发出去！
 						return req.respond({
@@ -197,6 +198,20 @@ const pptr_op = {
 				console.warn(`拦截请求：${req.url()}失败\n${e.stack}`, e);
 			}
 		});
+	},
+	/**
+	 * 通过b站前端的__BiliUser__.isLogin判断是否账号的登录状态还在
+	 * @param {Page} pg
+	 * @returns
+	 *  - true:登录
+	 *  - false:登录失效
+	 */
+	check_bili_login: async (pg) => {
+		let url = pg.url();
+		if (!url.includes(`bilibili`)) {
+			await pg.goto(`https://message.bilibili.com/`);
+		}
+		return await pg.evaluate(() => window.__BiliUser__?.isLogin);
 	},
 };
 

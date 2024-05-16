@@ -350,6 +350,9 @@ class chatgptOP {
 				guide_close_btn.length > 0
 					? await guide_close_btn[0].click()
 					: null;
+				let close_icon = await this.qianwen_page.$$(`[class^=closeIcon]`)
+				close_icon.length > 0? await close_icon[0].click()
+				: null;
 			},
 		};
 		await pptr_op.check_page_is_front(this.qianwen_page);

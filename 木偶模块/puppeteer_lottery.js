@@ -154,6 +154,10 @@ class DO_Lottery {
 			this.my_operator = evm.my_operator;
 			this.MYAPI = evm.MYAPI;
 			this.lottery_setting = evm.lottery_setting;
+			this.no_exit_falg = {
+				unread_msg: false,
+				goldbox_lottery_flag: false,
+			};
 		}
 	};
 	/**
@@ -984,6 +988,14 @@ class DO_Lottery {
 						}\t开始抽奖\t${goto_url}\t${new Date().toLocaleTimeString()}`
 					);
 					global_var.Getter.check_login_status();
+					if (!(await pptr_op.check_bili_login(global_var.page))) {
+						let err_msg = `${this.lottery_setting?.CONFIG?.COOKIENAME}账号登录失效！`;
+						await my_send_notify.push_me(
+							err_msg,
+							JSON.stringify(global_var.user_info, "", "\t")
+						);
+						throw Error(err_msg);
+					}
 					let pageurl = global_var.page.url();
 					if (pageurl.includes("opus")) {
 						console.log(
@@ -1986,6 +1998,7 @@ class DO_Lottery {
 								global_var.recorded_data = "";
 								global_var.pageurl = all_dynamic_id_list[i];
 								await utl.check_page_is_front(global_var.page);
+								//#region 前往页面
 								if (opus_dynamic) {
 									let break_time = 0;
 									while (break_time <= 3) {
@@ -2020,6 +2033,7 @@ class DO_Lottery {
 										all_dynamic_id_list[i]
 									);
 								}
+								//#endregion
 								await sleep(5e3);
 								let 抽奖反馈 = await do_lottery(
 									all_dynamic_id_list[i],

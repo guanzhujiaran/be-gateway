@@ -75,10 +75,30 @@ const live_op = {
 				new_pg.on("request", async (req) => {
 					try {
 						// 拦截直播流
-						if (req.url().includes("bilivideo")) {
-							req.abort();
-							// console.log(`成功拦截直播流：${interceptedRequest.url()}`);
-							return;
+						if (
+							req.url().includes(".bilivideo.com") || // 拦截直播流
+							req.url().includes(".bilivideo.cn") ||
+							req.url().includes("web-frontend/data/collector") // 前端检测设备的请求，发送多了会触发验证码
+						) {
+							return req.respond({
+								status: 200,
+								contentType: "application/octet-stream",
+								body: "",
+							});
+						}
+						if (req.url().includes("player/wbi/playurl")) {
+							// 拦截播放列表
+							return req.respond({
+								status: 200,
+								contentType:
+									"application/json; text/plain; charset=utf-8",
+								body: JSON.stringify({
+									code: -412,
+									message: "0",
+									data: null,
+									ttl: 1,
+								}),
+							});
 						}
 						if (req.method().toLowerCase() == "post") {
 							if (
@@ -112,11 +132,16 @@ const live_op = {
 									.includes(
 										"data.bilibili.com/log/web?content_type"
 									)
+									||
+								req.url().includes("cm.bilibili.com/cm/api/fees/pc")||
+								req.url().includes(`data.bilibili.com/v2/log/web`)
 							) {
 								//如果是浏览器要发起检测到作弊的请求，就拦截下来，不让它发出去！
-								req.abort();
-								//console.log(`成功拦截科技识别请求：${interceptedRequest.url()}`);
-								return;
+								return req.respond({
+									status: 200,
+									contentType: "text/plain; charset=utf-8",
+									body: "ok",
+								});
 							}
 						}
 						req.continue();
@@ -1205,11 +1230,7 @@ class LIVE_LOT {
 				await anchor_page.waitForSelector(
 					live_op.element_map.rightArrow_btn,
 					{ timeout: 10e3 }
-				);
-				let rightArrow_btn = await anchor_page.$(
-					live_op.element_map.rightArrow_btn
-				);
-				await rightArrow_btn.click();
+				).then(async btn=>await btn.click());
 			} catch (e) {
 				console.error(`获取直播间右箭头失败！\n${e.stack}`);
 			}
