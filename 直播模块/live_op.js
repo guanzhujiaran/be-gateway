@@ -2,7 +2,7 @@
  * @Author: 星瞳 1944637830@qq.com
  * @Date: 2023-11-07 22:44:13
  * @LastEditors: 星瞳 1944637830@qq.com
- * @LastEditTime: 2024-05-11 10:05:16
+ * @LastEditTime: 2024-05-28 23:01:57
  * @FilePath: \tampermonkey\直播模块\live_op.js
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -70,7 +70,9 @@ const live_op = {
 				);
 				let new_br = DO_Lottery_class.global_var.page.browser();
 				let new_pg = await new_br.newPage();
-				await pptr_op.check_page_is_front(new_pg);
+				if (!(await pptr_op.check_page_is_front(new_pg))) {
+					throw Error(`直播浏览器初始化时切换标签失败！`);
+				}
 				await new_pg.setRequestInterception(true);
 				new_pg.on("request", async (req) => {
 					try {
@@ -131,10 +133,15 @@ const live_op = {
 									.url()
 									.includes(
 										"data.bilibili.com/log/web?content_type"
-									)
-									||
-								req.url().includes("cm.bilibili.com/cm/api/fees/pc")||
-								req.url().includes(`data.bilibili.com/v2/log/web`)
+									) ||
+								req
+									.url()
+									.includes(
+										"cm.bilibili.com/cm/api/fees/pc"
+									) ||
+								req
+									.url()
+									.includes(`data.bilibili.com/v2/log/web`)
 							) {
 								//如果是浏览器要发起检测到作弊的请求，就拦截下来，不让它发出去！
 								return req.respond({
@@ -201,53 +208,6 @@ const live_op = {
 			} catch (e) {
 				console.error(`${e}\n${e.stack}\n移除直播间的播放器元素失败！`);
 			}
-		},
-		/**
-		 * 设置拦截视频和科技检测上报
-		 * @param {Page} pg
-		 */
-		hook_teck_logdata: async (pg) => {
-			await pg.setRequestInterception(true);
-			pg.on("request", async (req) => {
-				try {
-					if (
-						req.url().includes(".bilivideo.com") || // 拦截直播流
-						req.url().includes("web-frontend/data/collector") || // 前端检测设备的请求，发送多了会触发验证码
-						req.url().includes("player/wbi/playurl") // 拦截播放列表
-					) {
-						return req.abort();
-					}
-					if (
-						req.resourceType() == "image" ||
-						req.resourceType() == "media"
-					) {
-						return req.abort();
-					}
-					if (req.method().toLowerCase() == "post") {
-						if (
-							req
-								.url()
-								.includes("data.bilibili.com/log/web?013324") ||
-							req
-								.url()
-								.includes("data.bilibili.com/log/web?000527") ||
-							req
-								.url()
-								.includes("data.bilibili.com/log/web?000017") ||
-							req
-								.url()
-								.includes("data.bilibili.com/log/web?001111")
-						) {
-							//如果是浏览器要发起检测到作弊的请求，就拦截下来，不让它发出去！
-							return req.abort();
-							//console.log(`成功拦截科技识别请求：${interceptedRequest.url()}`);
-						}
-					}
-					req.continue();
-				} catch (e) {
-					console.warn(`拦截请求：${req.url()}失败\n${e.stack}`, e);
-				}
-			});
 		},
 		/**
 		 * @param {Page} pg
@@ -675,7 +635,10 @@ class LIVE_LOT {
 						if (event_bus.event_list.indexOf(event_name) == -1) {
 							event_bus.on(event_name, async () => {
 								try {
-									this.CONFIG.live_info.uid? this.__DO_Lottery_class.global_var.user_info.uid=this.CONFIG.live_info.uid:{};
+									this.CONFIG.live_info.uid
+										? (this.__DO_Lottery_class.global_var.user_info.uid =
+												this.CONFIG.live_info.uid)
+										: {};
 									await this.__DO_Lottery_class.unfollow_module(
 										2000
 									);
@@ -738,7 +701,7 @@ class LIVE_LOT {
 					await new_pg.close();
 				}
 			}, 180e3);
-			await live_op.basic_op.hook_teck_logdata(new_pg);
+			await pptr_op.hook_teck_logdata(new_pg);
 			await new_pg.emulate({
 				name: "Redmi K30 Pro",
 				userAgent: this.emulate_ua,
@@ -1191,7 +1154,7 @@ class LIVE_LOT {
 			} //获取csrf
 			/**@type {Page} 专门抽天选的*/
 			anchor_page = await pg.browser().newPage();
-			await live_op.basic_op.hook_teck_logdata(anchor_page);
+			await pptr_op.hook_teck_logdata(anchor_page);
 			await pptr_op.check_page_is_front(anchor_page);
 			await anchor_page.goto(`https://live.bilibili.com/${room_id}`, {
 				timeout: 180e3,
@@ -1227,10 +1190,11 @@ class LIVE_LOT {
 			}
 			await pptr_op.check_page_is_front(anchor_page);
 			try {
-				await anchor_page.waitForSelector(
-					live_op.element_map.rightArrow_btn,
-					{ timeout: 10e3 }
-				).then(async btn=>await btn.click());
+				await anchor_page
+					.waitForSelector(live_op.element_map.rightArrow_btn, {
+						timeout: 10e3,
+					})
+					.then(async (btn) => await btn.click());
 			} catch (e) {
 				console.error(`获取直播间右箭头失败！\n${e.stack}`);
 			}
@@ -1523,7 +1487,7 @@ class LIVE_LOT {
 				await live_op.basic_op.hook_teck_logdata(new_pg);
 				await this.#send_daily_gift(new_pg);
 			} catch (e) {
-				console.error(`${e}\n${e.stack}`);
+				console.error(`每日任务执行失败!\t${e}\n${e.stack}`);
 			} finally {
 				await new_pg.close();
 			}
@@ -1608,9 +1572,7 @@ class LIVE_LOT {
 						let gold_box_live_pg = await this.live_pg
 							.browser()
 							.newPage();
-						await live_op.basic_op.hook_teck_logdata(
-							gold_box_live_pg
-						);
+						await pptr_op.hook_teck_logdata(gold_box_live_pg);
 						let live_url =
 							this.GOLDBOX_Info.live_room_url_list[aid_idx];
 						if (live_url) {
@@ -1657,7 +1619,7 @@ class LIVE_LOT {
 			await new_pg.setExtraHTTPHeaders({
 				referer: `https://live.bilibili.com/`,
 			});
-			await live_op.basic_op.hook_teck_logdata(new_pg);
+			await pptr_op.hook_teck_logdata(new_pg);
 			new_pg.goto(
 				`https://live.bilibili.com/p/html/live-room-treasurebox/index.html?aid=${aid}#/`
 			);
@@ -1726,7 +1688,7 @@ class LIVE_LOT {
 						return;
 					if (this.__DO_Lottery_class.lotFlag) {
 						this.API.chatLog(
-							`检测到有任务未完成，不许关闭浏览器！\n抽奖标志为true！`
+							`检测到有任务未完成，不许关闭浏览器！\n抽奖标志(lotFlag)为true！`
 						);
 						return;
 					}
@@ -1738,7 +1700,9 @@ class LIVE_LOT {
 					await new_pg.browser().close();
 				}
 			} catch (e) {
-				console.error(`检查是否需要关闭浏览器失败！${e}\n${e.stack}`);
+				console.error(
+					`${this.CONFIG.live_info.uname}\t检查是否需要关闭浏览器失败！${e}\n${e.stack}`
+				);
 			}
 		}, 15 * 60 * 1e3);
 	};
@@ -1799,7 +1763,7 @@ class LIVE_LOT {
 					this.API.chatLog(`处理数据失败！${e}\n${e.stack}`, "error");
 				}
 		} catch (e) {
-			console.error(`出了严重错误，不继续执行直播抽奖！\n${e.stack}`, e);
+			console.error(`${this.CONFIG.live_info.uname}\t出了严重错误，不继续执行直播抽奖！\n${e.stack}`, e);
 			// throw e;
 		}
 	};
@@ -1884,26 +1848,36 @@ class LIVE_LOT {
 				);
 				await sleep(180e3);
 			} catch (e) {
-				console.error(`天选参加失败！${e}\n${e.stack}`);
+				console.error(
+					`${this.CONFIG.live_info.uname}\t天选参加失败！${e}\n${e.stack}`
+				);
 			} finally {
 				setTimeout(async () => {
 					try {
 						if (anchor_page && !anchor_page.isClosed()) {
+							console.log(
+								`${this.CONFIG.live_info.uname}\t关闭天选抽奖浏览器页面`
+							);
 							await anchor_page.close();
 						}
 					} catch (e) {
-						console.error(`关闭抽奖浏览器页面失败！${e}`);
+						console.error(
+							`${this.CONFIG.live_info.uname}\t关闭天选抽奖浏览器页面失败！${e}`
+						);
 					}
 				}, 15 * 60e3);
 			}
+		} catch (e) {
+			console.error(
+				`${this.CONFIG.live_info.uname}天选抽奖失败！${e}\n${e.stack}`
+			);
+		} finally {
 			await this.check_is_need_to_close_browser(this.live_pg);
 			await pptr_op.check_page_is_front(
 				this.__DO_Lottery_class.global_page
 			);
 			// await pptr_op.check_page_is_front(this.live_pg);
 			await this.live_pg.goto(`about:blank`); //抽完了就进入空白页节省资源
-		} catch (e) {
-			console.error(`天选抽奖失败！${e}\n${e.stack}`);
 		}
 	};
 	//#endregion

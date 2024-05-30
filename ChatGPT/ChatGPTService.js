@@ -2,7 +2,7 @@
  * @Author: 星瞳 1944637830@qq.com
  * @Date: 2023-08-18 17:24:27
  * @LastEditors: 星瞳 1944637830@qq.com
- * @LastEditTime: 2024-05-10 17:36:57
+ * @LastEditTime: 2024-05-18 20:30:20
  * @FilePath: \tampermonkey\ChatGPT\ChatGPTService.js
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -56,6 +56,7 @@ app.post("/ChatGPT/ask", async (req, res) => {
 							processedText
 								.replace("jsonCopy code", "")
 								.replace("data{", "{")
+								.replaceAll('json1','')
 								.replaceAll(`Json\n1`,'')
 								.replaceAll('\n2','')
 								.replaceAll('\n4','')

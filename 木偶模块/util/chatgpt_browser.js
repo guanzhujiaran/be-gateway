@@ -146,7 +146,7 @@ class chatgptOP {
 					}
 				);
 			} catch (e) {
-				this.avaliable_AI.qianwen.stat = false;
+				// this.avaliable_AI.qianwen.stat = false;
 			}
 			try {
 				await this.chatpage.goto(this.avaliable_AI.chatGPT.home_page);
@@ -344,6 +344,7 @@ class chatgptOP {
 				return ret_answer;
 			},
 			close_notify: async () => {
+				await this.qianwen_page.click('.cursor-pointer')
 				let guide_close_btn = await this.qianwen_page.$$(
 					`[class^=guideItemWrapperClose]`
 				);
@@ -353,6 +354,7 @@ class chatgptOP {
 				let close_icon = await this.qianwen_page.$$(`[class^=closeIcon]`)
 				close_icon.length > 0? await close_icon[0].click()
 				: null;
+				return true
 			},
 		};
 		await pptr_op.check_page_is_front(this.qianwen_page);
@@ -367,6 +369,7 @@ class chatgptOP {
 			base_qianwen_op.waitForResp
 		);
 		let get_answer = this.__check_page_wrapper(base_qianwen_op.get_answer);
+		await this.sleep(3e3);
 		await base_qianwen_op.check_ask_num();
 		await check_login();
 		await base_qianwen_op.close_notify();

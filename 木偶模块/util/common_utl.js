@@ -2,12 +2,12 @@
  * @Author: 星瞳 1944637830@qq.com
  * @Date: 2023-11-08 13:34:47
  * @LastEditors: 星瞳 1944637830@qq.com
- * @LastEditTime: 2024-05-16 22:00:15
+ * @LastEditTime: 2024-05-30 15:13:12
  * @FilePath: \tampermonkey\木偶模块\util\common_utl.js
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
 const { Page } = require("puppeteer-core");
-
+let axios = require("axios");
 function sleep(ms) {
 	return new Promise((resolve) => setTimeout(() => resolve(sleep), ms));
 }
@@ -27,8 +27,8 @@ const pptr_op = {
 					return;
 				}
 				is_front = await pg.evaluate(
-					() => document.visibilityState === "visible"
-				);
+					() => document.visibilityState 
+				) === "visible";
 				if (!is_front) {
 					await pg.bringToFront();
 					is_front = true;
@@ -198,6 +198,12 @@ const pptr_op = {
 				console.warn(`拦截请求：${req.url()}失败\n${e.stack}`, e);
 			}
 		});
+		pg.on('response',resp=>{
+			let hdr = resp.headers();
+			if(hdr['x-bili-gaia-vvoucher']){
+				console.error(`触发验证码！`)
+			}
+		})
 	},
 	/**
 	 * 通过b站前端的__BiliUser__.isLogin判断是否账号的登录状态还在
@@ -209,9 +215,60 @@ const pptr_op = {
 	check_bili_login: async (pg) => {
 		let url = pg.url();
 		if (!url.includes(`bilibili`)) {
-			await pg.goto(`https://message.bilibili.com/`);
+			await pg.goto(`https://message.bilibili.com/?spm_id_from=333.1007.0.0#/love`);
 		}
-		return await pg.evaluate(() => window.__BiliUser__?.isLogin);
+		let isLogin = await pg.evaluate(() => window.__BiliUser__?.isLogin);
+		pg.url() == url ? {} : await pg.goto(url);
+		return isLogin;
+	},
+	my_send_notify: {
+		__push_key: {
+			//专门存放token的地方
+			pushme: "T1cBRRgooZyhfIJMYPjR", //pushme的token
+			push_plus: "044b3325295b47228409452e0e7aeef7",
+		},
+		/**
+		 * pushme推送消息
+		 * @param {String} title 标题
+		 * @param {String} msg 内容
+		 */
+		push_me: async function (title, msg) {
+			try {
+				let resp = await axios.post("https://push.i-i.me", {
+					push_key: this.__push_key.pushme,
+					title: title,
+					content: msg,
+				});
+				if (resp.data != "success") {
+					console.error(`推送失败！原因：${resp.data}`);
+				}
+			} catch (e) {
+				console.warn(
+					e,
+					`消息${(title, msg)}推送失败！\n尝试使用push_plus再次推送！`
+				);
+				await this.push_plus(title, msg);
+			}
+		},
+		push_plus: async function (title, msg) {
+			try {
+				let resp = await axios.post("http://www.pushplus.plus/send", {
+					token: this.__push_key.push_plus,
+					title: title,
+					content: msg,
+					template: "txt",
+				});
+				if (resp.code != 200) {
+					console.error(
+						`推送${(title, msg)}失败！原因：${JSON.stringify(
+							resp.data
+						)}`
+					);
+				}
+			} catch (e) {
+				console.warn(e, `${(title, msg)}消息推送失败！`);
+			}
+		},
 	},
 };
 

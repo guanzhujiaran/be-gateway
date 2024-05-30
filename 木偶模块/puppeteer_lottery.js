@@ -240,6 +240,8 @@ class DO_Lottery {
 						waitUntil: "domcontentloaded",
 					}
 				);
+				await sleep(3e3);
+				await global_var.page.goto('about:blank')
 			} catch {
 				await sleep(3e3);
 			}
@@ -549,11 +551,12 @@ class DO_Lottery {
 		if (this.global_page && !this.global_page.isClosed()) {
 			//如果浏览器没关
 			global_var.page = this.global_page;
-			return await check_login();
+			await check_login();
 		}
 		if (
 			!this.global_page ||
-			(await this.global_page.browser().pages()).length == 0
+			(await this.global_page.browser().pages()).length == 0 ||
+			!this.global_page.browser().isConnected()
 		) {
 			//浏览器未打开状态
 			let cookieStr;
@@ -592,7 +595,7 @@ class DO_Lottery {
 				"--disable-accelerated-2d-canvas",
 				"--no-sandbox",
 				"--disable-setuid-sandbox",
-				`--profile-directory=${lottery_setting.CONFIG.ProfileDir}`
+				`--profile-directory=${lottery_setting.CONFIG.ProfileDir}`,
 			);
 			for (let retry = 0; retry < 5; retry++) {
 				//五次重试启动浏览器的机会
@@ -680,8 +683,10 @@ class DO_Lottery {
 			this.global_page = new_pg;
 		}
 		await global_page_listen();
-
-		return await check_login();
+		if (!global_var.user_info.uname) {
+			await check_login();
+		}
+		return;
 	};
 	launch_lottery = async (
 		lottery_setting_string,
@@ -696,64 +701,13 @@ class DO_Lottery {
 		let MYAPI = this.MYAPI;
 		let my_operator = this.my_operator;
 
-		let my_send_notify = {
-			__push_key: {
-				//专门存放token的地方
-				pushme: "T1cBRRgooZyhfIJMYPjR", //pushme的token
-				push_plus: "044b3325295b47228409452e0e7aeef7",
-			},
-			/**
-			 * pushme推送消息
-			 * @param {String} title 标题
-			 * @param {String} msg 内容
-			 */
-			push_me: async (title, msg) => {
-				try {
-					let resp = await axios.post("https://push.i-i.me", {
-						push_key: my_send_notify.__push_key.pushme,
-						title: title,
-						content: msg,
-					});
-					if (resp.data != "success") {
-						console.error(`推送失败！原因：${resp.data}`);
-					}
-				} catch (e) {
-					console.warn(
-						e,
-						"消息推送失败！\n尝试使用push_plus再次推送！"
-					);
-					await my_send_notify.push_plus(title, msg);
-				}
-			},
-			push_plus: async (title, msg) => {
-				try {
-					let resp = await axios.post(
-						"http://www.pushplus.plus/send",
-						{
-							token: my_send_notify.__push_key.push_plus,
-							title: title,
-							content: msg,
-							template: "txt",
-						}
-					);
-					if (resp.code != 200) {
-						console.error(
-							`推送失败！原因：${JSON.stringify(resp.data)}`
-						);
-					}
-				} catch (e) {
-					console.warn(e, "消息推送失败！");
-				}
-			},
-		};
-
 		///////////////////////////////////////////////////////////////
 		let lottery_setting;
 		eval(lottery_setting_string); //设置全局的抽奖参数
 		this.lottery_setting = lottery_setting;
 		///////////////////////////////////////////////////////////////
-		(async () => {
-			///////////////////抽预约抽奖
+		try{(async () => {
+			//#region 抽预约抽奖
 			/**
 			 * {
 									url: reserve_url,
@@ -971,8 +925,8 @@ class DO_Lottery {
 					joinsuccess_list: joinsuccess_list,
 				};
 			}
-
-			/////////////////开始抽奖
+			//#endregion
+			//#region 开始抽奖
 
 			/**
 			 * 开始抽奖
@@ -990,7 +944,7 @@ class DO_Lottery {
 					global_var.Getter.check_login_status();
 					if (!(await pptr_op.check_bili_login(global_var.page))) {
 						let err_msg = `${this.lottery_setting?.CONFIG?.COOKIENAME}账号登录失效！`;
-						await my_send_notify.push_me(
+						await pptr_op.my_send_notify.push_me(
 							err_msg,
 							JSON.stringify(global_var.user_info, "", "\t")
 						);
@@ -1763,6 +1717,8 @@ class DO_Lottery {
 							e.stack
 						}`
 					);
+					e.message.includes(`Requesting main frame too early!`) &&
+						(await global_var.page.close());
 					global_var.Getter.check_login_status();
 					if (
 						e
@@ -1770,9 +1726,8 @@ class DO_Lottery {
 							.includes(`Requesting main frame too early`) ||
 						!(await pptr_op.check_page_is_front(global_var.page))
 					) {
-						global_var.page.isClosed() &&
-							((await global_var.page.close()) ||
-								(await global_var.page.browser().close()));
+						(await global_var.page.close()) ||
+							(await global_var.page.browser().close());
 						await sleep(10e3);
 						await this.account_init(false);
 						return await do_lottery(goto_url, opus_dynamic); //如果只是页面或浏览器被关了，就继续执行抽奖
@@ -2210,12 +2165,14 @@ class DO_Lottery {
 							console.error(
 								`单个lottery_loop执行失败，进入下一个循环！${global_var.user_info.uname}\t${all_dynamic_id_list[i]}\n${e}\n${e.stack}`
 							);
-							if (
-								!global_var.user_info.uname ||
-								global_var.page.isClosed()
-							) {
+							if (!global_var.user_info.uname) {
 								//没登录或者浏览器页面关了
 								break;
+							}
+							if (global_var.page.isClosed()) {
+								//浏览器页面关闭则重新开启
+								await sleep(10e3);
+								await this.account_init(false);
 							}
 						}
 					}
@@ -2496,15 +2453,15 @@ class DO_Lottery {
 								await global_var.page.waitForSelector(
 									`.ipt-number`,
 									async (jshandle) => {
-										await jshandle.type("5");
+										await global_var.page.type(jshandle,"5");
 									}
 								);
-								await global_var.page.waitForSelector(
-									`input.pointer`,
-									async (jshandle) => {
-										await jshandle.click();
-									}
-								);
+								// await global_var.page.waitForSelector(
+								// 	`input.pointer`,
+								// 	async (jshandle) => {
+								// 		await jshandle.click();
+								// 	}
+								// );
 								await global_var.page.click(`.bl-button`);
 							}
 						}
@@ -2529,351 +2486,371 @@ class DO_Lottery {
 			 * @returns
 			 */
 			async function lottery_init() {
-				///////////////////////////////////开始必抽的预约抽奖
-				/**
-				 * 返回参与成功的预约抽奖list
-				 * @returns
-				 */
+				try {
+					//#region 开始必抽的预约抽奖
+					/**
+					 * 返回参与成功的预约抽奖list
+					 * @returns
+					 */
 
-				async function 必抽的预约抽奖() {
-					let reserve_lottery_sapce_list =
-						MYAPI.fileRead.json_file("必抽的预约抽奖.txt");
-					reserve_lottery_sapce_list = utl.noRepeatArr(
-						reserve_lottery_sapce_list
-					); //参加过的必抽的预约抽奖
-					let mustjoin_reserve_record_path_name = `抽奖记录/必抽的预约抽奖记录/${global_var.user_info.uname}_参加过的预约抽奖.txt`;
-					let joined_lottery_record =
-						MYAPI.fileRead.lottery_dynamic_ids(
-							mustjoin_reserve_record_path_name
-						);
-					joined_lottery_record = utl.noRepeatArr(
-						joined_lottery_record
-					); //参加过的必抽的大奖
-					utl.part_shuffle(
-						reserve_lottery_sapce_list,
-						reserve_lottery_sapce_list.length
-					); //打乱顺序
-					/** @member {Array} 参加失败或者没参加的预约抽奖*/
-					let joinfail_list = [];
-					/** @type {TYPE_reserve_data[]} 参加成功或者超时的预约抽奖*/
-					let success_list = [];
-					if (reserve_lottery_sapce_list.length != 0) {
-						console.log(
-							`${global_var.user_info.uname}\t开始执行任务：必抽的预约抽奖`
-						);
-						let result = await reserve_lottery_loop(
+					async function 必抽的预约抽奖() {
+						let reserve_lottery_sapce_list =
+							MYAPI.fileRead.json_file("必抽的预约抽奖.txt");
+						reserve_lottery_sapce_list = utl.noRepeatArr(
 							reserve_lottery_sapce_list
-						);
-						joinfail_list = result.joinfail_list;
-						success_list = result.joinsuccess_list;
-						console.log(
-							`${global_var.user_info.uname}\t任务完成：必抽的预约抽奖`
-						);
-					} else {
-						console.log(
-							`${global_var.user_info.uname}\t抽奖数量为0，跳过任务：必抽的预约抽奖`
-						);
-					}
-					if (joinfail_list.length != 0) {
-						let d = new Date();
-						MYAPI.fileWrite(
-							`log/` +
-								`${
-									global_var.user_info.uname
-								}_${d.toLocaleString()}参加失败的预约抽奖.txt`
-									.replaceAll("/", "-")
-									.replaceAll(":", "："),
-							joinfail_list.join("\n")
-						);
-					}
-					success_list.map((el) =>
-						joined_lottery_record.push(el.reserve_sid)
-					); //参与成功的预约抽奖写进记录里
-					joined_lottery_record = utl.noRepeatArr(
-						joined_lottery_record
-					);
-					if (success_list.length != 0) {
-						//将记录写进文件里
-						MYAPI.fileWrite(
-							mustjoin_reserve_record_path_name,
-							joined_lottery_record.join("\n")
-						);
-					}
-					return success_list;
-				}
-				/////////////////////////////////////////////////////////
-				async function 必抽的大奖加官方抽奖() {
-					console.log(
-						`${global_var.user_info.uname}\t开始执行任务：必抽的大奖加官方抽奖`
-					);
-
-					let need_repost_official_dynamic =
-						MYAPI.fileRead.lottery_dynamic_ids(
-							`官方抽奖动态id.txt`
-						);
-					let need_mustjoin_lottery_dynamic =
-						MYAPI.fileRead.lottery_dynamic_ids(`必抽的大奖.txt`);
-
-					//region 必抽的大奖，先是必抽的大奖，然后再是官方抽奖，因为有可能会在官抽的评论区加抽
-					let mustjoin_lottery_record_path_name = `抽奖记录/必抽的大奖记录/${global_var.user_info.uname}_参加过的大奖.txt`;
-					let mustjoin_lottery_record =
-						MYAPI.fileRead.lottery_dynamic_ids(
-							mustjoin_lottery_record_path_name
-						);
-					mustjoin_lottery_record = utl.noRepeatArr(
-						mustjoin_lottery_record
-					); //参加过的必抽的大奖
-					need_mustjoin_lottery_dynamic = utl.noRepeatArr(
-						need_mustjoin_lottery_dynamic
-					);
-					let finally_mustjoin_lottery_dynaimc = [];
-					for (let i of need_mustjoin_lottery_dynamic) {
-						if (!mustjoin_lottery_record.includes(i)) {
-							finally_mustjoin_lottery_dynaimc.push(i);
-						}
-					}
-
-					lottery_setting.official_lottery_switch = true; //开启官方抽奖
-					lottery_setting.CONFIG.Only_Comment_Lottery_Switch = false; //关闭只抽普通抽奖
-					let must_join_lottery_result = [];
-					if (finally_mustjoin_lottery_dynaimc.length != 0) {
-						console.log(
-							`${global_var.user_info.uname}\t开始必抽的大奖！`
-						);
-						must_join_lottery_result = await lottery_loop(
-							finally_mustjoin_lottery_dynaimc,
-							"必抽的大奖"
-						);
-					} //必抽的大奖
-					MYAPI.fileWrite(
-						mustjoin_lottery_record_path_name,
-						must_join_lottery_result.join("\n"),
-						"a+"
-					);
-					//endregion
-					//////////////////////////////////////////////
-
-					/////////////////////////////////////////////必抽的官抽
-					let official_lottery_record_path_name = `抽奖记录/官方抽奖记录/${global_var.user_info.uname}_参加过的官方抽奖.txt`;
-					let reposted_official_dynamic =
-						MYAPI.fileRead.lottery_dynamic_ids(
-							official_lottery_record_path_name
-						);
-					reposted_official_dynamic = utl.noRepeatArr(
-						reposted_official_dynamic
-					);
-					need_repost_official_dynamic = utl.noRepeatArr(
-						need_repost_official_dynamic
-					);
-					let finally_repost_official_dynaimc = [];
-					for (let i of need_repost_official_dynamic) {
-						if (!reposted_official_dynamic.includes(i)) {
-							finally_repost_official_dynaimc.push(i);
-						}
-					}
-					lottery_setting.official_lottery_switch = true; //开启官方抽奖
-					lottery_setting.CONFIG.Only_Comment_Lottery_Switch = false; //关闭只抽评论抽奖
-					lottery_setting.lottery_sep_time = utl.generater_step_Array(
-						// 控制官方抽奖单个抽奖完成后的休眠时间
-						30e3,
-						180e3,
-						1e3
-					);
-					lottery_setting.CONFIG.lottery_sep_time_type = 2;
-					let official_lottery_result = [];
-					if (finally_repost_official_dynaimc.length != 0) {
-						official_lottery_result = await lottery_loop(
-							finally_repost_official_dynaimc,
-							"必抽的官抽"
-						);
-					} //必抽的官抽
-					MYAPI.fileWrite(
-						official_lottery_record_path_name,
-						official_lottery_result.join("\n"),
-						"a+"
-					);
-					///////////////////////////////////////////////////
-					console.log(
-						`${global_var.user_info.uname}\t任务完成：必抽的大奖加官方抽奖`
-					);
-				}
-				async function 普通抽奖() {
-					let all_dynamic_id_list = [];
-					if (lottery_setting.CONFIG.CommonLottery_switch) {
-						console.log(
-							`${global_var.user_info.uname}\t开始执行任务：普通抽奖`
-						);
-						all_dynamic_id_list =
+						); //参加过的必抽的预约抽奖
+						let mustjoin_reserve_record_path_name = `抽奖记录/必抽的预约抽奖记录/${global_var.user_info.uname}_参加过的预约抽奖.txt`;
+						let joined_lottery_record =
 							MYAPI.fileRead.lottery_dynamic_ids(
-								"一般的抽奖动态id.txt"
-							); //获取抽奖动态id
-						all_dynamic_id_list =
-							utl.noRepeatArr(all_dynamic_id_list);
-						await lottery_loop(all_dynamic_id_list, "一般抽奖");
-					} else {
-						console.log(
-							`${global_var.user_info.uname}\t未开启开关，跳过任务：普通抽奖`
-						);
-					}
-				}
-
-				let non_random_tasklist = ["必抽的预约抽奖", "参加点击的活动"];
-
-				for (let non_random_taskname of non_random_tasklist) {
-					switch (non_random_taskname) {
-						case "必抽的预约抽奖":
-							eval(lottery_setting_string); //重置抽奖设置
-							try {
-								await 必抽的预约抽奖();
-							} catch (e) {
-								console.error(
-									`${lottery_setting.CONFIG.COOKIENAME} 【必抽的预约抽奖】执行失败`
-								);
-							}
-							break;
-						case "参加点击的活动":
-							try {
-								let op = JSON.parse(
-									fs.readFileSync(
-										__dirpath +
-											"JsonData/待操作HTML元素.json",
-										"utf-8"
-									)
-								); //require并不是同步地读取文件，如果这个JSON文件是动态变化的话可能无法读取到最新的JSON文件。
-								// require('./JsonData/待操作HTML元素.json');
-								console.log(
-									`${global_var.user_info.uname}\t开始执行任务：参加点击的活动`
-								);
-								await HTMLOP(global_var.page, op.op);
-								console.log(
-									`${global_var.user_info.uname}\t任务完成：参加点击的活动`
-								);
-							} catch (e) {
-								console.error(
-									`${lottery_setting.CONFIG.COOKIENAME} 【参加点击的活动】执行失败`
-								);
-							}
-							break;
-					}
-				}
-
-				let tasklist = ["普通抽奖", "必抽的大奖加官方抽奖"];
-				global_var.Pause = false;
-				console.log(`${Date()}开始获取动态id`);
-				lottery_setting.FLAG.do_lottery_flag = true; //设置开始抽奖的标志
-				global_var.page.on("close", function () {
-					//确认关闭后干的事情
-					lottery_setting.FLAG.do_lottery_flag = false;
-				});
-
-				tasklist = utl.part_shuffle(tasklist.length, tasklist);
-				console.log(
-					`${
-						global_var.user_info.uname
-					}\t任务执行顺序:\n${tasklist.join("\n")}`
-				);
-				for (let taskName of tasklist) {
-					switch (taskName) {
-						case "普通抽奖":
-							eval(lottery_setting_string); //重置抽奖设置
-							await 普通抽奖();
-							break;
-						case "必抽的大奖加官方抽奖":
-							eval(lottery_setting_string); //重置抽奖设置
-							await 必抽的大奖加官方抽奖();
-							break;
-					}
-				}
-
-				///////////////////////////////////开始防过滤操作
-				try {
-					let clf = global_var.page.isClosed();
-					if (clf) {
-						console.debug(
-							`${global_var.user_info.uname}\t页面已关闭，停止分享视频操作！`
-						);
-						return;
-					}
-					if (
-						(lottery_setting.prevent_module.share_video_switch ||
-							lottery_setting.prevent_module
-								.create_word_dynamic_chp_switch) &&
-						!clf
-					) {
-						console.log(
-							`${global_var.user_info.uname}\t开始防过滤操作`
-						);
-						//await global_var.page.setDefaultNavigationTimeout(30);
-						await sleep(10e3);
-						if (global_var.user_info.uname) {
-							await global_var.page.goto(
-								"https://www.bilibili.com"
+								mustjoin_reserve_record_path_name
 							);
-							try {
-								await my_operator.prevent_filter_module.prevent_filter_init();
-							} catch (e) {
-								console.error(
-									`放过滤操作失败！${e}\n${e.stack}`
-								);
-							}
+						joined_lottery_record = utl.noRepeatArr(
+							joined_lottery_record
+						); //参加过的必抽的大奖
+						utl.part_shuffle(
+							reserve_lottery_sapce_list,
+							reserve_lottery_sapce_list.length
+						); //打乱顺序
+						/** @member {Array} 参加失败或者没参加的预约抽奖*/
+						let joinfail_list = [];
+						/** @type {TYPE_reserve_data[]} 参加成功或者超时的预约抽奖*/
+						let success_list = [];
+						if (reserve_lottery_sapce_list.length != 0) {
+							console.log(
+								`${global_var.user_info.uname}\t开始执行任务：必抽的预约抽奖`
+							);
+							let result = await reserve_lottery_loop(
+								reserve_lottery_sapce_list
+							);
+							joinfail_list = result.joinfail_list;
+							success_list = result.joinsuccess_list;
+							console.log(
+								`${global_var.user_info.uname}\t任务完成：必抽的预约抽奖`
+							);
 						} else {
-							console.warn(
-								"登陆失败" + JSON.stringify(global_var)
+							console.log(
+								`${global_var.user_info.uname}\t抽奖数量为0，跳过任务：必抽的预约抽奖`
 							);
-							await global_var.page.goto("about:blank");
-							throw "登陆失败" + JSON.stringify(global_var);
 						}
-						await pptr_op.check_page_is_front(global_var.page);
-						await global_var.page.goto("about:blank");
-						console.log(
-							`${global_var.user_info.uname}\t防过滤操作完成！`
+						if (joinfail_list.length != 0) {
+							let d = new Date();
+							MYAPI.fileWrite(
+								`log/` +
+									`${
+										global_var.user_info.uname
+									}_${d.toLocaleString()}参加失败的预约抽奖.txt`
+										.replaceAll("/", "-")
+										.replaceAll(":", "："),
+								joinfail_list.join("\n")
+							);
+						}
+						success_list.map((el) =>
+							joined_lottery_record.push(el.reserve_sid)
+						); //参与成功的预约抽奖写进记录里
+						joined_lottery_record = utl.noRepeatArr(
+							joined_lottery_record
 						);
-						await global_var.page.goto("about:blank");
+						if (success_list.length != 0) {
+							//将记录写进文件里
+							MYAPI.fileWrite(
+								mustjoin_reserve_record_path_name,
+								joined_lottery_record.join("\n")
+							);
+						}
+						return success_list;
 					}
-				} catch (e) {
-					console.error(`分享视频失败！`, e);
-				}
-				///////////////////////////////////开始防过滤操作
-				try {
-					if (global_var.user_info.uid) {
-						await pptr_op.check_page_is_front(global_var.page);
+					//#endregion
+					//#region 必抽的大奖加官方抽奖
+					async function 必抽的大奖加官方抽奖() {
+						console.log(
+							`${global_var.user_info.uname}\t开始执行任务：必抽的大奖加官方抽奖`
+						);
+
+						let need_repost_official_dynamic =
+							MYAPI.fileRead.lottery_dynamic_ids(
+								`官方抽奖动态id.txt`
+							);
+						let need_mustjoin_lottery_dynamic =
+							MYAPI.fileRead.lottery_dynamic_ids(
+								`必抽的大奖.txt`
+							);
+
+						//region 必抽的大奖，先是必抽的大奖，然后再是官方抽奖，因为有可能会在官抽的评论区加抽
+						let mustjoin_lottery_record_path_name = `抽奖记录/必抽的大奖记录/${global_var.user_info.uname}_参加过的大奖.txt`;
+						let mustjoin_lottery_record =
+							MYAPI.fileRead.lottery_dynamic_ids(
+								mustjoin_lottery_record_path_name
+							);
+						mustjoin_lottery_record = utl.noRepeatArr(
+							mustjoin_lottery_record
+						); //参加过的必抽的大奖
+						need_mustjoin_lottery_dynamic = utl.noRepeatArr(
+							need_mustjoin_lottery_dynamic
+						);
+						let finally_mustjoin_lottery_dynaimc = [];
+						for (let i of need_mustjoin_lottery_dynamic) {
+							if (!mustjoin_lottery_record.includes(i)) {
+								finally_mustjoin_lottery_dynaimc.push(i);
+							}
+						}
+
+						lottery_setting.official_lottery_switch = true; //开启官方抽奖
+						lottery_setting.CONFIG.Only_Comment_Lottery_Switch = false; //关闭只抽普通抽奖
+						let must_join_lottery_result = [];
+						if (finally_mustjoin_lottery_dynaimc.length != 0) {
+							console.log(
+								`${global_var.user_info.uname}\t开始必抽的大奖！`
+							);
+							must_join_lottery_result = await lottery_loop(
+								finally_mustjoin_lottery_dynaimc,
+								"必抽的大奖"
+							);
+						} //必抽的大奖
+						MYAPI.fileWrite(
+							mustjoin_lottery_record_path_name,
+							must_join_lottery_result.join("\n"),
+							"a+"
+						);
+						//endregion
+						//////////////////////////////////////////////
+
+						/////////////////////////////////////////////必抽的官抽
+						let official_lottery_record_path_name = `抽奖记录/官方抽奖记录/${global_var.user_info.uname}_参加过的官方抽奖.txt`;
+						let reposted_official_dynamic =
+							MYAPI.fileRead.lottery_dynamic_ids(
+								official_lottery_record_path_name
+							);
+						reposted_official_dynamic = utl.noRepeatArr(
+							reposted_official_dynamic
+						);
+						need_repost_official_dynamic = utl.noRepeatArr(
+							need_repost_official_dynamic
+						);
+						let finally_repost_official_dynaimc = [];
+						for (let i of need_repost_official_dynamic) {
+							if (!reposted_official_dynamic.includes(i)) {
+								finally_repost_official_dynaimc.push(i);
+							}
+						}
+						lottery_setting.official_lottery_switch = true; //开启官方抽奖
+						lottery_setting.CONFIG.Only_Comment_Lottery_Switch = false; //关闭只抽评论抽奖
+						lottery_setting.lottery_sep_time =
+							utl.generater_step_Array(
+								// 控制官方抽奖单个抽奖完成后的休眠时间
+								30e3,
+								180e3,
+								1e3
+							);
+						lottery_setting.CONFIG.lottery_sep_time_type = 2;
+						let official_lottery_result = [];
+						if (finally_repost_official_dynaimc.length != 0) {
+							official_lottery_result = await lottery_loop(
+								finally_repost_official_dynaimc,
+								"必抽的官抽"
+							);
+						} //必抽的官抽
+						MYAPI.fileWrite(
+							official_lottery_record_path_name,
+							official_lottery_result.join("\n"),
+							"a+"
+						);
+						///////////////////////////////////////////////////
+						console.log(
+							`${global_var.user_info.uname}\t任务完成：必抽的大奖加官方抽奖`
+						);
+					}
+					//#endregion
+					//#region 普通抽奖
+					async function 普通抽奖() {
+						let all_dynamic_id_list = [];
+						if (lottery_setting.CONFIG.CommonLottery_switch) {
+							console.log(
+								`${global_var.user_info.uname}\t开始执行任务：普通抽奖`
+							);
+							all_dynamic_id_list =
+								MYAPI.fileRead.lottery_dynamic_ids(
+									"一般的抽奖动态id.txt"
+								); //获取抽奖动态id
+							all_dynamic_id_list =
+								utl.noRepeatArr(all_dynamic_id_list);
+							await lottery_loop(all_dynamic_id_list, "一般抽奖");
+						} else {
+							console.log(
+								`${global_var.user_info.uname}\t未开启开关，跳过任务：普通抽奖`
+							);
+						}
+					}
+					//#endregion
+					//#region 抽奖执行函数
+					async function lottery_excutor() {
+						let non_random_tasklist = [
+							"必抽的预约抽奖",
+							"参加点击的活动",
+						];
+
+						for (let non_random_taskname of non_random_tasklist) {
+							switch (non_random_taskname) {
+								case "必抽的预约抽奖":
+									eval(lottery_setting_string); //重置抽奖设置
+									try {
+										await 必抽的预约抽奖();
+									} catch (e) {
+										console.error(
+											`${lottery_setting.CONFIG.COOKIENAME} 【必抽的预约抽奖】执行失败`
+										);
+									}
+									break;
+								case "参加点击的活动":
+									try {
+										let op = JSON.parse(
+											fs.readFileSync(
+												__dirpath +
+													"JsonData/待操作HTML元素.json",
+												"utf-8"
+											)
+										); //require并不是同步地读取文件，如果这个JSON文件是动态变化的话可能无法读取到最新的JSON文件。
+										// require('./JsonData/待操作HTML元素.json');
+										console.log(
+											`${global_var.user_info.uname}\t开始执行任务：参加点击的活动`
+										);
+										await HTMLOP(global_var.page, op.op);
+										console.log(
+											`${global_var.user_info.uname}\t任务完成：参加点击的活动`
+										);
+									} catch (e) {
+										console.error(
+											`${lottery_setting.CONFIG.COOKIENAME} 【参加点击的活动】执行失败`
+										);
+									}
+									break;
+							}
+						}
+
+						let tasklist = ["普通抽奖", "必抽的大奖加官方抽奖"];
+						global_var.Pause = false;
+						console.log(`${Date()}开始获取动态id`);
+						lottery_setting.FLAG.do_lottery_flag = true; //设置开始抽奖的标志
+						global_var.page.on("close", function () {
+							//确认关闭后干的事情
+							lottery_setting.FLAG.do_lottery_flag = false;
+						});
+
+						tasklist = utl.part_shuffle(tasklist.length, tasklist);
+						console.log(
+							`${
+								global_var.user_info.uname
+							}\t任务执行顺序:\n${tasklist.join("\n")}`
+						);
+						for (let taskName of tasklist) {
+							switch (taskName) {
+								case "普通抽奖":
+									eval(lottery_setting_string); //重置抽奖设置
+									await 普通抽奖();
+									break;
+								case "必抽的大奖加官方抽奖":
+									eval(lottery_setting_string); //重置抽奖设置
+									await 必抽的大奖加官方抽奖();
+									break;
+							}
+						}
+					}
+					//#endregion
+					await lottery_excutor();
+					//#region 开始防过滤操作
+					try {
+						let clf = global_var.page.isClosed();
+						if (clf) {
+							console.debug(
+								`${global_var.user_info.uname}\t页面已关闭，停止分享视频操作！`
+							);
+							return;
+						}
 						if (
-							(await global_var.page.browser().pages()).length !=
-							0
+							(lottery_setting.prevent_module
+								.share_video_switch ||
+								lottery_setting.prevent_module
+									.create_word_dynamic_chp_switch) &&
+							!clf
 						) {
 							console.log(
-								`${global_var.user_info.uname}\t开始执行取关模块`
+								`${global_var.user_info.uname}\t开始防过滤操作`
 							);
-							let unfollow_pg = await global_var.page
-								.browser()
-								.newPage();
-							await unfollow_op(
-								unfollow_pg,
-								global_var.user_info.uid
-							);
+							//await global_var.page.setDefaultNavigationTimeout(30);
+							await sleep(10e3);
+							if (global_var.user_info.uname) {
+								await global_var.page.goto(
+									"https://www.bilibili.com"
+								);
+								try {
+									await my_operator.prevent_filter_module.prevent_filter_init();
+								} catch (e) {
+									console.error(
+										`放过滤操作失败！${e}\n${e.stack}`
+									);
+								}
+							} else {
+								console.warn(
+									"登陆失败" + JSON.stringify(global_var)
+								);
+								await global_var.page.goto("about:blank");
+								throw "登陆失败" + JSON.stringify(global_var);
+							}
+							await pptr_op.check_page_is_front(global_var.page);
+							await global_var.page.goto("about:blank");
 							console.log(
-								`${global_var.user_info.uname}\t取关模块执行完毕`
+								`${global_var.user_info.uname}\t防过滤操作完成！`
 							);
-						} else {
-							console.log(
-								`${global_var.user_info.uname}浏览器关闭，不执行取关模块！`
-							);
+							await global_var.page.goto("about:blank");
 						}
+					} catch (e) {
+						console.error(`分享视频失败！`, e);
 					}
+					//#endregion 开始防过滤操作
+					//#region 检查是否需要取关
+					try {
+						if (global_var.user_info.uid) {
+							await pptr_op.check_page_is_front(global_var.page);
+							if (
+								(await global_var.page.browser().pages())
+									.length != 0
+							) {
+								console.log(
+									`${global_var.user_info.uname}\t开始执行取关模块`
+								);
+								let unfollow_pg = await global_var.page
+									.browser()
+									.newPage();
+								await unfollow_op(
+									unfollow_pg,
+									global_var.user_info.uid
+								);
+								console.log(
+									`${global_var.user_info.uname}\t取关模块执行完毕`
+								);
+							} else {
+								console.log(
+									`${global_var.user_info.uname}浏览器关闭，不执行取关模块！`
+								);
+							}
+						}
+					} catch (e) {
+						console.error(`防过滤操作失败`, e);
+					}
+					//#endregion
+					lottery_setting.FLAG.do_lottery_flag = false;
+					// try {
+					//     await MYAPI.cookieSetting.saveCookie(lottery_setting.CONFIG.COOKIENAME)//结束保存cookie
+					// }
+					// catch (e) {
+					//     console.log(e, `${lottery_setting.CONFIG.COOKIENAME} cookie保存失败`);
+					// }
 				} catch (e) {
-					console.error(`防过滤操作失败`, e);
+					console.error(
+						`${global_var.user_info.uname}\t抽奖执行函数(lottery_init)执行失败！\n${e.stack}`,
+					);
 				}
-				lottery_setting.FLAG.do_lottery_flag = false;
-				// try {
-				//     await MYAPI.cookieSetting.saveCookie(lottery_setting.CONFIG.COOKIENAME)//结束保存cookie
-				// }
-				// catch (e) {
-				//     console.log(e, `${lottery_setting.CONFIG.COOKIENAME} cookie保存失败`);
-				// }
 			}
-			function set_global_var(opus_dynamic) {
-				global_var.FLAG.opus动态标志 = opus_dynamic;
-			}
+			//#region 启动入口函数
 			/**
 			 *
 			 * @returns {Promise<boolean>} login_status
@@ -2913,7 +2890,7 @@ class DO_Lottery {
 					return login_status;
 				} //如果登陆信息获取失败直接退出
 				//设置全局标志
-				set_global_var(opus动态标志);
+				global_var.FLAG.opus动态标志 = opus动态标志;
 				try {
 					if (!browser_mode) {
 						await Daily_rewards();
@@ -2938,13 +2915,12 @@ class DO_Lottery {
 
 				await lottery_init();
 				return login_status;
-				//await browser_Disconnected(global_var.browser);
 			};
-
+			//#endregion
 			this._setLotFlag(true);
 			this.login_status = await Init(); //初始化抽奖，同时开始抽奖
-
-			//动态抽奖任务完成之后
+			//#endregion
+			//#region 动态抽奖任务完成之后
 			this._setGlobalPage(global_var.page);
 			await sleep(60e3);
 			this._setLotFlag(false);
@@ -2956,7 +2932,7 @@ class DO_Lottery {
 					) {
 						this.no_exit_falg.unread_msg = true;
 						//如果有回复或者@就不退出浏览器
-						await my_send_notify.push_me(
+						await pptr_op.my_send_notify.push_me(
 							`${global_var.user_info.uname} 有新的回复或at`,
 							`at数量：${global_var.response.msgfeed_unread.data.at}\n回复数量：${global_var.response.msgfeed_unread.data.reply}`
 						);
@@ -2980,7 +2956,7 @@ class DO_Lottery {
 						console.log(
 							`${
 								global_var.user_info.uname
-							}\t还有任务未完成，不关闭浏览器\n${JSON.stringify(
+							}\t还有任务未完成(或者页面已关闭)，不关闭浏览器\n${JSON.stringify(
 								this.no_exit_falg,
 								"",
 								"\t"
@@ -3005,7 +2981,12 @@ class DO_Lottery {
 					await global_var.page.close();
 				}
 			}
-		})();
+			//#endregion
+		})();}
+		catch(e){
+			console.error(`${global_var.user_info.uname}\t执行launch_lottery抽奖失败！\n${e.stack}`)
+		}
+		finally{this._setLotFlag(false);}
 	};
 	mainFunc = async (
 		lottery_setting_filename,

@@ -2,7 +2,7 @@
  * @Author: 星瞳 1944637830@qq.com
  * @Date: 2023-11-12 23:55:03
  * @LastEditors: 星瞳 1944637830@qq.com
- * @LastEditTime: 2024-05-11 09:56:49
+ * @LastEditTime: 2024-05-30 13:55:45
  * @FilePath: \tampermonkey\index.js
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -31,24 +31,23 @@
  * ______#####______;###________###______#________
  * ________##_______####________####______________
  */
-if (process.env.NODE_ENV !== "production") {
-	let longjohn= require("longjohn");
-	longjohn.async_trace_limit = -1;
-}
+// let longjohn = require("longjohn");
+// longjohn.async_trace_limit = 100;
 let { DO_Lottery, sleep } = require("./木偶模块/puppeteer_lottery.js");
 let { LIVE_LOT_Service } = require("./直播模块/live_op.js");
 let { live_dm_wss_service } = require("./直播模块/live_dm_server.js");
 let { event_bus, EVENT_NAME_MAP } = require("./lib/helper/event_bus"); //注册事件用的，每一轮都要重新注册！
 let axios = require("axios");
 let fs = require("fs");
-const global_config = require("./CONFIG.Default.js");
+require('longjohn');
+Error.stackTraceLimit = 0;
 /**
  * 生成抽奖文件
  * @param {Date} start_time
  */
 async function gen_lot_file(start_time) {
 	try {
-		console.log(`开始新的一轮抽奖！${new Date().toLocaleString()}`);
+		console.log(`开始新的一轮抽奖！----${new Date().toLocaleString()}`);
 		console.log(`正在获取抽奖动态中！----${new Date().toLocaleString()}`);
 		let latest_lot_dyn = fs
 			.readFileSync("./木偶模块/一般的抽奖动态id.txt")
@@ -78,7 +77,7 @@ async function gen_lot_file(start_time) {
 			);
 		}
 	} catch (e) {
-		console.error(`获取抽奖动态失败！${e}\n${e.stack}`);
+		console.error(`获取抽奖动态失败！${e}\n${e.stack}----${new Date().toLocaleString()}`);
 		fs.writeFileSync("./木偶模块/一般的抽奖动态id.txt", "");
 		await sleep(100e3);
 		return await gen_lot_file(start_time);
@@ -108,7 +107,7 @@ async function gen_lot_file(start_time) {
 			);
 		}
 	} catch (e) {
-		console.error(`获取官方抽奖动态失败！${e}\n${e.stack}`);
+		console.error(`获取官方抽奖动态失败！${e}\n${e.stack}----${new Date().toLocaleString()}`);
 	}
 
 	try {
@@ -136,7 +135,7 @@ async function gen_lot_file(start_time) {
 			);
 		}
 	} catch (e) {
-		console.error(`获取必抽的大奖动态失败！${e}\n${e.stack}`);
+		console.error(`获取必抽的大奖动态失败！${e}\n${e.stack}----${new Date().toLocaleString()}`);
 	}
 
 	try {
@@ -167,7 +166,7 @@ async function gen_lot_file(start_time) {
 			);
 		}
 	} catch (e) {
-		console.error(`获取必抽的预约抽奖失败！${e}\n${e.stack}`);
+		console.error(`获取必抽的预约抽奖失败！${e}\n${e.stack}----${new Date().toLocaleString()}`);
 	}
 }
 /**
@@ -205,12 +204,12 @@ async function main() {
 				gen_lot_file_mark = true;
 			});
 		} catch (e) {
-			console.error(e, "获取最新抽奖信息失败！");
+			console.error(e, `获取最新抽奖信息失败！----${new Date().toLocaleString()}`);
 		}
 	} else if (browser_mode) {
-		console.log(`浏览模式，不抽奖！`);
+		console.log(`浏览模式，不抽奖！----${new Date().toLocaleString()}`);
 	} else {
-		console.log(`未开启全自动模式！使用本地文件内容进行抽奖！`);
+		console.log(`未开启全自动模式！使用本地文件内容进行抽奖！----${new Date().toLocaleString()}`);
 	}
 
 	let opus动态标志 = true; //是否使用新版动，默认开启!
@@ -293,7 +292,7 @@ async function main() {
 			let event_name = `lot_${i}`;
 			if (event_bus.event_list.indexOf(event_name) != -1) {
 				if (new Date().getHours() >= 2 && new Date().getHours() <= 9) {
-					console.log("启动时间太晚，优先睡眠");
+					console.log(`启动时间太晚，优先睡眠  --${(new Date()).toLocaleString()}`);
 					await sleep((9 - new Date().getHours()) * 3600e3);
 				}
 				event_bus.emit(event_name);
@@ -309,10 +308,15 @@ async function main() {
 		//判断是否结束，并开启下一轮
 		while (1) {
 			let all_end = true;
+			let is_lotting = [];
 			for (let lot of MYLOTLIST) {
 				if (!lot.lot?.lotFlag) {
 					//如果抽完了判断准备开启下一轮
 				} else {
+					is_lotting.push({
+						account: lot.lot.lottery_name,
+						uname: lot.lot.global_var.user_info.uname,
+					});
 					all_end = false;
 				}
 			}
@@ -347,16 +351,16 @@ async function main() {
 				}
 				await sleep(10e3);
 				setTimeout(async () => {
-					// event_bus.flush(); //事件不清空，复用事件！
-					// for (let lot of MYLOTLIST) {
-					// 	await lot.lot?.global_page.browser().close();
-					// }//不需要关闭浏览器
 					await main();
 				}, tomorrow - now);
 				return;
 			} else {
 				console.log(
-					`抽奖还在进行中，不获取下一轮！\t\t${new Date().toLocaleTimeString()}`
+					`账号：\n${JSON.stringify(
+						is_lotting,
+						"",
+						"\t"
+					)}\n抽奖还在进行中，不获取下一轮！\t\t${new Date().toLocaleTimeString()}`
 				);
 			}
 			await sleep(100e3);
@@ -364,6 +368,5 @@ async function main() {
 	}
 }
 (async function () {
-	// await sleep(7 * 3600 * 1e3);
 	await main();
 })();

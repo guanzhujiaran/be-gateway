@@ -431,7 +431,7 @@ class ENVIRONMENT {
 						is_front = true;
 					}
 				} catch (e) {
-					console.error(`将浏览器切换至前台失败！${e}\n${e.stack}`);
+					console.error(`${global_var.user_info.uname}\t将浏览器切换至前台失败！${e}\n${e.stack}`);
 					await sleep(1e3);
 				}
 				return is_front;
@@ -1813,6 +1813,7 @@ class ENVIRONMENT {
 									if (
 										global_var.response.reply_main.code ==
 											12061 ||
+											global_var.response.reply_main.code ==12002||
 										global_var.response.reply_main?.data
 											?.control?.input_disable //无法评论
 									) {
@@ -1859,7 +1860,6 @@ class ENVIRONMENT {
 										e,
 										global_var.response.reply_main
 									);
-									await utl.my_throw("up置顶的回复获取失败");
 									return "";
 								}
 							} else {
@@ -1886,7 +1886,7 @@ class ENVIRONMENT {
 								dynamic_data;
 						}
 						let top_msg = "";
-						if (global_var.response.reply_main != undefined) {
+						if (global_var.response?.reply_main != undefined) {
 							top_msg = await get_top_msg();
 						}
 						let dynmaic_content = "";
@@ -4032,7 +4032,7 @@ class ENVIRONMENT {
 											global_var,
 											"share_video_operator分享视频失败"
 										);
-										throw (e, global_var);
+										throw Error(e, global_var);
 									}
 
 									let st = utl.random_choice(
@@ -4063,7 +4063,7 @@ class ENVIRONMENT {
 									await global_var.page.goto("about:blank");
 									await sleep(st);
 								} catch (e) {
-									console.warn(`分享单个视频失败\n`, e);
+									console.warn(`${global_var.user_info.uname}\t分享单个视频失败\n`, e);
 									await sleep(1e3);
 									await global_var.page.goto("about:blank");
 									continue;

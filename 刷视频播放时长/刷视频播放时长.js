@@ -1830,6 +1830,8 @@ let watch_video_launch = async (lottery_setting_string, broswer_mode) => {
                                 '--enable-automation',
                                 '--disable-extensions'
                             ],
+                            dumpio:true,
+                            timeout:60000,
                             ignoreHTTPSErrors: true,
                         });
                     global_var.browser = browser
@@ -1869,6 +1871,8 @@ let watch_video_launch = async (lottery_setting_string, broswer_mode) => {
                                 '--enable-automation',
                                 '--disable-extensions',
                             ],
+                            dumpio:true,
+                            timeout:60000,
                             ignoreHTTPSErrors: true,
                         });
                     global_var.browser = browser

@@ -2,7 +2,7 @@
  * @Author: 星瞳 1944637830@qq.com
  * @Date: 2023-12-09 21:55:06
  * @LastEditors: 星瞳 1944637830@qq.com
- * @LastEditTime: 2024-01-18 02:57:26
+ * @LastEditTime: 2024-05-29 22:16:02
  * @FilePath: \tampermonkey\直播模块\live_dm_server.js
  * @Description:
  * 通过wss实现发送弹幕的功能的服务器端  （5705端口直播发弹幕通知的wss消息的端口）
@@ -152,7 +152,7 @@ class live_dm_sender extends ExtensionClass {
 			if (!this.send_dm_pg || this.send_dm_pg.isClosed()) {
 				this.send_dm_pg = await this.basic_pg.browser().newPage();
 			}
-			await live_op.basic_op.hook_teck_logdata(this.send_dm_pg);
+			await pptr_op.hook_teck_logdata(this.send_dm_pg);
 			if (!this.uid) {
 				this.uid = await pptr_op.get_uid(this.send_dm_pg);
 			}
