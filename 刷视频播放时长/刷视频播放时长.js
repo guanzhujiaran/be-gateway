@@ -1509,7 +1509,7 @@ let watch_video_launch = async (lottery_setting_string, broswer_mode) => {
                 }
                 await global_var.page.goto('https://www.bilibili.com/', { waitUntil: 'load' })
                 let pageurl = await global_var.page.url()
-                if (pageurl == 'https://www.bilibili.com/' && lottery_setting.prevent_module.share_video_switch && lottery_setting.FLAG.share_flag) {
+                if (pageurl == 'https://www.bilibili.com/' && lottery_setting.prevent_module.share_video_switch) {
                     let video_list = await get_video_list(share_num)
                     let share_video_list = []
                     video_list = utl.part_shuffle(video_list.length, video_list)
@@ -1548,7 +1548,6 @@ let watch_video_launch = async (lottery_setting_string, broswer_mode) => {
                         }
                     }
 
-                    lottery_setting.FLAG.share_flag = false
                 }
             },
             create_word_dynamic: async function (content_list, create_times) {

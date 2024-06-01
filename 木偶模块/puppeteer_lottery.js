@@ -600,7 +600,7 @@ class DO_Lottery {
 			for (let retry = 0; retry < 5; retry++) {
 				//五次重试启动浏览器的机会
 				try {
-					if (lottery_setting.CONFIG.UserDataDir) {
+					if (lottery_setting.CONFIG.PersistStore) {
 						browser = await puppeteer.launch({
 							executablePath: `C:\\Users\\Acer\\AppData\\Local\\Google\\Chrome SxS\\Application\\chrome.exe`, //浏览器路径
 							headless: false, //false为显示浏览器界面
@@ -700,7 +700,6 @@ class DO_Lottery {
 		let utl = this.utl;
 		let MYAPI = this.MYAPI;
 		let my_operator = this.my_operator;
-
 		///////////////////////////////////////////////////////////////
 		let lottery_setting;
 		eval(lottery_setting_string); //设置全局的抽奖参数
