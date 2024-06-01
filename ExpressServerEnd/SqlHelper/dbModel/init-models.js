@@ -1,4 +1,5 @@
 var DataTypes = require("sequelize").DataTypes;
+var _TAccountDetailInfo = require("./TAccountDetailInfo");
 var _TAccountInfo = require("./TAccountInfo");
 var _TAccountInfo_DashBoardInfo = require("./TAccountInfo_DashBoardInfo");
 var _TAccountInfo_LotteryLog = require("./TAccountInfo_LotteryLog");
@@ -10,6 +11,7 @@ var _TReserveLotteryInfo = require("./TReserveLotteryInfo");
 var _TUserInfo = require("./TUserInfo");
 
 function initModels(sequelize) {
+  var TAccountDetailInfo = _TAccountDetailInfo(sequelize, DataTypes);
   var TAccountInfo = _TAccountInfo(sequelize, DataTypes);
   var TAccountInfo_DashBoardInfo = _TAccountInfo_DashBoardInfo(sequelize, DataTypes);
   var TAccountInfo_LotteryLog = _TAccountInfo_LotteryLog(sequelize, DataTypes);
@@ -20,6 +22,8 @@ function initModels(sequelize) {
   var TReserveLotteryInfo = _TReserveLotteryInfo(sequelize, DataTypes);
   var TUserInfo = _TUserInfo(sequelize, DataTypes);
 
+  TAccountDetailInfo.belongsTo(TAccountInfo, { as: "account_info", foreignKey: "account_info_id"});
+  TAccountInfo.hasOne(TAccountDetailInfo, { as: "info", foreignKey: "account_info_id"});
   TAccountInfo_DashBoardInfo.belongsTo(TAccountInfo, { as: "accountinfo", foreignKey: "accountinfo_id"});
   TAccountInfo.hasMany(TAccountInfo_DashBoardInfo, { as: "TAccountInfo_DashBoardInfos", foreignKey: "accountinfo_id"});
   TAccountInfo_LotteryLog.belongsTo(TAccountInfo, { as: "accountinfo", foreignKey: "accountinfo_id"});
@@ -40,6 +44,7 @@ function initModels(sequelize) {
   TUserInfo.hasMany(TAccountInfo, { as: "TAccountInfos", foreignKey: "uid"});
 
   return {
+    TAccountDetailInfo,
     TAccountInfo,
     TAccountInfo_DashBoardInfo,
     TAccountInfo_LotteryLog,

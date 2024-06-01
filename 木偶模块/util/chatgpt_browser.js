@@ -243,10 +243,10 @@ class chatgptOP {
 				}
 			}
 		} catch (e) {
-			this.avaliable_AI[ask_channel]["stat"] = false; // 标记该AI不可用
-			setTimeout(() => {
-				this.avaliable_AI[ask_channel]["stat"] = true;
-			}, 2 * 3600e3);
+			// this.avaliable_AI[ask_channel]["stat"] = false; // 标记该AI不可用
+			// setTimeout(() => {
+			// 	this.avaliable_AI[ask_channel]["stat"] = true;
+			// }, 2 * 3600e3);
 			console.error(`askquestion 失败！${e.toString()}\n${e.stack}`);
 		} finally {
 			this.isAvailable = true;

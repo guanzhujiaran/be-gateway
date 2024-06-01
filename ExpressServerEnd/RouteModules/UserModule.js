@@ -25,6 +25,7 @@ router.get("/nav", async (req, resp, next) => {
 		}
 		return resp.json({
 			code: -499,
+			data:null,
 			msg: "用户不存在",
 			ttl: 1,
 		});

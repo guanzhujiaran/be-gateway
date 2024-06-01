@@ -1,3 +1,11 @@
+/*
+ * @Author: 星瞳 1944637830@qq.com
+ * @Date: 2024-04-08 20:02:08
+ * @LastEditors: 星瞳 1944637830@qq.com
+ * @LastEditTime: 2024-05-31 12:20:40
+ * @FilePath: \tampermonkey\ExpressServerEnd\RouteModules\AccountModule.js
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+ */
 const express = require("express");
 const {
 	check,
@@ -27,6 +35,7 @@ router.get("/all_accounts", async (req, resp, next) => {
 		}
 		return resp.json({
 			code: -1,
+			data: null,
 			msg: "未登录",
 			ttl: 1,
 		});
@@ -47,6 +56,7 @@ router.post(
 			if (is_exist_account_name) {
 				return resp.json({
 					code: 40014,
+					data: null,
 					msg: "该昵称已存在",
 					ttl: 1,
 				});
@@ -57,6 +67,7 @@ router.post(
 			);
 			return resp.json({
 				code: 0,
+				data: null,
 				msg: "账户创建成功！",
 				ttl: 1,
 			});
@@ -68,6 +79,13 @@ router.post(
 router.get(
 	"/get_account_info",
 	[query("account_name").notEmpty()],
+	/**
+	 * 
+	 * @param {*} req 
+	 * @param {*} resp 
+	 * @param {*} next 
+	 * @returns -- { "account_name": "cookie1", "account_id": 1, "uid": "1", "info": { "level": 6, "vip": "十年大会员", "face": null, "uname": "后藤波奇" } }
+	 */
 	async (req, resp, next) => {
 		try {
 			let uid = req.auth.uid;
@@ -80,7 +98,7 @@ router.get(
 					ttl: 1,
 				});
 			}
-			let account_info = await sqlhelper.get(account_name, uid);
+			let account_info = await sqlhelper.get_account_info_by_account_name_and_uid(account_name, uid); //获取该uid下的账户名称！
 			return resp.json({
 				code: 0,
 				data: account_info,

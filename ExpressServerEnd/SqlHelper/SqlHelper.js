@@ -2,7 +2,7 @@
  * @Author: 星瞳 1944637830@qq.com
  * @Date: 2024-04-06 16:33:24
  * @LastEditors: 星瞳 1944637830@qq.com
- * @LastEditTime: 2024-04-11 13:53:13
+ * @LastEditTime: 2024-05-31 18:33:48
  * @FilePath: \tampermonkey\ExpressServerEnd\SqlHelper\SqlHelper.js
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -22,6 +22,7 @@ sequelize
 		console.error(`数据库连接失败！${e}`);
 	});
 const {
+	TAccountDetailInfo,
 	TAccountInfo,
 	TAccountInfo_DashBoardInfo,
 	TAccountInfo_LotteryLog,
@@ -38,7 +39,11 @@ class SqlHelper {
 	/**
 	 * 通过uid查找userinfo
 	 * @param {number} uid
-	 * @returns
+	 * @returns {object | undefined} --{
+				"uid": "1",
+				"user_name": "admin",
+				"pwd": "f6ad0632d7babd4ca84f787257941acb"
+			}
 	 */
 	get_user_info_by_uid = async (uid) => {
 		let user_info = await TUserInfo.findOne({
@@ -46,16 +51,25 @@ class SqlHelper {
 				uid: uid,
 			},
 		});
-		return user_info;
+		return user_info?.toJSON();
 	};
+	/**
+	 * 
+	 * @param {string} user_name 
+	 * @returns {object | undefined} -- {
+	"uid": "1",
+	"user_name": "admin",
+	"pwd": "f6ad0632d7babd4ca84f787257941acb"
+}
 
+	 */
 	get_user_info_by_user_name = async (user_name) => {
 		let user_info = await TUserInfo.findOne({
 			where: {
 				user_name: user_name,
 			},
 		});
-		return user_info;
+		return user_info?.toJSON();
 	};
 	add_user_info = async (user_name, pwd) => {
 		return await TUserInfo.create({
@@ -75,23 +89,70 @@ class SqlHelper {
 			uid: uid,
 		});
 	};
-
+	/**
+	 * 
+	 * @param {number} uid 
+	 * @returns {object} -- {
+		"account_name": "cookie1",
+		"account_id": 1,
+		"uid": "1",
+		"info": {
+			"level": 6,
+			"vip": "十年大会员",
+			"face": null,
+			"uname": "后藤波奇"
+		}
+	}
+	 */
 	get_all_account_info_by_uid = async (uid) => {
 		let all_accounts = await TAccountInfo.findAll({
 			where: {
 				uid: uid,
 			},
+			include: [
+				{
+					model: TAccountDetailInfo,
+					as: "info",
+					required: false,
+					attributes: ["level", "vip", "face", "uname"],
+				},
+			],
 		});
-		return all_accounts;
+
+		return all_accounts.map((el) => el.toJSON());
 	};
+	/**
+	 * 
+	 * @param {string} account_name 
+	 * @param {number} uid 
+	 * @returns {object | undefined} -- {
+		"account_name": "cookie1",
+		"account_id": 1,
+		"uid": "1",
+		"info": {
+			"level": 6,
+			"vip": "十年大会员",
+			"face": null,
+			"uname": "后藤波奇"
+		}
+	}
+	 */
 	get_account_info_by_account_name_and_uid = async (account_name, uid) => {
 		let user_info = await TAccountInfo.findOne({
 			where: {
 				account_name: account_name,
 				uid: uid,
 			},
+			include: [
+				{
+					model: TAccountDetailInfo,
+					as: "info",
+					required: false,
+					attributes: ["level", "vip", "face", "uname"],
+				},
+			],
 		});
-		return user_info;
+		return user_info?.toJSON();
 	};
 	//#endregion
 	/**

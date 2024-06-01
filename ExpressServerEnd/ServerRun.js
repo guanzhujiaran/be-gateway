@@ -1,3 +1,11 @@
+/*
+ * @Author: 星瞳 1944637830@qq.com
+ * @Date: 2024-04-08 14:31:18
+ * @LastEditors: 星瞳 1944637830@qq.com
+ * @LastEditTime: 2024-05-31 12:49:39
+ * @FilePath: \tampermonkey\ExpressServerEnd\ServerRun.js
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+ */
 const express = require("express");
 const cors = require('cors');
 const bodyParser = require("body-parser");
@@ -30,6 +38,7 @@ app.use((err, req, res, next) => {
 	if (err.name === "UnauthorizedError") {
 		return res.json({
 			code: -1,
+			data:null,
 			msg: "未登录",
 			ttl: 1,
 		});
