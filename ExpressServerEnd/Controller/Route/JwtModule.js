@@ -12,6 +12,13 @@ const secretKey = md5("关注永雏塔菲喵，关注永雏塔菲谢谢喵！114
 const jwt = require("jsonwebtoken");
 const expressJwt = require("express-jwt");
 //生成 token
+/**
+ *
+ * @param payload {Object}
+ * @param payload.user_name {string}
+ * @param payload.uid {number}
+ * @return {string}
+ */
 const createToken = (payload) =>
 	jwt.sign(payload, secretKey, {
 		expiresIn: 15 * 24 * 3600, // 设置token的有效期 单位（秒）

@@ -31,15 +31,14 @@
  * ______#####______;###________###______#________
  * ________##_______####________####______________
  */
-// let longjohn = require("longjohn");
-// longjohn.async_trace_limit = 100;
-let { DO_Lottery, sleep } = require("./木偶模块/puppeteer_lottery.js");
-let { LIVE_LOT_Service } = require("./直播模块/live_op.js");
-let { live_dm_wss_service } = require("./直播模块/live_dm_server.js");
-let { event_bus, EVENT_NAME_MAP } = require("./lib/helper/event_bus"); //注册事件用的，每一轮都要重新注册！
+let { DO_Lottery, sleep } = require("@/木偶模块/puppeteer_lottery");
+let { LIVE_LOT_Service } = require("@/直播模块/live_op");
+let { live_dm_wss_service } = require("@/直播模块/live_dm_server");
+let { event_bus, EVENT_NAME_MAP } = require("@/lib/helper/event_bus"); //注册事件用的，每一轮都要重新注册！
 let axios = require("axios");
 let fs = require("fs");
-require('longjohn');
+const longjohn = require('longjohn');
+longjohn.async_trace_limit = 100;
 Error.stackTraceLimit = 0;
 /**
  * 生成抽奖文件

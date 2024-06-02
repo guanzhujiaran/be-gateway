@@ -7,7 +7,7 @@ let HTMLOP = require("./util/HTMLop");
 const fs = require("fs");
 const axios = require("axios");
 const unfollow_op = require("./取关脚本/unfollow");
-const global_config = require("../CONFIG.Default.js");
+const global_config = require("@/CONFIG.Default.js");
 //导入包
 const __dirpath = "./木偶模块/";
 const { sleep, pptr_op } = require("./util/common_utl");
@@ -28,24 +28,6 @@ let lottery_setting_file_reader = async function (filename) {
 };
 /**
  * @typedef {import('puppeteer').Page} Page
- */
-/**
- * @typedef {Object} TYPE_global_var 类型
- * @property {Page} page - 创建的网页
- * @property {string} pageurl - 抽奖网址
- * @property {number} dynamic_id - 动态ID
- * @property {Object} TIME - 时间相关属性
- * @property {Date} TIME.Init_Time - 初始化时间
- * @property {Array<string>} TIME.None_Lottery_Time - 非抽奖时间段
- * @property {number} TIME.Reserve_Lottery_time - 参加x秒以内必须参加的预约抽奖时间(单位：秒)
- * @property {{global_dynamic_data: undefined, create_dyn_response: undefined, comment_dyn_response: undefined, relation_modify_response: undefined, dynamic_thumb_response: undefined, space_reservation: undefined, reply_main: undefined, msgfeed_unread: undefined}} response - 所有的响应类
- * @property {{吃饭休息标志： boolean, 评论响应标志： boolean, opus动态标志： boolean}} FLAG
- * @property {{uid: undefined, uname: undefined}} user_info - 用户信息
- * @property {boolean} fengkong_flag - 风控标志
- * @property {string} recorded_data - 抽奖反馈信息
- * @property {boolean} Pause - 抽奖暂停标志
- * @property {{access_token: undefined, API_Key: string, Secret_key: string, access_token_api: string, paraphrase_api: string, get_result_api: string}} Baidu_wenxin - 百度文心相关属性
- * @property {{check_login_status: function(): void}} - Getter
  */
 class DO_Lottery {
 	/**
@@ -76,7 +58,7 @@ class DO_Lottery {
 		this.login_status = undefined;
 		this.utl = undefined;
 		/**
-		 * @type {TYPE_global_var}
+		 * @type {global_var_Obj}
 		 */
 		this.global_var = undefined;
 		this.my_operator = undefined;
@@ -300,10 +282,10 @@ class DO_Lottery {
 						case url.includes("/x/dynamic/feed/create/dyn") ||
 							url.includes("dynamic_repost/reply"): {
 							let req = await response.request();
-							if ((await req.method()).toLowerCase() != "post") {
+							if ((req.method()).toLowerCase() != "post") {
 								//option是没有数据的
 								console.log(
-									await (await response.request()).method()
+									(await response.request()).method()
 								);
 								return;
 							}
@@ -340,7 +322,7 @@ class DO_Lottery {
 								global_var.response.comment_dyn_response =
 									response_json;
 								global_var.FLAG.评论响应标志 = true;
-								if (response_json.code == 12051) {
+								if (response_json.code === 12051) {
 									//重复评论
 									console.warn(
 										`${
@@ -669,7 +651,6 @@ class DO_Lottery {
 					);
 					console.error(e);
 					await sleep(10e3);
-					continue;
 				}
 			}
 		}
@@ -686,7 +667,6 @@ class DO_Lottery {
 		if (!global_var.user_info.uname) {
 			await check_login();
 		}
-		return;
 	};
 	launch_lottery = async (
 		lottery_setting_string,
@@ -694,7 +674,7 @@ class DO_Lottery {
 		opus动态标志
 	) => {
 		/**
-		 * @type {TYPE_global_var}
+		 * @property {global_var_Obj}
 		 */
 		let global_var = this.global_var;
 		let utl = this.utl;
@@ -705,19 +685,20 @@ class DO_Lottery {
 		eval(lottery_setting_string); //设置全局的抽奖参数
 		this.lottery_setting = lottery_setting;
 		///////////////////////////////////////////////////////////////
-		try{(async () => {
+		try{
+			await (async () => {
 			//#region 抽预约抽奖
 			/**
 			 * {
-									url: reserve_url,
-									etime: etime,
-									lottery_prize_info: lottery_prize_info,
-									开奖时间: new Date(
-										etime * 1e3
-									).toLocaleString(),
-									jump_url: jump_url,
-									add_ts_scond: Math.floor(Date.now() / 1000),
-								};
+			 url: reserve_url,
+			 etime: etime,
+			 lottery_prize_info: lottery_prize_info,
+			 开奖时间: new Date(
+			 etime * 1e3
+			 ).toLocaleString(),
+			 jump_url: jump_url,
+			 add_ts_scond: Math.floor(Date.now() / 1000),
+			 };
 
 			 * @typedef {Object} TYPE_reserve_data
 			 * @property {String} reserve_url 空间动态链接 like https://space.bilibili.com/1927279531
@@ -726,7 +707,7 @@ class DO_Lottery {
 			 * @property {String} jump_url  - 单独抽奖的跳转链接，like https://www.bilibili.com/h5/lottery/result?business_id=3640758&business_type=10
 			 * @property {number} reserve_sid - 直播预约sid
 			 * @property {boolean} available - 预约是否正常存在
-			 * 
+			 *
 			 */
 			/**
 			 * 预约抽奖循环程序，返回参加失败的列表
@@ -834,7 +815,7 @@ class DO_Lottery {
 							let reserve_card;
 							let reserve_cards = await global_var.page.$$(
 								`.subscribe-list li`,
-								{ timeout: 10e3 }
+								{timeout: 10e3}
 							);
 							if (
 								reserve_cards &&
@@ -846,14 +827,16 @@ class DO_Lottery {
 								btn_subscribe_btn_cancel = await reserve_card.$(
 									`.btn-subscribe.btn-cancel`
 								);
-							} catch (e) {}
+							} catch (e) {
+							}
 							if (!btn_subscribe_btn_cancel && reserve_card) {
 								let reserve_btn; //点击参与部分
 								try {
 									reserve_btn = await reserve_card.$(
 										`.btn-subscribe`
 									);
-								} catch {}
+								} catch {
+								}
 								if (reserve_btn) {
 									//如果找到了预约按钮
 									await reserve_btn.click();
@@ -868,9 +851,10 @@ class DO_Lottery {
 								try {
 									reserve_btn_cancel = await reserve_card.$$(
 										".btn-subscribe.btn-cancel",
-										{ timeout: 10e3 }
+										{timeout: 10e3}
 									);
-								} catch {}
+								} catch {
+								}
 								if (reserve_btn_cancel.length > 0) {
 									console.log(
 										`${global_var.user_info.uname} 参与预约抽奖：${reserve_info.reserve_url} 成功！`
@@ -924,6 +908,7 @@ class DO_Lottery {
 					joinsuccess_list: joinsuccess_list,
 				};
 			}
+
 			//#endregion
 			//#region 开始抽奖
 
@@ -1089,9 +1074,9 @@ class DO_Lottery {
 					}
 					await sleep(
 						0.5 *
-							utl.random_choice(
-								lottery_setting.Working_clearance_time
-							)
+						utl.random_choice(
+							lottery_setting.Working_clearance_time
+						)
 					);
 					let comment_forbidden_mark = false; //禁止评论标志
 					if (global_var.response.reply_main) {
@@ -1205,7 +1190,8 @@ class DO_Lottery {
 							/(\[(?<=\[)(.*?)(?=\])])/gim,
 							""
 						); //移除表情包
-					} catch {}
+					} catch {
+					}
 					let comment_msg;
 					if (dynamic_content == false) {
 						console.warn(global_var.response.global_dynamic_data);
@@ -1486,7 +1472,7 @@ class DO_Lottery {
 											follow_checked_btn =
 												await global_var.page.$(
 													".bili-user-profile-view__info__button.follow.checked",
-													{ TIMEOUT: 10e3 }
+													{TIMEOUT: 10e3}
 												);
 										} catch {
 											console.error(
@@ -1655,7 +1641,7 @@ class DO_Lottery {
 							//评论加转发
 							if (
 								Math.random() * 0.6 <
-									lottery_setting.repostchance ||
+								lottery_setting.repostchance ||
 								comment_msg.includes("#") ||
 								global_var.response.reply_main.code == 12061 ||
 								my_operator.dynamic_comment_operator.repost_with_comment_judge(
@@ -1717,7 +1703,7 @@ class DO_Lottery {
 						}`
 					);
 					e.message.includes(`Requesting main frame too early!`) &&
-						(await global_var.page.close());
+					(await global_var.page.close());
 					global_var.Getter.check_login_status();
 					if (
 						e
@@ -1726,7 +1712,7 @@ class DO_Lottery {
 						!(await pptr_op.check_page_is_front(global_var.page))
 					) {
 						(await global_var.page.close()) ||
-							(await global_var.page.browser().close());
+						(await global_var.page.browser().close());
 						await sleep(10e3);
 						await this.account_init(false);
 						return await do_lottery(goto_url, opus_dynamic); //如果只是页面或浏览器被关了，就继续执行抽奖
@@ -1774,11 +1760,11 @@ class DO_Lottery {
 				}
 				lottery_setting.lottery_sep_time = utl.generater_step_Array(
 					(parseInt(0.5 * lottery_setting.lottery_run_time + 1) /
-						(all_dynamic_id_list.length + 1),
-					10),
+					(all_dynamic_id_list.length + 1),
+						10),
 					parseInt(
 						(0.75 * lottery_setting.lottery_run_time + 1) /
-							(all_dynamic_id_list.length + 1),
+						(all_dynamic_id_list.length + 1),
 						10
 					),
 					300
@@ -1833,11 +1819,11 @@ class DO_Lottery {
 						try {
 							if (
 								lottery_setting.prevent_module
-									.share_video_while_repost_chance != 0 &&
+									.share_video_while_repost_chance !== 0 &&
 								repost_counter >
-									lottery_setting.prevent_module
-										.share_video_while_repost_sepnum *
-										3
+								lottery_setting.prevent_module
+									.share_video_while_repost_sepnum *
+								3
 							) {
 								if (
 									Math.random() <
@@ -1861,16 +1847,16 @@ class DO_Lottery {
 								!(init_time_hour < 19
 									? init_time_hour >= 18
 									: false || init_time_hour < 12
-									? init_time_hour >= 11
-									: false)
+										? init_time_hour >= 11
+										: false)
 							) {
 								//如果初始化的时间不在吃饭时间内，则判断
 								if (
 									new Date().getHours() < 19
 										? new Date().getHours() >= 18
 										: false || new Date().getHours() < 12
-										? new Date().getHours() >= 11
-										: false
+											? new Date().getHours() >= 11
+											: false
 								) {
 									if (!global_var.FLAG.吃饭休息标志) {
 										console.log(
@@ -1885,7 +1871,7 @@ class DO_Lottery {
 								longsleepflag[1] >
 								Math.round(
 									every_n_times_sleep_longtime *
-										(1 - 0.5 * Math.random())
+									(1 - 0.5 * Math.random())
 								)
 							) {
 								longsleepflag[0] = true;
@@ -1936,7 +1922,7 @@ class DO_Lottery {
 									//每次抽奖循环时检测页面是否关闭，如果关闭则重新打开浏览器页面！
 									await this.account_init(); //重新设置global_var.page
 								}
-								lottery_setting.FLAG.do_lottery_flag = true;
+								global_var.FLAG.抽奖中 = true;
 								global_var.response.global_dynamic_data =
 									undefined; //全局的动态数据
 								global_var.response.create_dyn_response =
@@ -1971,9 +1957,9 @@ class DO_Lottery {
 												}\t前往页面失败！https://www.bilibili.com/opus/${MYAPI.BiliAPI.draw_dynamic_id(
 													all_dynamic_id_list[i]
 												)}\t${e}\n${e.stack}` +
-													(break_time < 3
-														? `\n重试第${break_time}次！`
-														: `\n彻底失败！`)
+												(break_time < 3
+													? `\n重试第${break_time}次！`
+													: `\n彻底失败！`)
 											);
 											await global_var.page
 												.browser()
@@ -2023,8 +2009,8 @@ class DO_Lottery {
 											utl.random_choice([
 												1, 2, 3, 4, 5, 6, 7,
 											])) %
-											every_n_times_sleep_longtime ==
-											0 &&
+										every_n_times_sleep_longtime ==
+										0 &&
 										longsleepflag[0]
 									) {
 										//每隔多少次休眠
@@ -2266,7 +2252,8 @@ class DO_Lottery {
 							my_level =
 								global_var.user_nav.data.level_info
 									.current_level;
-						} catch {}
+						} catch {
+						}
 						if (my_level == 6) {
 							console.log(
 								`${
@@ -2277,7 +2264,7 @@ class DO_Lottery {
 						}
 						await global_var.page.goto(
 							`https://account.bilibili.com/account/home`,
-							{ waitUntil: "networkidle2" }
+							{waitUntil: "networkidle2"}
 						);
 						let exp_text = await global_var.page.$$eval(
 							`.home-dialy-exp-item`,
@@ -2370,7 +2357,7 @@ class DO_Lottery {
 							let bcoin_get = false;
 							await global_var.page.goto(
 								`https://account.bilibili.com/account/big/myPackage`,
-								{ waitUntil: "networkidle2" }
+								{waitUntil: "networkidle2"}
 							);
 							let coupon_contents = await global_var.page.$$(
 								`.coupon-content`
@@ -2435,7 +2422,7 @@ class DO_Lottery {
 							if (bcoin_get) {
 								await global_var.page.goto(
 									`https://link.bilibili.com/p/center/index#/user-center/my-info/operation`,
-									{ waitUntil: "networkidle2" }
+									{waitUntil: "networkidle2"}
 								);
 								await global_var.page.waitForSelector(
 									`.user .pay-button`,
@@ -2452,7 +2439,7 @@ class DO_Lottery {
 								await global_var.page.waitForSelector(
 									`.ipt-number`,
 									async (jshandle) => {
-										await global_var.page.type(jshandle,"5");
+										await global_var.page.type(jshandle, "5");
 									}
 								);
 								// await global_var.page.waitForSelector(
@@ -2535,11 +2522,11 @@ class DO_Lottery {
 							let d = new Date();
 							MYAPI.fileWrite(
 								`log/` +
-									`${
-										global_var.user_info.uname
-									}_${d.toLocaleString()}参加失败的预约抽奖.txt`
-										.replaceAll("/", "-")
-										.replaceAll(":", "："),
+								`${
+									global_var.user_info.uname
+								}_${d.toLocaleString()}参加失败的预约抽奖.txt`
+									.replaceAll("/", "-")
+									.replaceAll(":", "："),
 								joinfail_list.join("\n")
 							);
 						}
@@ -2558,6 +2545,7 @@ class DO_Lottery {
 						}
 						return success_list;
 					}
+
 					//#endregion
 					//#region 必抽的大奖加官方抽奖
 					async function 必抽的大奖加官方抽奖() {
@@ -2658,6 +2646,7 @@ class DO_Lottery {
 							`${global_var.user_info.uname}\t任务完成：必抽的大奖加官方抽奖`
 						);
 					}
+
 					//#endregion
 					//#region 普通抽奖
 					async function 普通抽奖() {
@@ -2679,6 +2668,7 @@ class DO_Lottery {
 							);
 						}
 					}
+
 					//#endregion
 					//#region 抽奖执行函数
 					async function lottery_excutor() {
@@ -2704,7 +2694,7 @@ class DO_Lottery {
 										let op = JSON.parse(
 											fs.readFileSync(
 												__dirpath +
-													"JsonData/待操作HTML元素.json",
+												"JsonData/待操作HTML元素.json",
 												"utf-8"
 											)
 										); //require并不是同步地读取文件，如果这个JSON文件是动态变化的话可能无法读取到最新的JSON文件。
@@ -2728,10 +2718,10 @@ class DO_Lottery {
 						let tasklist = ["普通抽奖", "必抽的大奖加官方抽奖"];
 						global_var.Pause = false;
 						console.log(`${Date()}开始获取动态id`);
-						lottery_setting.FLAG.do_lottery_flag = true; //设置开始抽奖的标志
+						global_var.FLAG.抽奖中 = true; //设置开始抽奖的标志
 						global_var.page.on("close", function () {
 							//确认关闭后干的事情
-							lottery_setting.FLAG.do_lottery_flag = false;
+							global_var.FLAG.抽奖中 = false;
 						});
 
 						tasklist = utl.part_shuffle(tasklist.length, tasklist);
@@ -2753,6 +2743,7 @@ class DO_Lottery {
 							}
 						}
 					}
+
 					//#endregion
 					await lottery_excutor();
 					//#region 开始防过滤操作
@@ -2766,7 +2757,7 @@ class DO_Lottery {
 						}
 						if (
 							(lottery_setting.prevent_module
-								.share_video_switch ||
+									.share_video_switch ||
 								lottery_setting.prevent_module
 									.create_word_dynamic_chp_switch) &&
 							!clf
@@ -2836,7 +2827,7 @@ class DO_Lottery {
 						console.error(`防过滤操作失败`, e);
 					}
 					//#endregion
-					lottery_setting.FLAG.do_lottery_flag = false;
+					global_var.FLAG.抽奖中 = false;
 					// try {
 					//     await MYAPI.cookieSetting.saveCookie(lottery_setting.CONFIG.COOKIENAME)//结束保存cookie
 					// }
@@ -2849,6 +2840,7 @@ class DO_Lottery {
 					);
 				}
 			}
+
 			//#region 启动入口函数
 			/**
 			 *
@@ -2905,7 +2897,8 @@ class DO_Lottery {
 				} finally {
 					try {
 						await global_var.page.goto("about:blank");
-					} catch {}
+					} catch {
+					}
 				}
 
 				if (browser_mode) {

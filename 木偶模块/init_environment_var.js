@@ -459,6 +459,7 @@ class ENVIRONMENT {
 		 * @property {boolean} FLAG.吃饭休息标志 - 吃饭休息标志
 		 * @property {boolean} FLAG.评论响应标志 - 评论响应标志
 		 * @property {boolean} FLAG.opus动态标志 - opus动态标志
+		 * @property {boolean} FLAG.抽奖中 - 是否正在抽奖
 		 * @property {Object|undefined} user_nav - 用户导航
 		 * @property {boolean} fengkong_flag - 风控标志
 		 * @property {string} recorded_data - 抽奖反馈信息
@@ -514,6 +515,7 @@ class ENVIRONMENT {
 				吃饭休息标志: false,
 				评论响应标志: false,
 				opus动态标志: false,
+				抽奖中:false
 			},
 			user_nav: undefined,
 			fengkong_flag: false, //风控标志
