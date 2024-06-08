@@ -6,13 +6,11 @@
  * @FilePath: \tampermonkey\ExpressServerEnd\SqlHelper\SqlHelper.js
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
-const moduleAlias = require("module-alias");
 const config = require("dotenv").config();
-moduleAlias.addAlias("@", config.parsed.root_dir);
 const { Sequelize } = require("sequelize");
 const { Op } = require("sequelize");
 const DB = config.parsed.DB;
-const sequelize = new Sequelize(DB);
+const sequelize = new Sequelize(DB,{dialect:"postgres"});
 sequelize
 	.authenticate()
 	.then(() => {

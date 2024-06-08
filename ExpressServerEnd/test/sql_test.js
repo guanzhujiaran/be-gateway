@@ -6,9 +6,15 @@
  * @FilePath: \tampermonkey\ExpressServerEnd\test\sql_test.js
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
-const sqlhelper = require("../SqlHelper/SqlHelper");
+const {addAliases} = require("module-alias");
+
+addAliases({
+  '@'  :'K:/BiliPPTRVerDEV/',
+});
+const {AccountDao} = require("@/ExpressServerEnd/DAO/AccountDao");
+const {UserDao} = require('@/ExpressServerEnd/DAO/UserDao');
 
 (async () => {
-	let resp = await sqlhelper.get_user_info_by_user_name('admin');
+	let resp = await UserDao.get_user_info_by_user_name('114514');
 	console.log(JSON.stringify(resp,'','\t'));
 })();

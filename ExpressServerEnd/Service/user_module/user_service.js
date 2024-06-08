@@ -1,11 +1,12 @@
-import {UserModel} from "@/ExpressServerEnd/Model/api/v1/user/user_model";
-import {UserDao} from "@/ExpressServerEnd/DAO/UserDao";
-import md5 from "md5";
-import {createToken} from "@/ExpressServerEnd/Controller/Route/JwtModule";
-import {base_api_model} from "@/ExpressServerEnd/Model/base_model/base_model";
+const {UserModel} = require("@/ExpressServerEnd/Model/api/v1/user/user_model");
+const md5 = require("md5");
+const {createToken} = require("@/ExpressServerEnd/Controller/Route/JwtModule");
+const {base_api_model} = require("@/ExpressServerEnd/Model/base_model/base_model");
+const fs = require('fs');
 
 const yaml = require('js-yaml');
-const config = yaml.load("@/ExpressServerEnd/config/config.yml", 'utf8');
+let fileContents = fs.readFileSync("ExpressServerEnd/config/config.yml", 'utf8');
+const config = yaml.load(fileContents, 'utf8');
 const password_salt = config.common_config.salt.password_salt;
 
 class UserService {
@@ -48,7 +49,7 @@ class UserService {
      * @param user_name
      * @return {Promise<base_api_model>}
      */
-    static async get_user_nav({uid}) {
+    static async get_user_nav(uid) {
         let user_model = new UserModel({uid: uid})
         await user_model.get_uname_uid_pwd()
         if (user_model.uid && user_model.user_name) {
@@ -75,11 +76,11 @@ class UserService {
         if (is_user_name_exist) {
             return new base_api_model({
                 code: 40014,
-                msg: "该昵称已存在",
+                msg: "该用户名已存在",
             })
         }
         let parsed_pwd = md5(pwd + password_salt);
-        if (await UserModel.add_user({user_name: user_name, pwd: parsed_pwd})) {
+        if (await UserModel.add_user({user_name: user_name, parsed_pwd: parsed_pwd})) {
             return new base_api_model({
                 msg: "注册成功！",
             })
@@ -91,4 +92,4 @@ class UserService {
     }
 }
 
-export default UserService
+module.exports= {UserService}

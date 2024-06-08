@@ -2,7 +2,7 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths":{
-      "@/*": ["/*"]
+      "@/*": ["K:/BiliPPTRVerDEV/*"]
     },
     "experimentalDecorators": true
   },

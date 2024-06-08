@@ -1,4 +1,4 @@
-import {
+const {
     TAccountDetailInfo,
     TAccountInfo,
     TAccountInfo_DashBoardInfo,
@@ -8,31 +8,31 @@ import {
     TDynamicInfo,
     TLotteryLogInfo,
     TReserveLotteryInfo,
-} from "@/ExpressServerEnd/DAO/SqlHelper";
-import {UserDao} from "@/ExpressServerEnd/DAO/UserDao";
+} = require("@/ExpressServerEnd/DAO/SqlHelper");
+const {UserDao} = require("@/ExpressServerEnd/DAO/UserDao");
 
 const {Op} = require("sequelize");
 
-export class AccountDao {
+class AccountDao {
     constructor() {
     }
 
     //#region accountinfo的crud
     /**
      * 返回新增的自增主键 account_id
-     * @param account_name
-     * @param uid
-     * @return {Promise<*>}
+     * @param account_name {string}
+     * @param uid {number}
+     * @return {Promise<number>}
      */
     static add_account = async (account_name, uid) => {
         let user_info = await UserDao.get_user_info_by_uid(uid);
         if (!user_info) {
             throw new Error(`uid:${uid}不存在，无法添加该用户名下的account！`);
         }
-        return await TAccountInfo.create({
+        return (await TAccountInfo.create({
             account_name: account_name,
             uid: uid,
-        });
+        })).toJSON()
     };
     /**
      * @typedef {Object} AccountInfo
@@ -41,6 +41,7 @@ export class AccountDao {
      * @property {string|null} face - 账户头像，如果有的话
      * @property {string} uname - 账户名
      * @property {string} uid - 账户b站uid
+     * @property {Object} settings - 账户的设置
      */
     /**
      * @typedef {Object} UserAccount
@@ -123,7 +124,7 @@ export class AccountDao {
      * @param uid {number}
      * @return {Promise<UserAccount | null>}
      */
-        static async get_account_info_by_account_id_and_uid(account_id, uid) {
+    static async get_account_info_by_account_id_and_uid(account_id, uid) {
         let user_info = await TAccountInfo.findOne({
             where: {
                 account_id: account_id,
@@ -141,7 +142,94 @@ export class AccountDao {
         return user_info?.toJSON();
 
     }
+
+    /**
+     * 获取账号设置信息，如果不存在，则返回一个默认的设置
+     * @param account_name {string}
+     * @param uid {number}
+     * @return {Promise<UserAccount|undefined>}
+     */
+    static async get_lottery_setting_by_account_name_and_uid(account_name, uid) {
+        let account_detail_info = await TAccountInfo.findOne({
+            where: {
+                account_name: account_name,
+                uid: uid
+            },
+            include: [
+                {
+                    model: TAccountDetailInfo,
+                    as: "info",
+                },
+            ],
+            attributes:{
+                exclude:['account_id']
+            }
+        })
+        return account_detail_info?.toJSON()
+    }
+
+    /**
+     * 保存账号设置信息
+     * @param account_name {string}
+     * @param uid {number}
+     * @param lottery_setting {Object}
+     * @return {Promise<boolean>}
+     * {
+     *   "account_name": "cookie1",
+     *   "account_id": 1,
+     *   "uid": "1",
+     *   "info": [
+     *     {
+     *       "account_detail_info_id": 1,
+     *       "account_info_id": 1,
+     *       "uname": "后藤波奇",
+     *       "vip": "十年大会员",
+     *       "level": 6,
+     *       "face": null,
+     *       "uid": null,
+     *       "lottery_setting": null
+     *     }
+     *   ]
+     * }
+     *
+     */
+    static async save_lottery_setting_by_account_name_and_uid(account_name, uid, lottery_setting) {
+        let account_detail_info = await TAccountInfo.findOne({
+            where: {
+                account_name: account_name,
+                uid: uid
+            },
+            include: [
+                {
+                    model: TAccountDetailInfo,
+                    as: "info",
+                }
+            ]
+        })
+        if (!account_detail_info) return false
+        if (account_detail_info.info) { // 存在则更新
+            account_detail_info.info.set({
+                settings: lottery_setting
+            })
+            await account_detail_info.info.save()
+        } else {
+            await TAccountDetailInfo.create({
+                account_info_id: account_detail_info.account_id,
+                uname: "Unknown",
+                vip: "",
+                level: -1,
+                uid: -1,
+                settings: lottery_setting
+            })
+        }
+        return true
+    }
+
     //#endregion
+
+
+    //region 获取dashboard上需要的信息
+
     /**
      * @typedef {Object} account_dashboard_info - API返回的dashboard信息类型
      * @property {string} account_name
@@ -226,6 +314,7 @@ export class AccountDao {
             failed_num: failed_num,
         });
     };
+
 
     //#region 查询某个用户的参加抽奖数量
     /**
@@ -397,5 +486,12 @@ export class AccountDao {
         return atari_up_num;
     };
     //#endregion
+    //endregion
 
+
+}
+
+
+module.exports = {
+    AccountDao
 }

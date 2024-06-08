@@ -13,12 +13,10 @@ const {
 } = require("express-validator");
 const router = express.Router();
 const cookParser = require("cookie-parser");
-const {AccountDao} = require("@/ExpressServerEnd/DAO/AccountDao");
-const AccountService = require("@/ExpressServerEnd/Service/account_module/account_service");
-const account_service = require("@/ExpressServerEnd/Service/account_module/account_service");
+const {AccountService} = require("@/ExpressServerEnd/Service/account_module/account_service");
 router.use(cookParser());
 
-
+//region 获取所有账号列表
 router.get("/all_accounts",
     /**
      *
@@ -30,7 +28,7 @@ router.get("/all_accounts",
     async (req, resp, next) => {
         try {
             let uid = req.auth.uid;
-            let result = await account_service.get_all_account_info_by_uid(uid)
+            let result = await AccountService.get_all_account_info_by_uid(uid)
             /**
              * @type {RootObject<Array.<UserAccount>>}
              */
@@ -40,8 +38,9 @@ router.get("/all_accounts",
             next(e);
         }
     });
+//endregion
 
-
+//region 添加账号
 router.post(
     "/add_account",
     [body("account_name").notEmpty().withMessage("账号名不能为空")],
@@ -60,7 +59,7 @@ router.post(
             }
             let uid = req.auth.uid;
             let account_name = req.body.account_name;
-            let result = await account_service.add_account(account_name, uid);
+            let result = await AccountService.add_account(account_name, uid);
             /**
              * @type {RootObject<UserAccount|null>}
              */
@@ -71,7 +70,9 @@ router.post(
         }
     }
 );
+//endregion
 
+//region 获取账号信息
 router.get(
     "/get_account_info",
     oneOf([
@@ -99,7 +100,7 @@ router.get(
             let account_name = req.query.account_name;
             let account_id = req.query.account_id;
 
-            let result = await account_service.get_account_info(uid, {
+            let result = await AccountService.get_account_info(uid, {
                 account_name: account_name,
                 account_id: account_id
             });
@@ -113,5 +114,35 @@ router.get(
         }
     }
 );
+//endregion
+
+//region 获取账号设置
+router.get(
+    "/get_account_setting",
+        query("account_name").notEmpty().withMessage("账号名称不能为空")
+    ,
+    async (req, resp, next) => {
+        try {
+            var errors = validationResult(req);
+            if (!errors.isEmpty()) {
+                return next(errors.mapped());
+            }
+            let uid = req.auth.uid;
+            let account_name = req.query.account_name;
+
+            let result = await AccountService.get_lottery_setting_by_account_name_and_uid(account_name,uid);
+            /**
+             * @type {UserAccount}
+             */
+            let result_json = result.toJSON()
+            return resp.json(result_json)
+        } catch (e) {
+            next(e);
+        }
+    }
+);
+//endregion
+
+
 
 module.exports = router;

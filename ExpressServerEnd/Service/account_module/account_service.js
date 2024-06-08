@@ -1,11 +1,23 @@
-import {base_api_model} from "@/ExpressServerEnd/Model/base_model/base_model";
-import {UserModel} from "@/ExpressServerEnd/Model/api/v1/user/user_model";
-import {AccountModel} from "@/ExpressServerEnd/Model/api/v1/account/account_model";
+const {AccountLotterySettingModel} = require("@/ExpressServerEnd/Model/api/v1/account/account_model");
+
+const {base_api_model} = require("@/ExpressServerEnd/Model/base_model/base_model");
+const {AccountModel} = require("@/ExpressServerEnd/Model/api/v1/account/account_model");
 
 const yaml = require('js-yaml');
-const config = yaml.load("@/ExpressServerEnd/config/config.yml", 'utf8');
+const fs = require("fs");
+let fileContents = fs.readFileSync("ExpressServerEnd/config/config.yml", 'utf8');
+const config = yaml.load(fileContents, 'utf8');
 
 class AccountService {
+    /**
+     *
+     * @param account_name {string}
+     * @return {AccountLotterySettingModel}
+     */
+    static generate_default_lottery_setting(account_name) {
+        return new AccountLotterySettingModel(account_name)
+    }
+
     /**
      * 获取用户所有账号信息
      * @param uid
@@ -36,16 +48,12 @@ class AccountService {
         }
 
         let result = await acc_model.add_account(account_name);
-        if (typeof result === 'number') {
+        if (typeof result.account_id === 'number') {
             /**
              * @type {UserAccount}
              */
             return new base_api_model({
-                    data: {
-                        uid: uid,
-                        account_name: acc_model.account_name,
-                        account_id: result,
-                    },
+                    data: result,
                     msg: "账号账号创建成功！"
                 }
             )
@@ -99,7 +107,28 @@ class AccountService {
 
     }
 
-
+    /**
+     * 通过账号名称和uid获取抽奖设置
+     * @param account_name
+     * @param uid
+     * @return {Promise<base_api_model>}
+     */
+    static async get_lottery_setting_by_account_name_and_uid(account_name, uid) {
+        let acc_model = new AccountModel(uid);
+        let ret_model = await acc_model.get_lottery_setting_by_account_name_and_uid(account_name);
+        if (!ret_model) return new base_api_model({
+            code: 40017,
+            data: ret_model,
+            msg: "该账号不存在！"
+        })
+        if (!ret_model.info) {
+            ret_model.info = {}
+            ret_model.info.settings = this.generate_default_lottery_setting(account_name);
+        }
+        return new base_api_model({
+            data: ret_model
+        })
+    }
 }
 
-export default AccountService
+module.exports = {AccountService}

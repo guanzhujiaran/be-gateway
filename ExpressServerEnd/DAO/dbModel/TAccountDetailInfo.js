@@ -32,6 +32,14 @@ module.exports = function(sequelize, DataTypes) {
     face: {
       type: DataTypes.INTEGER,
       allowNull: true
+    },
+    uid: {
+      type: DataTypes.STRING(255),
+      allowNull: true
+    },
+    settings: {
+      type: DataTypes.JSON,
+      allowNull: true
     }
   }, {
     sequelize,

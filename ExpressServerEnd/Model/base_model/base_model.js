@@ -1,6 +1,5 @@
-import {elementAttributeModified} from "jsdom/lib/jsdom/living/named-properties-window";
 
-export class base_model{
+class base_model{
     /**
      *
      * @return {Object}
@@ -22,8 +21,8 @@ export class base_model{
  * @property {string} msg
  * @property {number} ttl
  */
-
-export class base_api_model extends base_model
+exports.base_model = base_model
+exports.base_api_model = class base_api_model extends base_model
 {
     code=0;
     data;

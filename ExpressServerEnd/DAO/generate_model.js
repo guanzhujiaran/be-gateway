@@ -23,7 +23,7 @@ const database = {
   // Sequelize的构造函数“options”标记对象的JSON文件路径
   config: '',
   // 输出文件路径
-  output: './ExpressServerEnd/SqlHelper/dbModel',
+  output: './dbModel',
   // 数据库类型：postgres, mysql, sqlite
   dialect: 'postgres',
   // 包含在model的配置参数中define的模型定义的JSON文件路径

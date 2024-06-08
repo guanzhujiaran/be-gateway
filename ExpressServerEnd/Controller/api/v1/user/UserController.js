@@ -2,7 +2,6 @@ const express = require("express");
 const {check, validationResult} = require("express-validator");
 const router = express.Router();
 const cookParser = require("cookie-parser");
-const {createToken} = require("@/ExpressServerEnd/Controller/Route/JwtModule");
 const {UserService} = require("@/ExpressServerEnd/Service/user_module/user_service")
 router.use(cookParser());
 
@@ -52,8 +51,26 @@ router.post(
     "/reg",
     [
         check("user_name", "用户名不得为空！").not().isEmpty(),
+        check("user_name").custom((value) => {
+            // if (!/^[A-Za-z0-9]+$/.test(value)) {
+            //     throw new Error('密码只能包含ASCII字母和数字，且不能有空格');
+            // }
+            if (value.includes(" ")) {
+                throw new Error("用户名不能包含空格")
+            }
+            return true;
+        }),
         check("pwd", "密码不得为空").not().isEmpty(),
-        check("pwd", "密码长度不得小于8位").isLength({min: 8}),
+        check("pwd", "密码长度不得小于8位，不得超过32位").isLength({min: 8, max: 32}),
+        check("pwd").custom((value) => {
+            // if (!/^[A-Za-z0-9]+$/.test(value)) {
+            //     throw new Error('密码只能包含ASCII字母和数字，且不能有空格');
+            // }
+            if (value.includes(" ")) {
+                throw new Error("密码不能包含空格")
+            }
+            return true;
+        }),
     ],
     async (req, resp, next) => {
         try {
@@ -69,8 +86,7 @@ router.post(
              *
              * @type {RootObject<null>}
              */
-            let result_json = result.toJSON();
-            return resp.json(result.toJSON())
+            return resp.json(result?.toJSON())
         } catch (e) {
             next(e);
         }
