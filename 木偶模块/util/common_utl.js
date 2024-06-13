@@ -26,9 +26,9 @@ const pptr_op = {
 				if (pg && pg.isClosed()) {
 					return;
 				}
-				is_front = await pg.evaluate(
-					() => document.visibilityState 
-				) === "visible";
+				is_front =
+					(await pg.evaluate(() => document.visibilityState)) ===
+					"visible";
 				if (!is_front) {
 					await pg.bringToFront();
 					is_front = true;
@@ -195,27 +195,36 @@ const pptr_op = {
 
 				req.continue();
 			} catch (e) {
-				console.warn(`拦截请求：${req.url()}失败\n${e.stack}`, e);
+				console.error(`拦截请求：${req.url()}失败\n${e.stack}`, e);
 			}
 		});
-		pg.on('response',resp=>{
-			let hdr = resp.headers();
-			if(hdr['x-bili-gaia-vvoucher']){
-				console.error(`触发验证码！`)
+		pg.on("response", (resp) => {
+			try{
+				let hdr = resp.headers();
+				if (hdr["x-bili-gaia-vvoucher"]) {
+					console.error(
+						`触发验证码！\n${resp.url()}\n${JSON.stringify(hdr)}`
+					);
+				}
 			}
-		})
+			catch(e){
+				console.error('获取响应头失败！',e)
+			}
+		});
 	},
 	/**
 	 * 通过b站前端的__BiliUser__.isLogin判断是否账号的登录状态还在
 	 * @param {Page} pg
-	 * @returns
+	 * @returns {Promise<boolean>}
 	 *  - true:登录
 	 *  - false:登录失效
 	 */
 	check_bili_login: async (pg) => {
 		let url = pg.url();
 		if (!url.includes(`bilibili`)) {
-			await pg.goto(`https://message.bilibili.com/?spm_id_from=333.1007.0.0#/love`);
+			await pg.goto(
+				`https://message.bilibili.com/?spm_id_from=333.1007.0.0#/love`
+			);
 		}
 		let isLogin = await pg.evaluate(() => window.__BiliUser__?.isLogin);
 		pg.url() == url ? {} : await pg.goto(url);

@@ -2,15 +2,16 @@
  * @Author: 星瞳 1944637830@qq.com
  * @Date: 2023-08-18 17:24:27
  * @LastEditors: 星瞳 1944637830@qq.com
- * @LastEditTime: 2024-05-18 20:30:20
+ * @LastEditTime: 2024-06-13 12:12:42
  * @FilePath: \tampermonkey\ChatGPT\ChatGPTService.js
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
-const chatgpt_op = require("../木偶模块/util/chatgpt_browser");
-const my_chat = new chatgpt_op();
+// const chatgpt_op = require("../木偶模块/util/chatgpt_browser");
+// const my_chat = new chatgpt_op();
 const express = require("express");
 const app = express();
 const fs = require("fs");
+const axios = require("axios");
 const port = 3000;
 app.use(express.json());
 app.use(express.urlencoded());
@@ -37,37 +38,49 @@ app.post("/ChatGPT/ask", async (req, res) => {
 	let bt = 0;
 	try {
 		while (1) {
-			if (
-				!my_chat.chatpage ||
-				(await my_chat.chatpage.isClosed()) ||
-				!my_chat.qianwen_page ||
-				(await my_chat.qianwen_page.isClosed())
-			) {
-				await my_chat.init();
-			}
-			if (my_chat.isAvailable) {
+			// if (
+			// 	!my_chat.chatpage ||
+			// 	(await my_chat.chatpage.isClosed()) ||
+			// 	!my_chat.qianwen_page ||
+			// 	(await my_chat.qianwen_page.isClosed())
+			// ) {
+			// 	await my_chat.init();
+			// }
+			// if (my_chat.isAvailable) {
+			if (1) {
 				let inputText = req.body.data;
 				if (!inputText) {
 					console.error(`非法输入的请求喵！${req.body}`);
 				}
-				let processedText = await my_chat.askquestion(inputText);
+				let resp = await axios.post(
+					"http://127.0.0.1:3090/api/v1/ChatGpt3_5/ReplySingle",
+					{
+						question: inputText,
+						ts: Math.ceil(Date.now() / 1000),
+					}
+				);
+				if (resp.data.code) {
+					throw Error(resp.msg);
+				}
+				// let processedText = await my_chat.askquestion(inputText);
+				let  processedText = resp.data.data.answer
 				processedText = processedText
 					? JSON.parse(
-							processedText
+							processedText.replace('：{','{')
 								.replace("jsonCopy code", "")
 								.replace("data{", "{")
-								.replaceAll('json1','')
-								.replaceAll(`Json\n1`,'')
-								.replaceAll('\n2','')
-								.replaceAll('\n4','')
-								.replaceAll('\n5','')
-								.replaceAll('\n6','')
-								.replaceAll('\n7','')
-								.replaceAll('\n8','')
-								.replaceAll('\n9','')
-								.replaceAll('\n10','')
-								.replaceAll('\n11','')
-								.replaceAll('\n12','')
+								.replaceAll("json1", "")
+								.replaceAll(`Json\n1`, "")
+								.replaceAll("\n2", "")
+								.replaceAll("\n4", "")
+								.replaceAll("\n5", "")
+								.replaceAll("\n6", "")
+								.replaceAll("\n7", "")
+								.replaceAll("\n8", "")
+								.replaceAll("\n9", "")
+								.replaceAll("\n10", "")
+								.replaceAll("\n11", "")
+								.replaceAll("\n12", "")
 								.trim()
 					  )
 					: undefined;

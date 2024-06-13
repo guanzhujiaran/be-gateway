@@ -2,7 +2,7 @@
  * @Author: 星瞳 1944637830@qq.com
  * @Date: 2023-11-12 23:55:03
  * @LastEditors: 星瞳 1944637830@qq.com
- * @LastEditTime: 2024-05-30 13:55:45
+ * @LastEditTime: 2024-06-10 09:55:15
  * @FilePath: \tampermonkey\index.js
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -31,16 +31,16 @@
  * ______#####______;###________###______#________
  * ________##_______####________####______________
  */
-// let longjohn = require("longjohn");
-// longjohn.async_trace_limit = 100;
+let longjohn = require("longjohn");
+longjohn.async_trace_limit = 1000;
+Error.stackTraceLimit = 1000;
 let { DO_Lottery, sleep } = require("./木偶模块/puppeteer_lottery.js");
 let { LIVE_LOT_Service } = require("./直播模块/live_op.js");
 let { live_dm_wss_service } = require("./直播模块/live_dm_server.js");
 let { event_bus, EVENT_NAME_MAP } = require("./lib/helper/event_bus"); //注册事件用的，每一轮都要重新注册！
 let axios = require("axios");
 let fs = require("fs");
-require('longjohn');
-Error.stackTraceLimit = 0;
+
 /**
  * 生成抽奖文件
  * @param {Date} start_time

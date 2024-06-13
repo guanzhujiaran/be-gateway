@@ -2,7 +2,7 @@
  * @Author: 星瞳 1944637830@qq.com
  * @Date: 2023-11-07 22:44:13
  * @LastEditors: 星瞳 1944637830@qq.com
- * @LastEditTime: 2024-05-28 23:01:57
+ * @LastEditTime: 2024-06-01 13:49:45
  * @FilePath: \tampermonkey\直播模块\live_op.js
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -1393,7 +1393,7 @@ class LIVE_LOT {
 				return resp.data;
 			});
 		} catch (e) {
-			this.API.chatLog(`获取服务器数据失败！${e}\n${e.stack}`, "error");
+			this.API.chatLog(`获取服务器数据失败！${e}\n${JSON.stringify(e.stack)}`, "error");
 			return [];
 		}
 	};
@@ -1484,7 +1484,7 @@ class LIVE_LOT {
 			//检查到第二天就将包裹里的礼物全部送出去
 			let new_pg = await this.live_pg.browser().newPage();
 			try {
-				await live_op.basic_op.hook_teck_logdata(new_pg);
+				await pptr_op.hook_teck_logdata(new_pg);
 				await this.#send_daily_gift(new_pg);
 			} catch (e) {
 				console.error(`每日任务执行失败!\t${e}\n${e.stack}`);
@@ -1763,7 +1763,7 @@ class LIVE_LOT {
 					this.API.chatLog(`处理数据失败！${e}\n${e.stack}`, "error");
 				}
 		} catch (e) {
-			console.error(`${this.CONFIG.live_info.uname}\t出了严重错误，不继续执行直播抽奖！\n${e.stack}`, e);
+			console.error(`${this.CONFIG.live_info.uname}\t出了严重错误！\n${e.stack}`, e);
 			// throw e;
 		}
 	};
@@ -1929,7 +1929,7 @@ class LIVE_LOT_Service {
 			// );
 			return response;
 		} catch (e) {
-			this.API.chatLog(`获取服务器数据失败！${e}\n${e.stack}`, "error");
+			this.API.chatLog(`获取服务器数据失败！${e}\n${JSON.stringify(e.stack)}`, "error");
 			return [];
 		}
 	};

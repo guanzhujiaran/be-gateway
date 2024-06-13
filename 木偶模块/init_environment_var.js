@@ -312,7 +312,7 @@ class ENVIRONMENT {
 						opus_init_detail = await global_var.page.evaluate(
 							`window.__INITIAL_STATE__`
 						);
-						if (opus_init_detail) {
+						if (opus_init_detail?.length) {
 							break;
 						} else {
 							await sleep(10e3);
@@ -431,7 +431,9 @@ class ENVIRONMENT {
 						is_front = true;
 					}
 				} catch (e) {
-					console.error(`${global_var.user_info.uname}\t将浏览器切换至前台失败！${e}\n${e.stack}`);
+					console.error(
+						`${global_var.user_info.uname}\t将浏览器切换至前台失败！${e}\n${e.stack}`
+					);
 					await sleep(1e3);
 				}
 				return is_front;
@@ -473,8 +475,6 @@ class ENVIRONMENT {
 		 * @property {string} Baidu_wenxin.access_token_api - 百度文心的access_token_api
 		 * @property {string} Baidu_wenxin.paraphrase_api - 百度文心的paraphrase_api
 		 * @property {string} Baidu_wenxin.get_result_api - 百度文心的get_result_api
-		 * @property {Object} Getter - 获取器
-		 * @property {function} Getter.check_login_status - 检查登录状态
 		 */
 		/**@type {global_var_Obj} */
 		let global_var = {
@@ -531,17 +531,6 @@ class ENVIRONMENT {
 				paraphrase_api: `https://wenxin.baidu.com/moduleApi/portal/api/rest/1.0/ernie/3.0.20/zeus`,
 				get_result_api: `https://wenxin.baidu.com/moduleApi/portal/api/rest/1.0/ernie/v1/getResult`,
 			},
-			Getter: {
-				check_login_status: function () {
-					if (!global_var.user_info.uname) {
-						console.warn(
-							`登陆失败\n${lottery_setting.CONFIG.COOKIENAME}`
-						);
-						this.login_status = false;
-						throw "登陆失败";
-					}
-				},
-			},
 		};
 		let my_operator = {
 			basic_operator: {
@@ -556,7 +545,7 @@ class ENVIRONMENT {
 						try {
 							if (response_json.code == 12051) {
 								console.warn(
-									`${global_var.user_info.uname}\t检查评论失败！`,
+									`${global_var.user_info.uname}\t检查评论失败！但重复评论，算作成功！`,
 									JSON.stringify(response_json)
 								);
 								return true;
@@ -667,7 +656,6 @@ class ENVIRONMENT {
 				 */
 				dynamic_thumb: async (opus_dynamic = false) => {
 					//动态点赞
-					global_var.Getter.check_login_status();
 					try {
 						if (typeof global_var.recorded_data == "string") {
 							if (
@@ -787,7 +775,6 @@ class ENVIRONMENT {
 						}
 					}
 					//点击转发
-					global_var.Getter.check_login_status();
 					await pptr_op.check_page_is_front(global_var.page);
 					let pageurl = global_var.page.url();
 					if (pageurl.includes("opus")) {
@@ -799,198 +786,113 @@ class ENVIRONMENT {
 					await sleep(3e3);
 					try {
 						if (opus_dynamic || 1) {
-							let repost_btn = await global_var.page.$(
-								`.side-toolbar__action.forward`
-							);
-							await repost_btn.click();
-							await sleep(3e3);
-							if (repost_content) {
-								let msg_box;
-								for (let bt = 0; bt <= 5; bt++) {
-									try {
-										if (
-											!(await global_var.page.$(
-												`.bili-rich-textarea`
-											))
-										) {
-											await repost_btn.click();
-										}
+							let msg_box;
+							for (let bt = 0; bt <= 5; bt++) {
+								try {
+									await global_var.page
+										.waitForSelector(
+											`.side-toolbar__action.forward`
+										)
+										.then(async (el) => {
+											await el.click();
+										});
+									msg_box =
 										await global_var.page.waitForSelector(
-											`.bili-rich-textarea`,
-											{ timeout: 10e3 }
+											`.bili-rich-textarea`
 										);
-										msg_box = await global_var.page.$(
+									await msg_box.focus();
+									let msg_box_content =
+										await my_operator.basic_operator.get_opus_dynamic_repost_area_content(
+											msg_box
+										);
+									let _bt = 0;
+									//#region 输入转发内容
+									while (
+										repost_content &&
+										!msg_box_content.includes(
+											repost_content
+										)//回复栏里的东西等于回复内容时break
+									) {
+										msg_box = await global_var.page.waitForSelector(
 											`.bili-rich-textarea`
 										);
 										await msg_box.focus();
-										let msg_box_content =
+										await sleep(
+											utl.random_choice(
+												3 *
+													lottery_setting.Working_clearance_time
+											)
+										);
+										await msg_box.type(repost_content, {
+											delay: 20,
+										});
+										await sleep(1e3);
+										msg_box_content =
 											await my_operator.basic_operator.get_opus_dynamic_repost_area_content(
 												msg_box
 											);
-										let _bt = 0;
-
-										while (
-											msg_box_content.includes(
+										if (
+											!msg_box_content.includes(
 												repost_content
 											)
 										) {
-											//回复栏里的东西等于回复内容时break
-											if (
-												!(await global_var.page.$(
-													`.bili-rich-textarea`
-												))
-											) {
-												await repost_btn.click();
-											}
-											msg_box = await global_var.page.$(
-												`.bili-rich-textarea`
+											//如果不等就删掉重新输入，如果是转发 被转发的动态,则只需要判断是否包含即可
+											await global_var.page.mouse.click(
+												10,
+												10
 											);
-											await msg_box.focus();
-											await sleep(
-												utl.random_choice(
-													3 *
-														lottery_setting.Working_clearance_time
-												)
+											await sleep(3e3);
+											console.log(
+												"转发框里内容与转发内容不符，删除转发框里内容",
+												`\nmsg_box_content:${msg_box_content}\repost_content:${repost_content}`
+											);	
+											await global_var.page
+										.waitForSelector(
+											`.side-toolbar__action.forward`
+										)
+										.then(async (el) => {
+											await el.click();
+										});//重新点开转发modal
+											
+										}
+										if (_bt >= 5) {
+											console.error(
+												"转发框里输入内容失败"
 											);
-											await msg_box.type(repost_content, {
-												delay: 20,
-											});
-											await sleep(1e3);
-											msg_box_content =
-												await my_operator.basic_operator.get_opus_dynamic_repost_area_content(
-													msg_box
-												);
-											if (
-												!msg_box_content.includes(
-													repost_content
-												)
-											) {
-												//如果不等就删掉重新输入，如果是转发 被转发的动态,则只需要判断是否包含即可
-												await global_var.page.mouse.click(
-													10,
-													10
-												);
-												await sleep(3e3);
-												await repost_btn.click();
-												msg_box =
-													await global_var.page.$(
-														`.bili-rich-textarea`
-													);
-												console.log(
-													"转发框里内容与转发内容不符，删除转发框里内容",
-													`\nmsg_box_content:${msg_box_content}\repost_content:${repost_content}`
-												);
-											}
-											if (_bt >= 5) {
-												console.error(
-													"转发框里输入内容失败"
-												);
-												await utl.my_throw(
-													"动态评论失败"
-												);
-												throw `动态评论失败`;
-											}
-											_bt += 1;
+											await utl.my_throw("动态评论失败");
+											throw Error(`动态评论失败`);
 										}
-										await sleep(1e3);
-										break;
-									} catch (e) {
-										if (bt >= 5) {
-											throw e;
-										}
-										await sleep(3e3);
-										await global_var.page.evaluate(() => {
-											this.scrollTo(0, 1500);
-										});
-										await global_var.page.evaluate(() => {
-											this.scrollTo(0, -1500);
-										});
-										await sleep(3e3);
+										_bt += 1;
 									}
+									//#endregion
+									await global_var.page
+										.waitForSelector(
+											`.bili-dyn-share-publishing__action.launcher`
+										)
+										.then(async (el) => await el.click());
+									console.log(
+										`${global_var.user_info.uname}\t${pageurl}\t动态转发成功`
+									);
+									break;
+								} catch (e) {
+									if (bt >= 5) {
+										throw Error(e);
+									}
+									// await global_var.page.evaluate(() => {
+									// 	this.scrollTo(0, 1500);
+									// });
+									// await global_var.page.evaluate(() => {
+									// 	this.scrollTo(0, -1500);
+									// });
+									console.error(
+										`${global_var.user_info.uname}\t${global_var.pageurl} 模拟点击转发失败！dynamic_repost，${e}\n${e.stack}`
+									);
+									await global_var.page.reload();
+									await sleep(3e3);
 								}
 							}
-							let repost_launcher = await global_var.page
-								.waitForSelector(
-									`.bili-dyn-share-publishing__action.launcher`
-								)
-								.then(async (el) => await el.click());
 							await sleep(6e3);
 						}
-						// else {
-						// 	let repost_btn = await global_var.page.$(
-						// 		".bili-dyn-forward-publishing__action__btn"
-						// 	);
-						// 	let repost_text_area = await global_var.page.$(
-						// 		".bili-rich-textarea"
-						// 	);
-						// 	if (repost_btn && repost_text_area) {
-						// 	} else {
-						// 		//如果没有等待元素，则尝试前往转发页面
-						// 		await global_var.page.click(
-						// 			`.bili-dyn-action.forward`
-						// 		);
-						// 		await sleep(1e3);
-						// 		repost_btn = await global_var.page.$(
-						// 			".bili-dyn-forward-publishing__action__btn"
-						// 		);
-						// 		repost_text_area = await global_var.page.$(
-						// 			".bili-rich-textarea"
-						// 		);
-						// 	}
-						// 	if (repost_content) {
-						// 		//旧版动态页（非opus） 面如果有评论需要转发，就直接在转发页面输入
-						// 		await repost_text_area.type(repost_content, {
-						// 			delay: 20,
-						// 		});
-						// 		let textContent =
-						// 			await repost_text_area.evaluate(
-						// 				(el) => el.textContent
-						// 			);
-						// 		if (textContent && textContent.length > 950) {
-						// 			await repost_text_area.focus();
-						// 			await global_var.page.keyboard.down(
-						// 				"Control"
-						// 			);
-						// 			await global_var.page.keyboard.press("A");
-						// 			await global_var.page.keyboard.up(
-						// 				"Control"
-						// 			);
-						// 			await sleep(1e3);
-						// 			await global_var.page.keyboard.press(
-						// 				"Backspace"
-						// 			);
-						// 			await repost_text_area.type(
-						// 				textContent.slice(0, 950)
-						// 			);
-						// 		}
-						// 	}
-						// 	await sleep(1e3);
-						// 	await repost_btn.click();
-
-						// 	// let bt = 0
-						// 	// while (!global_var.response.create_dyn_response) {
-						// 	//     if (bt > 5) { break }
-						// 	//     await sleep(1e3)
-						// 	//     bt += 1
-						// 	// }
-						// 	// try {
-						// 	//     if (global_var.response.create_dyn_response.code != 0) {
-						// 	//         console.log(`动态转发失败，create_dyn_response.code`, global_var.response.create_dyn_response)
-						// 	//         global_var.fengkong_flag = true//可能触发风控，停一个小时
-						// 	//         return await utl.my_throw(`动态转发失败，create_dyn_response.code`)
-						// 	//     }
-						// 	//     else {
-						// 	//         console.log('动态转发成功');
-						// 	//     }
-						// 	// }
-						// 	// catch (e) {
-						// 	//     if (!e.includes(`Error: Node is either not clickable or not an HTMLElement`)) {
-						// 	//         global_var.fengkong_flag = true
-						// 	//     }//可能触发风控，停一个小时
-						// 	//     await utl.my_throw(`动态转发失败，dynamic_repost，${e}`)
-						// 	//     throw (`动态转发失败，dynamic_repost，${e}`)
-						// 	// }
-						// }
 					} catch (e) {
 						console.error(
 							`${global_var.user_info.uname}\t${global_var.pageurl} 动态转发失败，dynamic_repost，${e}\n${e.stack}`
@@ -1051,7 +953,6 @@ class ENVIRONMENT {
 						}
 						await sleep(3e3);
 					}
-					global_var.Getter.check_login_status();
 					let pageurl = global_var.page.url();
 					if (global_var.response.reply_main.code == 12061) {
 						//UP主已关闭评论区
@@ -1087,10 +988,11 @@ class ENVIRONMENT {
 
 						try {
 							if (opus_dynamic || 1) {
-								let msg_box= await global_var.page.waitForSelector(
-									`.reply-box-textarea`,
-									{ timeout: 30e3 }
-								);
+								let msg_box =
+									await global_var.page.waitForSelector(
+										`.reply-box-textarea`,
+										{ timeout: 30e3 }
+									);
 								await msg_box.click();
 								let msg_box_content =
 									await global_var.page.$eval(
@@ -1166,7 +1068,9 @@ class ENVIRONMENT {
 								await MYAPI.PageFunc.waitForResponse(
 									global_var.page,
 									"reply/add"
-								).catch(e=>{throw Error(e)});
+								).catch((e) => {
+									throw Error(e);
+								});
 								await sleep(1e3);
 
 								await CheckRisk();
@@ -1184,12 +1088,14 @@ class ENVIRONMENT {
 								global_var.response.comment_dyn_response
 									?.code == 12051
 							) {
-								break;	
+								break;
 							}
 							if (bt >= 5) {
 								throw e;
 							}
-							await global_var.page.reload({waitUntil:"networkidle2"});
+							await global_var.page.reload({
+								waitUntil: "networkidle2",
+							});
 							await sleep(3e3);
 							await global_var.page.evaluate(() => {
 								this.scrollTo(0, 1500);
@@ -1259,8 +1165,7 @@ class ENVIRONMENT {
 					}
 				},
 				comment_thumb: async (opus_dynamic = false) => {
-					global_var.Getter.check_login_status();
-					let pageurl = await global_var.page.url();
+					let pageurl = global_var.page.url();
 					if (pageurl.includes("opus")) {
 						opus_dynamic = true;
 					} else {
@@ -1362,8 +1267,7 @@ class ENVIRONMENT {
 								console.log("评论点赞成功");
 							}
 						} catch (e) {
-							console.error(e);
-							console.error(`评论点赞失败，comment_thumb`, e);
+							console.error(`评论点赞失败，comment_thumb\n${e}`);
 							await utl.my_throw(
 								`评论点赞失败，comment_thumb，${e}`
 							);
@@ -1385,14 +1289,9 @@ class ENVIRONMENT {
 				},
 				sanlian: async function (pageurl) {
 					await sleep(10e3);
-					await global_var.page.evaluate(
-						() => {
-							this.scrollTo(
-								0,
-								1500
-							);
-						}
-					);
+					await global_var.page.evaluate(() => {
+						this.scrollTo(0, 1500);
+					});
 					await global_var.page.keyboard.press("q", { delay: 10e3 });
 					// let thumb_btn = await global_var.page
 					// 	.waitForSelector(`.video-like.video-toolbar-left-item`)
@@ -1764,10 +1663,10 @@ class ENVIRONMENT {
 							opus_dynamic
 						);
 					} catch (e) {
-						console.warn(
+						console.error(
 							`评论获取失败\n${JSON.stringify(
 								global_var.response.global_dynamic_data
-							)}\t${pageurl}\t${global_var.user_info.uname}`
+							)}\t${pageurl}\t${global_var.user_info.uname}`,e
 						);
 						return await utl.my_throw(
 							`评论获取失败， only_comment，${e}`
@@ -1813,7 +1712,8 @@ class ENVIRONMENT {
 									if (
 										global_var.response.reply_main.code ==
 											12061 ||
-											global_var.response.reply_main.code ==12002||
+										global_var.response.reply_main.code ==
+											12002 ||
 										global_var.response.reply_main?.data
 											?.control?.input_disable //无法评论
 									) {
@@ -3875,7 +3775,10 @@ class ENVIRONMENT {
 													await sleep(1e3);
 													break;
 												} catch (e) {
-													console.error(`${global_var.user_info.uname}\t分享内容失败！`,e);
+													console.error(
+														`${global_var.user_info.uname}\t分享内容失败！`,
+														e
+													);
 													if (bt >= 5) {
 														throw e;
 													}
@@ -4063,7 +3966,10 @@ class ENVIRONMENT {
 									await global_var.page.goto("about:blank");
 									await sleep(st);
 								} catch (e) {
-									console.warn(`${global_var.user_info.uname}\t分享单个视频失败\n`, e);
+									console.warn(
+										`${global_var.user_info.uname}\t分享单个视频失败\n`,
+										e
+									);
 									await sleep(1e3);
 									await global_var.page.goto("about:blank");
 									continue;
@@ -4659,7 +4565,7 @@ class ENVIRONMENT {
 							});
 						return req;
 					} catch (e) {
-						console.error(e);
+						console.error(`string_semantic\t${e}`);
 						return true;
 					}
 				},
@@ -5528,7 +5434,8 @@ ${Dynamic_content}
 									response.url().includes(url_include) &&
 									response.status() === 200
 							)
-							.then(async (response) => await response.json()).catch(e=>{
+							.then(async (response) => await response.json())
+							.catch((e) => {
 								console.error(
 									`${
 										global_var.user_info.uname
@@ -5565,5 +5472,4 @@ ${Dynamic_content}
 		this.MYAPI = MYAPI;
 	};
 }
-
 module.exports = ENVIRONMENT;
