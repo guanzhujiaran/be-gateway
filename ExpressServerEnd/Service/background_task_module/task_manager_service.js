@@ -19,7 +19,6 @@ class TaskManager {
      * @type {{[string]:{[string]:BiliLotteryOpus}}}
      */
     user_account_hash_map = {
-        // user_id:{account_id1:xxx,account_id2:xxx}
     }
     opus_list = []
     live_service = new LIVE_LOT_Service(this.opus_list);
