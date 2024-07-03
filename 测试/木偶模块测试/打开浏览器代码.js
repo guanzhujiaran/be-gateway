@@ -11,7 +11,7 @@
 	const StealthPlugin = require("puppeteer-extra-plugin-stealth");
 	puppeteer.use(StealthPlugin());
 	let global_var = {};
-	browser = await puppeteer.launch({
+	let browser = await puppeteer.launch({
 		executablePath: `C:\\Users\\Acer\\AppData\\Local\\Google\\Chrome SxS\\Application\\chrome.exe`, //浏览器路径
 		//executablePath:`C:\\Program Files\\Google\\Chrome Dev\\Application\\chrome.exe`,
 		headless: false, //false为显示浏览器界面
@@ -38,12 +38,11 @@
 			`--start-maximized`,
 			"--proxy-server=http://127.0.0.1:24010",
 		],
-		userDataDir: "UserData\\" + `cookie14`,
+		userDataDir: "UserData\\" + `cookie1`,
 		ignoreDefaultArgs: ["--enable-automation", "--disable-extensions"],
 		ignoreHTTPSErrors: true,
 	});
 	global_var.browser = browser;
 
-	let page = await browser.newPage();
-	global_var.page = page;
+	global_var.page = await browser.newPage();
 })();

@@ -26,7 +26,7 @@ await new_pg.setBypassCSP(true)
 await new_pg.setRequestInterception(true);
 new_pg.on("request", async (req) => {
 	try {
-		if (req.method().toLowerCase() == "post") {
+		if (req.method().toLowerCase() === "post") {
 			if (
 				req.url().includes("data.bilibili.com/log/web?013324") ||
 				req.url().includes("data.bilibili.com/log/web?000527") ||

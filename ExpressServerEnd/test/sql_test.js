@@ -13,8 +13,14 @@ addAliases({
 });
 const {AccountDao} = require("@/ExpressServerEnd/DAO/AccountDao");
 const {UserDao} = require('@/ExpressServerEnd/DAO/UserDao');
-
+const {AccountLogDao} = require('@/ExpressServerEnd/DAO/AccountLogDao');
+const {manual_op_fail_model} = require('@/ExpressServerEnd/BiliPPTR/models/pages/bili_dynamic_page_model');
 (async () => {
-	let resp = await UserDao.get_user_info_by_user_name('114514');
+	let resp = await AccountLogDao.get_joined_account_info_lottery_log_by_lottery_offset(
+        '1',
+		'1',
+		);
+	// let resp = await AccountDao.get_reserve_lottery_infos(1,);
+	console.log(resp)
 	console.log(JSON.stringify(resp,'','\t'));
 })();

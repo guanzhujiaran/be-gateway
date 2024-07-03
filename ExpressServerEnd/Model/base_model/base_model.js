@@ -12,7 +12,6 @@ class base_model{
     }
 }
 
-
 /**
  * @template T
  * @typedef {Object} RootObject
@@ -21,9 +20,10 @@ class base_model{
  * @property {string} msg
  * @property {number} ttl
  */
-exports.base_model = base_model
-exports.base_api_model = class base_api_model extends base_model
-{
+
+
+// exports.base_model = base_model
+class base_api_model extends base_model {
     code=0;
     data;
     msg='';
@@ -39,3 +39,7 @@ exports.base_api_model = class base_api_model extends base_model
 
 }
 
+module.exports = {
+    base_api_model,
+    base_model
+}

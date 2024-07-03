@@ -1,6 +1,6 @@
 const {AccountLotterySettingModel} = require("@/ExpressServerEnd/Model/api/v1/account/account_model");
 
-const {base_api_model} = require("@/ExpressServerEnd/Model/base_model/base_model");
+const { base_api_model }= require("@/ExpressServerEnd/Model/base_model/base_model");
 const {AccountModel} = require("@/ExpressServerEnd/Model/api/v1/account/account_model");
 
 const yaml = require('js-yaml');
@@ -111,24 +111,48 @@ class AccountService {
      * 通过账号名称和uid获取抽奖设置
      * @param account_name
      * @param uid
-     * @return {Promise<base_api_model>}
+     * @return {Promise<{
+     *     code:number,data:{
+     *
+     *     }
+     * }>}
      */
     static async get_lottery_setting_by_account_name_and_uid(account_name, uid) {
-        let acc_model = new AccountModel(uid);
-        let ret_model = await acc_model.get_lottery_setting_by_account_name_and_uid(account_name);
-        if (!ret_model) return new base_api_model({
-            code: 40017,
-            data: ret_model,
-            msg: "该账号不存在！"
-        })
-        if (!ret_model.info) {
-            ret_model.info = {}
-            ret_model.info.settings = this.generate_default_lottery_setting(account_name);
+            let acc_model = new AccountModel(uid);
+            let ret_model = await acc_model.get_lottery_setting_by_account_name_and_uid(account_name);
+            if (!ret_model) return new base_api_model({
+                code: 40017,
+                data: ret_model,
+                msg: "该账号不存在！"
+            })
+            if (!ret_model.info) {
+                ret_model.info = {}
+                ret_model.info.settings = this.generate_default_lottery_setting(account_name);
+            }
+            return new base_api_model({
+                data: ret_model
+            })
+
+    }
+
+
+    static async save_lottery_setting_by_account_name_and_uid(account_name,uid,settings){
+        if (account_name!==settings.lottery_setting.CONFIG.COOKIENAME){
+            return new base_api_model({
+                code: 40018,
+                data: null,
+                msg: "账号名称和COOKIENAME不一致！"
+            })
         }
+        let acc_model = new AccountModel(uid);
+        let ret_model = await acc_model.save_lottery_setting_by_account_name_and_uid(account_name,settings);
         return new base_api_model({
             data: ret_model
         })
     }
+
+
+
 }
 
 module.exports = {AccountService}

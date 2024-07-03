@@ -8,6 +8,7 @@ const {
     TDynamicInfo,
     TLotteryLogInfo,
     TReserveLotteryInfo,
+    TUserInfo,
 } = require("@/ExpressServerEnd/DAO/SqlHelper");
 const {UserDao} = require("@/ExpressServerEnd/DAO/UserDao");
 
@@ -80,6 +81,7 @@ class AccountDao {
                     attributes: ["level", "vip", "face", "uname", "uid"],
                 },
             ],
+            order:[['account_id','desc']]
         });
         return all_accounts.map((el) => el.toJSON());
     };
@@ -140,7 +142,47 @@ class AccountDao {
             ],
         });
         return user_info?.toJSON();
+    }
 
+    /**
+     * {
+     *         "account_name": "cookie1",
+     *         "account_id": 1,
+     *         "uid": "1",
+     *         "info": {
+     *                 "level": 6,
+     *                 "vip": "十年大会员",
+     *                 "face": null,
+     *                 "uname": "后藤波奇"
+     *         }
+     * }
+     * @param account_name {string}
+     * @param user_name {string}
+     * @return {Promise<UserAccount | null>}
+     */
+    static async get_account_info_by_account_name_and_user_name(account_name, user_name) {
+        let account_info = await TAccountInfo.findOne({
+            where: {
+                account_name: account_name,
+            },
+            include: [
+                {
+                    model: TAccountDetailInfo,
+                    as: "info",
+                    required: false,
+                    attributes: ["level", "vip", "face", "uname"],
+                },
+                {
+                    model:TUserInfo,
+                    attributes: [],
+                    as:'uid_TUserInfo',
+                    where:{
+                        user_name:user_name
+                    }
+                }
+            ],
+        });
+        return account_info?.toJSON()
     }
 
     /**
@@ -224,9 +266,67 @@ class AccountDao {
         }
         return true
     }
-
     //#endregion
 
+    /**
+     *
+     * @param account_id
+     * @param limit
+     * @return {Promise<*[number]>}
+     */
+    static async get_reserve_lottery_log_sids_by_account_id(account_id, limit=100){
+        let reserve_log = await TAccountInfo_ReserveLog.findAll(
+            {
+                where:{
+                    accountinfo_id:account_id,
+                },
+                attributes:['reserveinfo_sid'],
+                order:[["reserveinfo_sid","desc"]],
+                limit:limit
+            }
+        )
+        return reserve_log.map(el=>el.reserveinfo_sid)
+    }
+    static async get_reserve_lottery_log_sids_by_username_account_name(username,account_name, limit=100){
+        let reserve_log = await TAccountInfo_ReserveLog.findAll(
+            {
+                attributes:['reserveinfo_sid'],
+                order:[["reserveinfo_sid","desc"]],
+                limit:limit,
+                include:{
+                    model:TAccountInfo,
+                    where:{
+                        account_name:account_name
+                    },
+                    as:"accountinfo",
+                    include:{
+                        model:TUserInfo,
+                        where:{
+                            user_name:username
+                        },
+                        as:"uid_TUserInfo"
+                    }
+                }
+            }
+        )
+        return reserve_log.map(el=>el.reserveinfo_sid)
+    }
+
+    static async get_reserve_lottery_infos(){
+        let reserve_lottery_infos =  await TReserveLotteryInfo.findAll({
+            where:{
+                available:true,
+                etime: {[Op.gt]:Math.ceil(Date.now()/1e3)}
+            },
+            attributes:{
+                exclude:['pk']
+            }
+        })
+        return reserve_lottery_infos.map(el=>el.toJSON())
+    }
+    static async upsert_reserve_lottery_infos(reserve_lottery_infos){
+        return await reserve_lottery_infos.map(async el=>await TReserveLotteryInfo.upsert(el))
+    }
 
     //region 获取dashboard上需要的信息
 

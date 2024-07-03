@@ -90,7 +90,7 @@ async function gen_lot_file(start_time) {
 			.toString();
 		let latest_lot_dyn_data = latest_lot_dyn.split("\n");
 		let lot_dyn_data = get_lot_dyn.data;
-		if (lot_dyn_data && lot_dyn_data.length != 0) {
+		if (lot_dyn_data && lot_dyn_data.length !== 0) {
 			let result = Array.from(
 				new Set(latest_lot_dyn_data.concat(lot_dyn_data))
 			);
@@ -309,11 +309,11 @@ async function main() {
 			let all_end = true;
 			let is_lotting = [];
 			for (let lot of MYLOTLIST) {
-				if (!lot.lot?.lotFlag) {
+				if (!lot.lot?.global_var.FLAG.抽奖中标志) {
 					//如果抽完了判断准备开启下一轮
 				} else {
 					is_lotting.push({
-						account: lot.lot.lottery_name,
+						account: lot.lot.account_name,
 						uname: lot.lot.global_var.user_info.uname,
 					});
 					all_end = false;

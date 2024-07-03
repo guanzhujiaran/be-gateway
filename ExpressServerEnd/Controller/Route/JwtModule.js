@@ -33,6 +33,11 @@ const jwtAuth = expressJwt
         credentialsRequired: true, //  false：不校验
     })
     .unless({
-        path: ["/api/v1/user/login", "/api/v1/user/reg"], //不需要校验的路径
+        path: [
+            "/api/v1/user/login",
+            "/api/v1/user/reg",
+            "/admin/queues",
+            {url:/\/admin\/queues\/.*/}
+        ], //不需要校验的路径
     });
 module.exports = {jwtAuth, createToken};

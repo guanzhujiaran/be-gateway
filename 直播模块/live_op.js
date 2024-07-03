@@ -163,7 +163,7 @@ const live_op = {
 					throw e;
 				}
 				console.error(
-					`${DO_Lottery_class.lottery_name}\t直播抽奖浏览器页面初始化失败！${e}\n${e.stack}`
+					`${DO_Lottery_class.account_name}\t直播抽奖浏览器页面初始化失败！${e}\n${e.stack}`
 				);
 				await sleep(10e3);
 			}
@@ -631,7 +631,7 @@ class LIVE_LOT {
 							`直播抽奖flag开启中，自动执行取关脚本！`,
 							"info"
 						);
-						let event_name = `${EVENT_NAME_MAP.lot_unfollow}_${this.__DO_Lottery_class.lottery_name}`;
+						let event_name = `${EVENT_NAME_MAP.lot_unfollow}_${this.__DO_Lottery_class.account_name}`;
 						if (event_bus.event_list.indexOf(event_name) == -1) {
 							event_bus.on(event_name, async () => {
 								try {
@@ -681,7 +681,6 @@ class LIVE_LOT {
 	 * @param {*} anchor_uid
 	 * @param {*} lot_id
 	 * @param {*} total_price
-	 * @param {*} room_owner_uid
 	 */
 	#join_redpacket_lot = async (
 		pg,
@@ -1651,7 +1650,7 @@ class LIVE_LOT {
 			monitor_aid_live_url();
 		} catch (e) {
 			console.error(
-				`${this.__DO_Lottery_class.lottery_name}执行金宝箱抽奖失败！${e}\n${e.stack}`
+				`${this.__DO_Lottery_class.account_name}执行金宝箱抽奖失败！${e}\n${e.stack}`
 			);
 			await sleep(10e3);
 			this.__DO_Lottery_class.goldbox_lottery_flag = false;
@@ -1686,7 +1685,7 @@ class LIVE_LOT {
 					}
 					if (this.__DO_Lottery_class.lottery_setting.CONFIG.LIVE_LOT)
 						return;
-					if (this.__DO_Lottery_class.lotFlag) {
+					if (this.__DO_Lottery_class.global_var.FLAG.抽奖中标志) {
 						this.API.chatLog(
 							`检测到有任务未完成，不许关闭浏览器！\n抽奖标志(lotFlag)为true！`
 						);
@@ -1709,6 +1708,7 @@ class LIVE_LOT {
 	/**
 	 *
 	 * @param {object[]} lot_data
+	 * @param dailysend_prize_flag
 	 * @returns
 	 */
 	main = async (lot_data, dailysend_prize_flag = false) => {
@@ -1752,11 +1752,9 @@ class LIVE_LOT {
 						// 	return;
 						// }
 						if (da.total_price) {
-							this.#redpacket_main(da);
-							continue;
+							await this.#redpacket_main(da);
 						} else if (!da.goldbox) {
-							this.#anchor_main(da);
-							continue;
+							await this.#anchor_main(da);
 						}
 					}
 				} catch (e) {
@@ -2051,7 +2049,7 @@ class LIVE_LOT_Service {
 			if (!do_lottery.lottery_setting) {
 				await do_lottery.variable_init();
 			}
-			let event_name = `live_lot_${do_lottery.lottery_name}`;
+			let event_name = `live_lot_${do_lottery.account_name}`;
 
 			if (do_lottery.lottery_setting.CONFIG.LIVE_LOT) {
 				if (this.LIVE_LOT_name_list.indexOf(event_name) == -1) {
@@ -2061,7 +2059,7 @@ class LIVE_LOT_Service {
 					this.ALL_LIVE_LOT.push(live_lot);
 					this.ALL_LIVE_LOT_name_list.push(event_name);
 				} else {
-					console.log(`${do_lottery.lottery_name} 直播抽奖进行中`);
+					console.log(`${do_lottery.account_name} 直播抽奖进行中`);
 				}
 			} else {
 				if (this.ALL_LIVE_LOT_name_list.indexOf(event_name) == -1) {
@@ -2071,7 +2069,7 @@ class LIVE_LOT_Service {
 			}
 		}
 
-		if (event_bus.event_list.indexOf(this.event_map.live_lot) == -1)
+		if (event_bus.event_list.indexOf(this.event_map.live_lot) === -1)
 			event_bus.on(this.event_map.live_lot, async () => {
 				try {
 					await this.#main_lot();

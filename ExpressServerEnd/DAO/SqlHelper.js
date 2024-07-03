@@ -14,7 +14,7 @@ const sequelize = new Sequelize(DB,{dialect:"postgres"});
 sequelize
 	.authenticate()
 	.then(() => {
-		console.log(`数据库连接正常`);
+		console.debug(`数据库连接正常`);
 	})
 	.catch((e) => {
 		console.error(`数据库连接失败！${e}`);
@@ -44,4 +44,5 @@ module.exports = {
 	TLotteryLogInfo,
 	TReserveLotteryInfo,
 	TUserInfo,
+	sequelize
 };

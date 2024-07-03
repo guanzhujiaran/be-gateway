@@ -1,0 +1,1 @@
+## [DAO文件](./dbModel/init-models.js) 中添加 ```  TAccountInfo.hasOne(TAccountDetailInfo, { as: "info", foreignKey: "account_info_id"});``` 设置别名

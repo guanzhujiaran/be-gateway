@@ -1,7 +1,7 @@
 const {UserModel} = require("@/ExpressServerEnd/Model/api/v1/user/user_model");
 const md5 = require("md5");
 const {createToken} = require("@/ExpressServerEnd/Controller/Route/JwtModule");
-const {base_api_model} = require("@/ExpressServerEnd/Model/base_model/base_model");
+const { base_api_model } = require("@/ExpressServerEnd/Model/base_model/base_model");
 const fs = require('fs');
 
 const yaml = require('js-yaml');
