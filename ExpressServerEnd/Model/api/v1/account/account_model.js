@@ -1,5 +1,6 @@
 const {AccountDao} = require("@/ExpressServerEnd/DAO/AccountDao");
- class BiliLotterySetting {
+
+class BiliLotterySetting {
 
     CONFIG = {
         /**
@@ -97,7 +98,7 @@ const {AccountDao} = require("@/ExpressServerEnd/DAO/AccountDao");
         /**
          * @type {number} 每转发x个抽奖时，就分享视频y，其中，y∈[0, )
          */
-        share_video_num_while_repost:2,
+        share_video_num_while_repost: 2,
     }
     lottery_module = {
         /**
@@ -110,7 +111,7 @@ const {AccountDao} = require("@/ExpressServerEnd/DAO/AccountDao");
          */
         user_mid: "",
         /**
-         * @type {number[]} 抽奖等待固定时间
+         * @type {number[]} 抽奖间隔时间，如果是总抽奖时间，那么后续会重新赋值，按照阶段式设置总运行时间
          */
         Working_clearance_time: [30e3, 40e3, 50e3],
         /**
@@ -118,9 +119,9 @@ const {AccountDao} = require("@/ExpressServerEnd/DAO/AccountDao");
          */
         lottery_run_time: 3600e3,
         /**
-         * @type {number[]} 抽奖间隔时间，后续会重新赋值，阶段式运行时间
+         * @type {number[]} 单个操作之后等待的时间？
          */
-        lottery_sep_time: [10e3, 15e3, 20e3],
+        lottery_sep_time: [1e3, 2e3, 3e3],
         /**
          * @type {string[]} 评论时需要@的对象
          */
@@ -177,6 +178,7 @@ const {AccountDao} = require("@/ExpressServerEnd/DAO/AccountDao");
         this.CONFIG.COOKIENAME = account_name;
     }
 }
+
 exports.BiliLotterySetting = BiliLotterySetting;
 
 exports.AccountLotterySettingModel = class AccountLotterySettingModel {

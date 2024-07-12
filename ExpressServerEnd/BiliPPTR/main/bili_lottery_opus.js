@@ -51,11 +51,11 @@ class BiliLotteryOpus {
     async GetBiliDynamicPage() {
         if (this.#BiliDynamicPage) return this.#BiliDynamicPage
         if (this.#BiliDynamicGlobalVar === undefined) {
-            this.#BiliDynamicGlobalVar = new DynamicLotteryGlobalVar(this.user_name, this.account_name)
+            this.#BiliDynamicGlobalVar = new Proxy(new DynamicLotteryGlobalVar(this.user_name, this.account_name), {});
         }
         if (this.#BiliLotterySetting === undefined) {
             let lottery_setting_resp = await AccountService.get_lottery_setting_by_account_name_and_uid(this.account_name, this.#user_id)
-            this.#BiliLotterySetting = lottery_setting_resp.data.info.settings.lottery_setting
+            this.#BiliLotterySetting = new Proxy(lottery_setting_resp.data.info.settings.lottery_setting, {});
         }
         this.#BiliDynamicPage = new BiliDynamicPage(
             this.account_name,

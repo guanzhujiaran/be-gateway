@@ -34,15 +34,14 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.INTEGER,
       allowNull: true
     },
-    update_ts: {
-      type: DataTypes.DATE,
-      allowNull: false,
-      defaultValue: Sequelize.Sequelize.fn('now')
-    },
     lottery_type: {
       type: DataTypes.ARRAY(DataTypes.INTEGER),
       allowNull: true,
       comment: "抽奖类型 \n0：普通抽奖\n1：官方抽奖\n2：预约抽奖"
+    },
+    update_ts: {
+      type: DataTypes.INTEGER,
+      allowNull: true
     }
   }, {
     sequelize,

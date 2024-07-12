@@ -2,15 +2,15 @@ const Sequelize = require('sequelize');
 module.exports = function(sequelize, DataTypes) {
   return sequelize.define('TDynamicInfo', {
     dynamic_content: {
-      type: DataTypes.TEXT,
+      type: DataTypes.STRING(1500),
       allowNull: true
     },
     up_name: {
-      type: DataTypes.TEXT,
+      type: DataTypes.STRING(50),
       allowNull: true
     },
     up_uid: {
-      type: DataTypes.TEXT,
+      type: DataTypes.STRING(50),
       allowNull: true
     },
     pubts: {

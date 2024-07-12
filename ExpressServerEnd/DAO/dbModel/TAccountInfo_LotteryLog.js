@@ -3,7 +3,7 @@ module.exports = function(sequelize, DataTypes) {
   return sequelize.define('TAccountInfo_LotteryLog', {
     accountinfo_id: {
       type: DataTypes.INTEGER,
-      allowNull: true,
+      allowNull: false,
       references: {
         model: 'TAccountInfo',
         key: 'account_id'
@@ -14,11 +14,12 @@ module.exports = function(sequelize, DataTypes) {
       autoIncrementIdentity: true,
       type: DataTypes.BIGINT,
       allowNull: false,
+      comment: "主键",
       primaryKey: true
     },
     lottery_log_id: {
       type: DataTypes.BIGINT,
-      allowNull: true,
+      allowNull: false,
       references: {
         model: 'TLotteryLogInfo',
         key: 'pk'

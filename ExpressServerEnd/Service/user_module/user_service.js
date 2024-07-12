@@ -5,8 +5,8 @@ const { base_api_model } = require("@/ExpressServerEnd/Model/base_model/base_mod
 const fs = require('fs');
 
 const yaml = require('js-yaml');
-let fileContents = fs.readFileSync("ExpressServerEnd/config/config.yml", 'utf8');
-const config = yaml.load(fileContents, 'utf8');
+const config = require('@/ExpressServerEnd/config/index');
+
 const password_salt = config.common_config.salt.password_salt;
 
 class UserService {

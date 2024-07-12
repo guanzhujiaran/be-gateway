@@ -10,9 +10,9 @@ const {addAliases} = require("module-alias");
 addAliases({
     '@': 'K:/BiliPPTRVerDEV/',
 });
-const longjohn = require("longjohn");
-longjohn.async_trace_limit = 1000;
-Error.stackTraceLimit = 1000;
+// const longjohn = require("longjohn");
+// longjohn.async_trace_limit = 1000;
+// Error.stackTraceLimit = 1000;
 const express = require("express");
 const bodyParser = require("body-parser");
 const UserRouter = require('@/ExpressServerEnd/Controller/api/v1/user/UserController');

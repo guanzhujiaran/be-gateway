@@ -5,7 +5,7 @@ const {GLOBAL_CONFIG} = require("@/ExpressServerEnd/BiliPPTR/config/global_confi
 const axios = require("axios");
 
 class BasicOp extends BasePage {
-    constructor(account_name, uname,account_id,user_id, global_var, lottery_setting) {
+    constructor(account_name, uname, account_id, user_id, global_var, lottery_setting) {
         super(...arguments);
     }
 
@@ -13,6 +13,50 @@ class BasicOp extends BasePage {
      * 基本操作。点赞，转发，评论操作
      */
     basic_op = {
+        sleep: {
+            single_op: async (st) => {
+                st = st ?? utils.Common.random_choice(this.lottery_setting.lottery_module.lottery_sep_time);
+                console.debug(this.log_format(`每个操作间隔休眠${(st / 1e3).toFixed(2)}秒`))
+                await sleep(st)
+            },
+            single_round: async ({st, pg}) => {
+                st = st ?? utils.Common.random_choice(this.lottery_setting.lottery_module.Working_clearance_time);
+                console.log(this.log_format(`每个抽奖间隔休眠${(st / 1e3).toFixed(2)}秒`))
+                if (st > 30e3) await pg.goto('about:blank');
+                await sleep(st)
+            }
+        },
+        /**
+         * 前往动态页面
+         * @param {TYPE_dynamic_info} dynamic_info
+         * @return {Promise<boolean>}
+         */
+        dynamic_page_goto: async (dynamic_info) => {
+            if (this.page_url.includes(dynamic_info.dynId)) return true;
+            let break_time = 0;
+            while (break_time <= 3) {
+                break_time++;
+                try {
+                    await this.global_var.current_page.goto(
+                        `https://www.bilibili.com/opus/${dynamic_info.dynId}`, {waitUntil: "networkidle2"}
+                    );
+                    return true;
+                } catch (e) {
+                    console.error(
+                        this.log_format(
+                            `前往页面 ${dynamic_info.dynamicUrl} 失败！\n${e.stack}` +
+                            break_time < 3 ? `\n重试第${break_time}次！` : `\n彻底失败！`
+                        )
+                    );
+                    this.global_var.current_page && await this.global_var.current_page.close();
+                    this.global_var.current_page && await this.global_var.current_page.browser().close();
+                    await sleep(10e3);
+                    await this.account_page_init(false);
+                }
+            }
+            throw Error(BiliElementMap.log_record.critical_error.goto_page_fail);
+        },
+
         /**
          *
          * @param {string} modal_input_text
@@ -32,11 +76,12 @@ class BasicOp extends BasePage {
                         .then(async (el) => {
                             await el.click();
                         });
+                    await sleep(3e3);
                     msg_box = await this.global_var.current_page.waitForSelector(input_text_area_element);
                     await msg_box.focus();
                     let msg_box_content;
                     if (text_area_type === 'modal') {
-                        let msg_box_content = await this.basic_op.get_opus_dynamic_repost_area_content(msg_box);
+                        msg_box_content = await this.basic_op.get_opus_dynamic_repost_area_content(msg_box);
                     } else if (text_area_type === 'plain') {
                         msg_box_content = await this.global_var.current_page.$eval(input_text_area_element, (el) => el.value);
                     }
@@ -45,11 +90,11 @@ class BasicOp extends BasePage {
                     while (modal_input_text && !msg_box_content.includes(modal_input_text)) {//回复栏里的东西等于回复内容时break
                         msg_box = await this.global_var.current_page.waitForSelector(input_text_area_element);
                         await msg_box.focus();
-                        await sleep(3 * utils.Common.random_choice(this.lottery_setting.lottery_module.Working_clearance_time));
+                        await sleep(3e3);
                         await msg_box.type(modal_input_text, {
-                            delay: 20,
+                            delay: 300,
                         });
-                        await sleep(1e3);
+                        await sleep(3e3);
                         if (text_area_type === 'modal') {
                             msg_box_content = await this.basic_op.get_opus_dynamic_repost_area_content(msg_box);
                             if (!msg_box_content.includes(modal_input_text)) {
@@ -182,109 +227,101 @@ class BasicOp extends BasePage {
         },
         /**
          * 点赞动态
+         * @return {Promise<boolean>} 是否继续执行下面的步骤
          */
         dynamic_thumb: async () => {
-            //动态点赞
-            try {
-                if (typeof this.global_var.recorded_data == "string") {
-                    if (this.global_var.recorded_data.includes(BiliElementMap.log_record.opus_dynamic.dynamic_comment_kami_kakushi_fail)) {
-                        console.error(`${this.log_name}${this.page_url}${BiliElementMap.log_record.opus_dynamic.dynamic_comment_kami_kakushi_fail}，不进行动态点赞！\t${this.now}`);
-                        return;
-                    }
-                }
-                let page_url = this.page_url;
-
-                for (let i = 0; i < 2; i++) {
-                    await this.global_var.current_page.click(BiliElementMap.opus_dynamic.interact.sidebar_like_btn);
-                    await this.global_var.current_page.waitForResponse(
+            let thumb_resp;
+            await this.global_var.current_page.waitForSelector(BiliElementMap.opus_dynamic.interact.share_modal, {
+                hidden: true,
+                visible: false
+            }) // 等待分享弹窗消失！
+            await Promise.all(
+                [
+                    this.global_var.current_page.waitForSelector(BiliElementMap.opus_dynamic.interact.sidebar_like_btn, {visible: true})
+                        .then(async el => await el.click()),
+                    thumb_resp = await this.global_var.current_page.waitForResponse(
                         response => response.url().includes(BiliElementMap.url_path.opus_dynamic.dynamic_like_thumb)
-                    )//等待点赞响应
-                    if (await this.global_var.current_page
-                        .waitForSelector(BiliElementMap.opus_dynamic.interact.sidebar_like_btn_is_active)
-                        .then((el) => true)
-                        .catch((e) => {
-                            console.error(`${this.log_name}\t${page_url}\t${BiliElementMap.log_record.opus_dynamic.dynamic_like_icon_fail}`);
-                            return false;
-                        })) {
-                        console.log(`${this.log_name}\t${page_url}\t${BiliElementMap.log_record.opus_dynamic.dynamic_like_fail}`);
-                        break;
-                    } else {
-                        console.error(`${this.log_name}\t${this.page_url}\t${BiliElementMap.log_record.opus_dynamic.dynamic_like_fail}`);
-                        await sleep(2e3);
-                    }
-                }
-
-            } catch (e) {
-                console.error(`${this.log_name}\t${this.page_url}\t${BiliElementMap.log_record.opus_dynamic.dynamic_like_fail}`, e);
-                await this.log_record.my_throw(`${BiliElementMap.log_record.opus_dynamic.dynamic_like_fail}`, e);
+                    )]
+            );
+            thumb_resp = thumb_resp ? await thumb_resp.json() : undefined;
+            if (!thumb_resp || thumb_resp.code !== 0) {
+                throw Error(`点赞失败！${thumb_resp ? JSON.stringify(thumb_resp) : "无响应"}`);
             }
+            console.log(this.log_format(`${BiliElementMap.log_record.opus_dynamic.thumb_dynamic}\t${JSON.stringify(thumb_resp)}`));
+
+            if (await this.global_var.current_page
+                .waitForSelector(BiliElementMap.opus_dynamic.interact.sidebar_like_btn_is_active)
+                .then((el) => true)
+                .catch(
+                    (e) => {
+                        throw Error(`等待元素${BiliElementMap.opus_dynamic.interact.sidebar_like_btn_is_active}失败！\t${e}`)
+                    }
+                )
+            ) {
+                console.log(this.log_format(`${BiliElementMap.log_record.opus_dynamic.thumb_dynamic}`));
+            } else {
+                console.error(this.log_format(BiliElementMap.log_record.opus_dynamic.err.like.dynamic_like_icon_fail));
+                throw Error(BiliElementMap.log_record.opus_dynamic.err.like.dynamic_like_icon_fail)
+            }
+            return true;
         },
         /**
          * 点击转发
          * @param {string} repost_content
-         * @returns
+         * @return {Promise<boolean>} 是否继续执行下面的步骤
          */
         dynamic_repost: async (repost_content = "") => {
-            if (typeof this.global_var.recorded_data == "string") {
-                if (this.global_var.recorded_data.includes(BiliElementMap.log_record.opus_dynamic.dynamic_comment_kami_kakushi_fail)) {
-                    console.error(`${this.log_name}${this.page_url}\t${BiliElementMap.log_record.opus_dynamic.dynamic_comment_kami_kakushi_fail}，不进行动态转发！\t${this.now}`);
-                    return;
-                }
-            }
-            //点击转发
-            let page_url = this.page_url
-            try {
-                await this.basic_op.check_text_area_input_same_text(
-                    repost_content,
-                    BiliElementMap.opus_dynamic.interact.sidebar_forward_btn,
-                    BiliElementMap.opus_dynamic.interact.repost_input_text_area,
-                    BiliElementMap.log_record.opus_dynamic.dynamic_repost_content_input_fail,
-                    "modal"
+            await this.basic_op.check_text_area_input_same_text(
+                repost_content,
+                BiliElementMap.opus_dynamic.interact.sidebar_forward_btn,
+                BiliElementMap.opus_dynamic.interact.repost_input_text_area,
+                BiliElementMap.log_record.opus_dynamic.err.repost.dynamic_repost_content_input_fail,
+                "modal"
+            )
+            let repost_resp;
+            await Promise.all([
+                this.global_var.current_page.waitForSelector(BiliElementMap.opus_dynamic.interact.repost_btn, {visible: true}).then(async el => await el.click()),
+                repost_resp = await this.global_var.current_page.waitForResponse(
+                    resp => resp.url().includes(BiliElementMap.url_path.opus_dynamic.dynamic_repost)
+                        || resp.url().includes(BiliElementMap.url_path.opus_dynamic.create_dynamic)
                 )
-                await this.global_var.current_page
-                    .waitForSelector(BiliElementMap.opus_dynamic.interact.repost_btn)
-                    .then(async (el) => await el.click());
-                console.log(`${this.log_name}\t${page_url}\t动态转发成功`);
-
-            } catch (e) {
-                console.error(`${this.log_name}${this.page_url} ${BiliElementMap.log_record.opus_dynamic.dynamic_repost_content_input_fail}，dynamic_repost，${e}\n${e.stack}`);
-                await this.log_record.my_throw(`${BiliElementMap.log_record.opus_dynamic.dynamic_repost_content_input_fail}`, e);
-                //return
+            ])
+            repost_resp = repost_resp ? await repost_resp.json() : undefined;
+            if (!repost_resp || repost_resp.code !== 0) {
+                throw Error(`转发响应失败！${JSON.stringify(repost_resp)}`)
             }
+            console.log(this.log_format(`${BiliElementMap.log_record.opus_dynamic.repost_dynamic}\t${JSON.stringify(repost_resp)}`));
+            return true;
         },
         /**
-         * 点击回复按钮
-         * @param {String} comment_msg 回复内容
-         * @param opus_dynamic
-         * @returns
+         * 回复内容
+         * @param comment_msg
+         * @return {Promise<boolean>}是否继续执行下面的步骤
          */
-        comment_submit: async (comment_msg, opus_dynamic = false) => {
+        comment_submit: async (comment_msg) => {
             //点击回复
             /**
              * 检查评论是否被风控
              */
             const CheckRisk = async () => {
                 let comment_dyn_response_code = 0;
-                try {
-                    if (this.global_var.response.comment_dyn_response) {
-                        comment_dyn_response_code = this.global_var.response.comment_dyn_response.code;
-                    } else {
-                        console.warn(`${this.log_name}${BiliElementMap.opus_dynamic.response.wait_comment_response_failed}`);
-                        throw Error(BiliElementMap.opus_dynamic.response.wait_comment_response_failed);
-                    }
-                } catch {
-                    throw Error(BiliElementMap.opus_dynamic.response.wait_comment_response_failed);
+                if (this.global_var.response.comment_dyn_response) {
+                    comment_dyn_response_code = this.global_var.response.comment_dyn_response.code;
+                } else {
+                    console.error(this.log_format(BiliElementMap.log_record.opus_dynamic.err.comment.reply_response_timeout));
+                    throw Error(BiliElementMap.log_record.opus_dynamic.err.comment.reply_response_timeout);
                 }
                 let captcha = await this.global_var.current_page.$$(BiliElementMap.opus_dynamic.captcha.comment_captcha);
 
                 if (comment_dyn_response_code === 12051) {
                     //重复评论code
+                    console.log(this.log_format(`重复评论${JSON.stringify(this.global_var.response.comment_dyn_response)}`))
                     return true;
                 }
                 if (captcha.length !== 0 || comment_dyn_response_code) {
-                    let err_msg = BiliElementMap.log_record.opus_dynamic.dynamic_comment_captcha_fail
-                    await this.log_record.my_throw(`${err_msg}\t触发评论验证码`);
-                    console.error(`${this.log_name}动态${this.page_url}\t${err_msg}，休眠4小时！\t${this.now}`);
+                    let err_msg = BiliElementMap.log_record.opus_dynamic.err.comment.dynamic_comment_captcha_fail
+                    await this.log_record.my_throw(err_msg);
+                    console.error(this.log_format(`${err_msg}\t休眠4小时！`));
                     await sleep(4 * 3600e3);
                     throw Error(err_msg);
                 }
@@ -293,46 +330,45 @@ class BasicOp extends BasePage {
             let page_url = this.page_url;
             if (this.global_var.response.reply_main.code === 12061) {
                 //UP主已关闭评论区
-                return;
+                return true;
             }
             if (page_url.includes("read/cv")) {
-                opus_dynamic = false;
                 await this.global_var.current_page.goto(`https://t.bilibili.com/${this.global_var.dynamic_id}`);
             }
-            this.global_var.FLAG.评论响应标志 = false;
             if (typeof comment_msg != "string" || !comment_msg || comment_msg.includes("undefined") || comment_msg.includes("null") || comment_msg.includes("true") || comment_msg.includes("false")) {
                 //检查是否传入的是string类型参数 或者是否为空
-                return await this.log_record.my_throw(`${BiliElementMap.log_record.opus_dynamic.comment_msg_error}\t传入参数评论内容为空`);
+                await this.log_record.my_throw(`${BiliElementMap.log_record.opus_dynamic.err.comment.comment_msg_error}\t传入参数评论内容为空`);
+                return false;
             }
-
-            for (let i = 0; i < 3; i++) {
-                let bt = 0;
+            let bt = 0;
+            for (let i = 1; ; i++) {
                 try {
                     await this.basic_op.check_text_area_input_same_text(
                         comment_msg,
                         BiliElementMap.opus_dynamic.interact.reply_box_text_area,
                         BiliElementMap.opus_dynamic.interact.reply_box_text_area,
-                        BiliElementMap.log_record.opus_dynamic.comment_msg_input_error,
+                        BiliElementMap.log_record.opus_dynamic.err.comment.comment_msg_input_error,
                         "plain"
                     )
-                    await this.global_var.current_page.click(BiliElementMap.opus_dynamic.interact.reply_send_btn)
-                        .then(async () => {
-                            await this.global_var.current_page.waitForResponse(
-                                resp => resp.url().includes(BiliElementMap.url_path.opus_dynamic.dynamic_reply_add))
-                                .catch((e) => {
-                                    throw Error(e);
-                                });
-                        });
+                    let comment_resp;
+                    await Promise.all([
+                        this.global_var.current_page.waitForSelector(BiliElementMap.opus_dynamic.interact.reply_send_btn).then(el => el.click()),
+                        comment_resp = await this.global_var.current_page.waitForResponse(
+                            resp => resp.url().includes(BiliElementMap.url_path.opus_dynamic.dynamic_reply_add))
+                    ])
+                    this.global_var.response.comment_dyn_response = comment_resp ? await comment_resp.json() : undefined;
+
+                    console.log(this.log_format(`评论响应：${JSON.stringify(this.global_var.response.comment_dyn_response)}`))
                     await CheckRisk();
                     break;
                 } catch (e) {
                     bt++;
-                    console.error(`${this.log_name}${this.page_url}\t第${i + 1}次尝试输入动态评论！`, e);
+                    console.error(this.log_format(`第${i}次尝试输入动态评论！\n${e}`));
                     if (this.global_var.response.comment_dyn_response?.code === 12051) {
                         break;
                     }
-                    if (bt >= 5) {
-                        throw Error(e);
+                    if (bt >= 3) {
+                        throw e;
                     }
                     await this.global_var.current_page.reload({
                         waitUntil: "networkidle2",
@@ -345,69 +381,58 @@ class BasicOp extends BasePage {
 
             for (let i = 0; i < 10; i++) {
                 if (this.global_var.response.comment_dyn_response) {
-                    console.log(`${this.log_name}${page_url}\t检查评论是否被阿瓦隆中${this.now}`);
+                    console.log(this.log_format(`检查评论是否被阿瓦隆中`));
                     let check_reply_result = await this.basic_op.check_reply(this.global_var.response.comment_dyn_response, utils.BiliAPI.BiliAPI.draw_dynamic_id(page_url));
                     if (check_reply_result) {
-                        console.log(`${this.log_name}${this.page_url}\t评论成功，躲过阿瓦隆\t${this.now}`);
+                        console.log(this.log_format(`评论成功，躲过阿瓦隆`));
                         break;
                     } else {
-                        console.error(`${this.log_name}${this.page_url}\t${BiliElementMap.log_record.opus_dynamic.dynamic_comment_kami_kakushi_fail}\t${this.now}`);
-                        await this.log_record.my_throw(`${BiliElementMap.log_record.opus_dynamic.dynamic_comment_kami_kakushi_fail}\t评论失败，被阿瓦隆歼灭`);
-                        break;
+                        let er = BiliElementMap.log_record.opus_dynamic.err.comment.dynamic_comment_kami_kakushi_fail
+                        console.error(er);
+                        await this.log_record.my_throw(er);
+                        return false
                     }
                 } else {
                     if (i === 9) {
                         await this.log_record.my_throw(BiliElementMap.log_record.response.reply_response_timeout);
+                        return false
                     }
                 }
-                await sleep(2e3);
+                await sleep(3e3);
             }
 
             try {
                 if (Math.random() < this.lottery_setting.lottery_module.comment_thumb_chance) {
                     await sleep(3e3);
                     await this.basic_op.comment_thumb();
-                    await sleep(utils.Common.random_choice(this.lottery_setting.lottery_module.Working_clearance_time));
+                    await sleep(3e3);
                 }
             } catch (e) {
-                throw e;
+                console.error(this.log_format(e))
             }
+            return true
         },
         comment_thumb: async () => {
-            try {
-                let uname = this.global_var.user_info.uname;
-                let comment_user_index = await this.global_var.current_page.$$eval(BiliElementMap.opus_dynamic.interact.reply_user_icon, (els, uname) => {
-                    for (let j = 0; j < els.length; j++) {
-                        if (els[j].textContent === uname) {
-                            return j;
-                        }
+            let uname = this.global_var.user_info.uname;
+            let comment_user_index = await this.global_var.current_page.$$eval(BiliElementMap.opus_dynamic.interact.reply_user_icon, (els, uname) => {
+                for (let j = 0; j < els.length; j++) {
+                    if (els[j].textContent === uname) {
+                        return j;
                     }
-                }, uname);
-                let my_comment_thumb;
-                try {
-                    my_comment_thumb = (await this.global_var.current_page.$$(BiliElementMap.opus_dynamic.interact.comment_thumb_btn))[comment_user_index];
-                } catch (e) {
-                    let err_msg = `${this.log_name}点赞评论失败\n\n${e.stack}`
-                    console.error(err_msg);
-                    throw Error(BiliElementMap.log_record.opus_dynamic.comment_thumb_fail);
                 }
-                //console.log(`点赞第${comment_user_index}个评论条数`);
-                if (my_comment_thumb) {
-                    await my_comment_thumb.click();
-                } else {
-                    console.log(`${this.log_name}获取评论框元素失败评论点赞失败`);
-                    return await this.log_record.my_throw(BiliElementMap.log_record.opus_dynamic.comment_thumb_fail);
-                }
-                if (!(await this.global_var.current_page.waitForSelector(BiliElementMap.opus_dynamic.interact.comment_thumb_btn_is_active, {timeout: 10e3}))) {
-                    console.error(`${this.log_name}评论点赞失败，获取点赞成功图标失败`);
-                    return await this.log_record.my_throw(BiliElementMap.log_record.opus_dynamic.comment_thumb_fail);
-                } else {
-                    console.log(`${this.log_name}评论点赞成功`);
-                }
-            } catch (e) {
-                console.error(`评论点赞失败，comment_thumb\n\n${e.stack}`);
-                await this.log_record.my_throw(BiliElementMap.log_record.opus_dynamic.comment_thumb_fail, e);
-                throw Error(`评论点赞失败，comment_thumb，${e}`);
+            }, uname);
+            let my_comment_thumb;
+            my_comment_thumb = (await this.global_var.current_page.$$(BiliElementMap.opus_dynamic.interact.comment_thumb_btn))[comment_user_index];
+
+            if (my_comment_thumb) {
+                await my_comment_thumb.click();
+            } else {
+                console.error(this.log_format(`${BiliElementMap.log_record.opus_dynamic.comment_thumb_fail}\t获取评论框元素失败评论点赞失败`));
+            }
+            if (!(await this.global_var.current_page.waitForSelector(BiliElementMap.opus_dynamic.interact.comment_thumb_btn_is_active, {timeout: 10e3}))) {
+                console.error(this.log_format(`${BiliElementMap.log_record.opus_dynamic.comment_thumb_fail}\t评论点赞失败，获取点赞成功图标失败`));
+            } else {
+                console.log(`${this.log_name}评论点赞成功`);
             }
         }
     }
@@ -678,7 +703,7 @@ class BasicOp extends BasePage {
          * @param {string} reply_msg
          * @returns 返回空字符串表示无需带话题或@，返回undefined表示获取话题失败！
          */
-        pre_msg_processing: function (dynamic_content, reply_msg) {
+        pre_msg_processing: (dynamic_content, reply_msg) => {
             function zhDigitToArabic(digit) {
                 const zh = [
                     "零",
@@ -1708,11 +1733,7 @@ class BasicOp extends BasePage {
          * @param record_data
          * @return {Promise<undefined|string>}
          */
-        reply_comment_generator: async (
-            dynamic_content,
-            dynamic_id,
-            record_data
-        ) => {
+        reply_comment_generator: async (dynamic_content,dynamic_id,record_data) => {
             //生成所需评论//生成评论
             let comment_msg = undefined;
             if (
@@ -1797,21 +1818,13 @@ class BasicOp extends BasePage {
                         get_comment_times++;
                         switch ((e.prev = e.next)) {
                             case 0:
-                                console.log(
-                                    this.log_format(`可以抄评论的动态\t${this.page_url}`)
-                                );
+                                console.log(this.log_format(`可以抄评论的动态\t${this.page_url}`));
                                 let copy_msg;
                                 let para_msg;
                                 try {
-                                    if (
-                                        this.global_var.response
-                                            .global_dynamic_data.item
-                                            .basic.comment_type === 1 ||
-                                        this.global_var.response
-                                            .global_dynamic_data.item
-                                            .basic.comment_type === 8 ||
-                                        1 === 1
-                                    ) {
+                                    if (this.global_var.response.global_dynamic_data.item.basic.comment_type === 1 ||
+                                        this.global_var.response.global_dynamic_data.item.basic.comment_type === 8 ||
+                                        1 === 1) {
                                         copy_msg =
                                             await this.copy_reply_op.get_copy_reply(
                                                 dynamic_id,
@@ -1837,33 +1850,17 @@ class BasicOp extends BasePage {
                                     );
                                     pre_msg = pre_msg ? pre_msg : "";
                                 } catch (e) {
-                                    console.error(
-                                        this.log_format(`获取抄评论内容失败，reply_comment_generator\n${e.stack}`)
-                                    );
+                                    console.error(this.log_format(`获取抄评论内容失败，设置为人工回复动态！\n${e.stack}`));
+                                    e.next = 2;
+                                    break;
                                 }
-                                if (
-                                    this.copy_reply_op.para_phase_judge(
-                                        dynamic_content
-                                    )
-                                ) {
-                                    if (
-                                        copy_msg &&
-                                        Math.random() <
-                                        this.lottery_setting
-                                            .copy_reply_module
-                                            .comment_paraphrase_chance
-                                    ) {
+                                if (this.copy_reply_op.para_phase_judge(dynamic_content)) {
+                                    //判断是否是可以进行同义改写
+                                    if (copy_msg && Math.random() < this.lottery_setting.copy_reply_module.comment_paraphrase_chance) {
                                         try {
-                                            console.log(
-                                                this.log_format(`将要进行改写的评论：${copy_msg}`)
-                                            );
-                                            para_msg =
-                                                await this.copy_reply_op.ChatGPT_paraphase(
-                                                    copy_msg
-                                                );
-                                            console.log(
-                                                this.log_format(`原评论：${copy_msg}\n改写为评论：${para_msg}`)
-                                            );
+                                            console.log(this.log_format(`将要进行改写的评论：${copy_msg}`));
+                                            para_msg = await this.copy_reply_op.ChatGPT_paraphase(copy_msg);
+                                            console.log(this.log_format(`原评论：${copy_msg}\n改写为评论：${para_msg}`));
                                         } catch (e) {
                                             console.error(this.log_format(`获取同义改写内容失败，reply_comment_generator\n${e.stack}`));
                                         }
@@ -1873,56 +1870,38 @@ class BasicOp extends BasePage {
                                         this.log_format(`${this.page_url}\t特殊动态内容无法使用同义改写`)
                                     );
                                 }
-                                comment_msg =
-                                    para_msg === undefined ||
-                                    para_msg === ""
-                                        ? copy_msg
-                                        : para_msg;
-                                if (get_comment_times >= 3) {
-                                    console.error(
-                                        this.log_format(`${this.page_url}\t获取评论次数${get_comment_times}超过3次\t获取评论失败！`)
-                                    );
-                                    e.next = 99;
-                                } else {
-                                    e.next = 1;
+                                comment_msg = para_msg === undefined || para_msg === "" ? copy_msg : para_msg;
+                                if (!comment_msg){
+                                    e.next=99;
+                                    console.error(this.log_format(`${this.page_url}\t评论内容为空，跳过！`));
                                 }
                                 break;
                             case 1:
                                 try {
-                                    // let AI_reply = await this.copy_reply_op.AI_reply(dynamic_content)
-                                    comment_msg = await this.copy_reply_op.ChatGpt_reply(
-                                        dynamic_content
-                                    );
-                                    if (
-                                        comment_msg === "" ||
-                                        comment_msg === undefined
-                                    ) {
-                                        if (get_comment_times > 3) {
-                                            e.next = 0;
-                                            console.error(
-                                                this.log_format(`${this.page_url}\t获取评论次数${get_comment_times}超过3次\t尝试抄评论`)
-                                            );
-                                        }
-                                        break;
+                                    comment_msg = await this.copy_reply_op.ChatGpt_reply(dynamic_content);
+                                    if (comment_msg === "" || comment_msg === undefined) {
+                                        //AI回复生成失败，判断抄评论是否开启，开启的话执行抄评论
+                                        console.error(this.log_format(`${this.page_url}\tAI回复失败！启动抄评论模式\n${err.stack}`));
                                     }
                                 } catch (err) {
-                                    console.error(
-                                        this.log_format(`${this.page_url}\tAI回复失败！启动抄评论模式\n${err.stack}`)
-                                    );
-                                    if (get_comment_times > 3) {
+                                    console.error(this.log_format(`${this.page_url}\tAI回复失败！启动抄评论模式\n${err.stack}`));
+                                } finally {
+                                    if (this.lottery_setting.copy_reply_module.comment_copy_chance > 0) {
                                         e.next = 0;
+                                    } else {
+                                        e.next = 2;
                                     }
                                 }
                                 break;
                             case 2:
                                 comment_msg = BiliElementMap.log_record.succ_info.manual_reply;
                                 console.log(
-                                    this.log_format(`${this.page_url}\t需要人工回复的动态\t${dynamic_id}`)
+                                    this.log_format(`${this.page_url}\t${comment_msg}\t${dynamic_id}`)
                                 );
                                 await this.log_record.my_throw(
                                     BiliElementMap.log_record.succ_info.manual_reply
                                 );
-                                record_data.err_msg=BiliElementMap.log_record.succ_info.manual_reply
+                                record_data.err_msg = BiliElementMap.log_record.succ_info.manual_reply
                                 await this.log_record.dynamic_lottery_record(record_data)
                                 return undefined; //返回undefined表示需要人工回复，而不是从预设的回复里面选内容
                             case 99:
@@ -1931,14 +1910,13 @@ class BasicOp extends BasePage {
                                 );
                                 comment_msg = BiliElementMap.log_record.succ_info.manual_reply;
                                 await this.log_record.my_throw(
-                                    BiliElementMap.log_record.opus_dynamic.comment_msg_generate_fail
+                                    BiliElementMap.log_record.opus_dynamic.err.comment.comment_msg_generate_fail
                                 );
-                                record_data.err_msg = BiliElementMap.log_record.opus_dynamic.comment_msg_generate_fail
+                                record_data.err_msg = BiliElementMap.log_record.opus_dynamic.err.comment.comment_msg_generate_fail
                                 await this.log_record.dynamic_lottery_record(record_data)
                                 return undefined; //返回undefined表示需要人工回复，而不是从预设的回复里面选内容
                         }
                         await sleep(3e3);
-
                     }
                 } else {
                     console.log(
@@ -1985,7 +1963,7 @@ class BasicOp extends BasePage {
                 console.error(
                     `${this.log_name}${this.page_url}\n回复内容出错:${dynamic_content}`
                 );
-                await this.log_record.my_throw(BiliElementMap.log_record.opus_dynamic.comment_msg_content_error);
+                await this.log_record.my_throw(BiliElementMap.log_record.opus_dynamic.err.comment.comment_msg_content_error);
                 return undefined;
             }
             if (comment_msg.includes(pre_msg)) {
@@ -2293,7 +2271,7 @@ class BasicOp extends BasePage {
                 //去除表情包
                 try {
                     utils.BiliAPI.fileWrite(
-                        `文案/评论响应.csv`,
+                        GLOBAL_CONFIG.file_path.comment_resp_record,
                         JSON.stringify(replies[repindex]),
                         "a+"
                     );
@@ -2312,7 +2290,11 @@ class BasicOp extends BasePage {
                                 ? ""
                                 : this.global_var.user_info.uname
                         ),
-                        dynamic_content
+                        dynamic_content,
+                        {
+                            uname: this.global_var.user_info.uname ? this.global_var.user_info.uname : "",
+                            lottery_setting: this.lottery_setting,
+                        }
                     )
                     .trim();
                 if (replies_content[repindex].length === 0) {
@@ -2414,7 +2396,7 @@ ${Dynamic_content}
                     let res = res_string.data;
                     let result = res.data;
                     if (!result) {
-                        throw Error(`ai回复结果为空！${result}`);
+                        throw Error(`ai回复结果为空！${res}`);
                     }
                     console.log(
                         {
@@ -2500,7 +2482,10 @@ ${Dynamic_content}
                         let msg = reply.content.message;
                         let push_msg = utils.Common.remove_emoji_topic_at(
                             msg,
-                            dynamic_content
+                            dynamic_content, {
+                                uname: this.global_var.user_info.uname ? this.global_var.user_info.uname : "",
+                                lottery_setting: this.lottery_setting,
+                            }
                         );
                         if (push_msg) {
                             rep_content_list.push(push_msg);

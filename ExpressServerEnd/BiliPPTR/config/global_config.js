@@ -1,3 +1,5 @@
+const {join} = require("node:path");
+const log_path = join(__dirname,'../../LOG')
 const GLOBAL_CONFIG = {
 	basic_module:{
 		browser_executable_path:`C:\\Users\\Acer\\AppData\\Local\\Google\\Chrome SxS\\Application\\chrome.exe`,
@@ -29,6 +31,10 @@ const GLOBAL_CONFIG = {
 			"1508263674",
 		],
 	},
+	file_path:{
+		comment_resp_record:join( log_path,'评论响应.csv'),
+		reserve_lot_json:join( log_path,'预约抽奖.json'),
+	}
 };
 
 module.exports = {GLOBAL_CONFIG};

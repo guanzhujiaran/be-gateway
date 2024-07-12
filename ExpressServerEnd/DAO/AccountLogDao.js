@@ -95,7 +95,7 @@ class AccountLogDao {
 
     }
 
-    static async add_lottery_log_info({lottery_log, is_success, is_manual_reply, dynamic_info_id, lottery_type}) {
+    static async add_lottery_log_info({lottery_log, is_success, is_manual_reply, dynamic_info_id, lottery_type,comment_msg}) {
         return await TLotteryLogInfo.upsert({
             lottery_log: lottery_log,
             is_success: is_success,
@@ -103,7 +103,8 @@ class AccountLogDao {
             dynamic_info_id: dynamic_info_id,
             add_ts: Math.ceil((new Date()).getTime() / 1e3),
             update_ts: Math.ceil((new Date()).getTime() / 1e3),
-            lottery_type: lottery_type
+            lottery_type: lottery_type,
+            comment_msg:comment_msg
         });
     }
 

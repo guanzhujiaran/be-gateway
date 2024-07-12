@@ -1,12 +1,13 @@
 const {AccountLotterySettingModel} = require("@/ExpressServerEnd/Model/api/v1/account/account_model");
 
-const { base_api_model }= require("@/ExpressServerEnd/Model/base_model/base_model");
+const {base_api_model} = require("@/ExpressServerEnd/Model/base_model/base_model");
 const {AccountModel} = require("@/ExpressServerEnd/Model/api/v1/account/account_model");
-
+const {AccountDao} = require("@/ExpressServerEnd/DAO/AccountDao");
 const yaml = require('js-yaml');
 const fs = require("fs");
-let fileContents = fs.readFileSync("ExpressServerEnd/config/config.yml", 'utf8');
-const config = yaml.load(fileContents, 'utf8');
+const config = require('@/ExpressServerEnd/config/index');
+
+
 
 class AccountService {
     /**
@@ -118,26 +119,29 @@ class AccountService {
      * }>}
      */
     static async get_lottery_setting_by_account_name_and_uid(account_name, uid) {
-            let acc_model = new AccountModel(uid);
-            let ret_model = await acc_model.get_lottery_setting_by_account_name_and_uid(account_name);
-            if (!ret_model) return new base_api_model({
-                code: 40017,
-                data: ret_model,
-                msg: "该账号不存在！"
-            })
-            if (!ret_model.info) {
-                ret_model.info = {}
-                ret_model.info.settings = this.generate_default_lottery_setting(account_name);
-            }
-            return new base_api_model({
-                data: ret_model
-            })
+        let acc_model = new AccountModel(uid);
+        let ret_model = await acc_model.get_lottery_setting_by_account_name_and_uid(account_name);
+        if (!ret_model) return new base_api_model({
+            code: 40017,
+            data: ret_model,
+            msg: "该账号不存在！"
+        })
+        if (!ret_model.info) {
+            ret_model.info = {}
+            ret_model.info.settings = this.generate_default_lottery_setting(account_name);
+        }
+        if (!ret_model.info.settings){
+            ret_model.info.settings = this.generate_default_lottery_setting(account_name);
+        }
+        return new base_api_model({
+            data: ret_model
+        })
 
     }
 
 
-    static async save_lottery_setting_by_account_name_and_uid(account_name,uid,settings){
-        if (account_name!==settings.lottery_setting.CONFIG.COOKIENAME){
+    static async save_lottery_setting_by_account_name_and_uid(account_name, uid, settings) {
+        if (account_name !== settings.lottery_setting.CONFIG.COOKIENAME) {
             return new base_api_model({
                 code: 40018,
                 data: null,
@@ -145,13 +149,27 @@ class AccountService {
             })
         }
         let acc_model = new AccountModel(uid);
-        let ret_model = await acc_model.save_lottery_setting_by_account_name_and_uid(account_name,settings);
+        let ret_model = await acc_model.save_lottery_setting_by_account_name_and_uid(account_name, settings);
         return new base_api_model({
             data: ret_model
         })
     }
 
-
+    static async save_account_detail_info_by_account_id(
+        {account_id, uname, vip, level, face, uid,nav_json}
+    ) {
+        try {
+             await AccountDao.save_account_detail_info_by_account_id(arguments[0])
+            return new base_api_model({
+            data: '保存账号详情成功！'
+        })
+        } catch (e) {
+            return new base_api_model({
+                code: 40019,
+                msg: `保存账号详情失败！${e.message}`
+            })
+        }
+    }
 
 }
 

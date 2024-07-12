@@ -10,7 +10,8 @@ module.exports = function(sequelize, DataTypes) {
     },
     user_name: {
       type: DataTypes.TEXT,
-      allowNull: true
+      allowNull: true,
+      unique: "TUserInfo_user_name_key"
     },
     pwd: {
       type: DataTypes.TEXT,
@@ -22,6 +23,13 @@ module.exports = function(sequelize, DataTypes) {
     schema: 'public',
     timestamps: false,
     indexes: [
+      {
+        name: "TUserInfo_user_name_key",
+        unique: true,
+        fields: [
+          { name: "user_name" },
+        ]
+      },
       {
         name: "UserInfo_pkey",
         unique: true,

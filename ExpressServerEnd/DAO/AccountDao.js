@@ -44,6 +44,7 @@ class AccountDao {
      * @property {string} uid - 账户b站uid
      * @property {Object} settings - 账户的设置
      */
+
     /**
      * @typedef {Object} UserAccount
      * @property {string} account_name - 账户名
@@ -51,6 +52,7 @@ class AccountDao {
      * @property {number} uid - 用户ID
      * @property {AccountInfo?} info - 用户信息
      */
+
     /**
      *
      * @param {number} uid
@@ -185,6 +187,40 @@ class AccountDao {
         return account_info?.toJSON()
     }
 
+    static async save_account_detail_info_by_account_id(
+        {account_id,uname,vip,level,face,uid,nav_json}
+    ){
+        let account_detail_info = await TAccountDetailInfo.findOne({
+            where:{
+                account_info_id:account_id
+            }
+        })
+        if (!account_detail_info){
+            return await TAccountDetailInfo.create(
+                {
+                    account_info_id:account_id,
+                    uname:uname,
+                    vip:vip,
+                    level:level,
+                    face:face,
+                    uid:uid,
+                    nav_json:nav_json
+                }
+            )
+        }
+        await account_detail_info.update({
+                    uname:uname,
+                    vip:vip,
+                    level:level,
+                    face:face,
+                    uid:uid,
+                    nav_json:nav_json
+        });
+        return await account_detail_info.save();
+
+    }
+    
+    
     /**
      * 获取账号设置信息，如果不存在，则返回一个默认的设置
      * @param account_name {string}

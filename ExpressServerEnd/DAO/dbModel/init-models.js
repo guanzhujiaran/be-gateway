@@ -23,7 +23,8 @@ function initModels(sequelize) {
   var TUserInfo = _TUserInfo(sequelize, DataTypes);
 
   TAccountDetailInfo.belongsTo(TAccountInfo, { as: "account_info", foreignKey: "account_info_id"});
-  TAccountInfo.hasOne(TAccountDetailInfo, { as: "info", foreignKey: "account_info_id"});  TAccountInfo_DashBoardInfo.belongsTo(TAccountInfo, { as: "accountinfo", foreignKey: "accountinfo_id"});
+  TAccountInfo.hasOne(TAccountDetailInfo, { as: "info", foreignKey: "account_info_id"});
+  TAccountInfo_DashBoardInfo.belongsTo(TAccountInfo, { as: "accountinfo", foreignKey: "accountinfo_id"});
   TAccountInfo.hasMany(TAccountInfo_DashBoardInfo, { as: "TAccountInfo_DashBoardInfos", foreignKey: "accountinfo_id"});
   TAccountInfo_LotteryLog.belongsTo(TAccountInfo, { as: "accountinfo", foreignKey: "accountinfo_id"});
   TAccountInfo.hasMany(TAccountInfo_LotteryLog, { as: "TAccountInfo_LotteryLogs", foreignKey: "accountinfo_id"});

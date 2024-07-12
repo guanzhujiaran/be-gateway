@@ -1,16 +1,13 @@
 const {AccountLotterySettingModel} = require("@/ExpressServerEnd/Model/api/v1/account/account_model");
-
 const {base_api_model} = require("@/ExpressServerEnd/Model/base_model/base_model");
 const {AccountModel} = require("@/ExpressServerEnd/Model/api/v1/account/account_model");
-
 const yaml = require('js-yaml');
 const fs = require("fs");
 const {AccountLogDao} = require("@/ExpressServerEnd/DAO/AccountLogDao");
 const {AccountDao} = require("@/ExpressServerEnd/DAO/AccountDao");
 const {sequelize, TLotteryLogInfo, TAccountInfo_LotteryLog, TDynamicInfo} = require("@/ExpressServerEnd/DAO/SqlHelper");
 const {Op} = require("sequelize");
-let fileContents = fs.readFileSync("ExpressServerEnd/config/config.yml", 'utf8');
-const config = yaml.load(fileContents, 'utf8');
+const config = require('@/ExpressServerEnd/config/index');
 
 class AccountLogService {
     /**
@@ -27,6 +24,7 @@ class AccountLogService {
                                                                lottery_log_info,
                                                                is_success,
                                                                is_manual_reply,
+                                                               comment_msg
     ) {
         let database_dynamic_info = await AccountLogDao.is_dynamic_info_exist(lottery_log_info.dynamic_info.dynId);
         if (!database_dynamic_info) {
@@ -45,7 +43,8 @@ class AccountLogService {
                         is_success: is_success,
                         is_manual_reply: is_manual_reply,
                         dynamic_info_id: database_dynamic_info.pk,
-                        lottery_type: lottery_type
+                        lottery_type: lottery_type,
+                        comment_msg:comment_msg
                     });
                     await AccountLogDao.add_account_info_lottery_log({
                         lottery_log_id: log.pk,
@@ -55,6 +54,48 @@ class AccountLogService {
             )
         } catch (e) {
             console.error(`添加抽奖日志失败！\n${e.stack}`)
+        }
+    }
+
+    /**
+     *
+     * @param {number} account_id
+     * @param {manual_op_fail_model} lottery_log_info
+     * @param is_success
+     * @param is_manual_reply
+     * @param {string}comment_msg 记录的抽奖评论，失败了的话可以是undefined或者null之类的！
+     * @return {Promise<void>}
+     */
+    static async add_lottery_log_by_account_id(account_id,
+                                               lottery_log_info,
+                                               is_success,
+                                               is_manual_reply,
+                                               comment_msg
+    ) {
+        let database_dynamic_info = await AccountLogDao.is_dynamic_info_exist(lottery_log_info.dynamic_info.dynId);
+        if (!database_dynamic_info) {
+            database_dynamic_info = await AccountLogDao.add_dynamic_info(lottery_log_info.dynamic_info);
+        }
+        try {
+            return await sequelize.transaction(async (t) => {
+                    let lottery_type = lottery_log_info.dynamic_info.dynamicUrl.includes('?tab=2') ? [1] : [0]
+                    let [log,_] = await AccountLogDao.add_lottery_log_info({
+                        lottery_log: lottery_log_info.err_msg,
+                        is_success: is_success,
+                        is_manual_reply: is_manual_reply,
+                        dynamic_info_id: database_dynamic_info.pk,
+                        lottery_type: lottery_type,
+                        comment_msg:comment_msg
+                    });
+                    await AccountLogDao.add_account_info_lottery_log({
+                        lottery_log_id: log.pk,
+                        accountinfo_id: account_id
+                    })
+                }
+            )
+        } catch (e) {
+            console.error(`添加抽奖日志失败！\n${e}`)
+            throw Error(`添加抽奖日志失败！\n${e}`)
         }
     }
 

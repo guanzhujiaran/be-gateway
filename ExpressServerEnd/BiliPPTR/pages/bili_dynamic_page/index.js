@@ -4,19 +4,13 @@
  */
 const {pptr_op, utils, sleep} = require("@/ExpressServerEnd/BiliPPTR/utils/utils");
 const {GLOBAL_CONFIG} = require('@/ExpressServerEnd/BiliPPTR/config/global_config')
-const axios = require('axios');
-const puppeteer = require("puppeteer-extra");
-const StealthPlugin = require("puppeteer-extra-plugin-stealth");
 const {BiliElementMap} = require("@/ExpressServerEnd/BiliPPTR/utils/element_map");
 const {AccountDao} = require("@/ExpressServerEnd/DAO/AccountDao");
 const BasePage = require("@/ExpressServerEnd/BiliPPTR/pages/base_page");
 const BasicOp = require("@/ExpressServerEnd/BiliPPTR/pages/bili_dynamic_page/Op/basic_op");
 const {manual_op_fail_model} = require("@/ExpressServerEnd/BiliPPTR/models/pages/bili_dynamic_page_model");
-const {AccountLogDao} = require("@/ExpressServerEnd/DAO/AccountLogDao");
 const {AccountLogService} = require("@/ExpressServerEnd/Service/account_log_module/account_log_service");
-const stealth = StealthPlugin();
-stealth.enabledEvasions.delete("user-agent-override");
-puppeteer.use(StealthPlugin());
+const {response} = require("express");
 
 
 class BiliDynamicPage extends BasePage {
@@ -54,264 +48,257 @@ class BiliDynamicPage extends BasePage {
     }
 
     opus_op = {
-        fast_repost: async () => {
-            //直接转发
-            try {
-                //直接点转发
-                await sleep(1e3);
-                await this.basic_op.dynamic_repost();
-                //最后点赞
-                await this.basic_op.dynamic_thumb();
-            } catch (e) {
-                console.log(`转发失败！${this.global_var.response.global_dynamic_data}\n${e.stack}`);
-                this.global_var.FLAG.风控标志 = true; //可能触发风控，停一个小时
-                await this.log_record.my_throw(`${BiliElementMap.log_record.opus_dynamic.dynamic_fast_repost_fail}`, e);
-                throw Error(`${BiliElementMap.log_record.opus_dynamic.dynamic_fast_repost_fail}\n${e.stack}`)
-            }
+        fast_repost: async (record_data) => {
+            let func_param_arr = [
+                {
+                    func: this.opus_op.check_follow_up,
+                    params: record_data.dynamic_info,
+                    err: BiliElementMap.log_record.opus_dynamic.err.follow.follow_up_fail,
+                    pg: this.global_var.current_page,
+                    reload_when_err: false
+                },
+                {
+                    func: this.basic_op.dynamic_repost,
+                    params: undefined,
+                    err: BiliElementMap.log_record.opus_dynamic.err.repost.dynamic_fast_repost_fail,
+                    pg: this.global_var.current_page,
+                    reload_when_err: true
+                },
+                {func: sleep, params: 3e3},
+                {
+                    func: this.basic_op.dynamic_thumb,
+                    params: undefined,
+                    err: BiliElementMap.log_record.opus_dynamic.err.like.dynamic_like_fail,
+                    pg: this.global_var.current_page,
+                    reload_when_err: true
+                }
+            ]
+            await this.executeWithRetry(func_param_arr, record_data);
         },
         /**
-         * 同时转发评论
+         * 转评带上回复内容
+         * @param record_data
          * @param {string} comment_msg
+         * @param {boolean}repost_with_msg
          * @returns
          */
         comment_repost_dynamic: async (
-            comment_msg = "",
+            record_data,
+            comment_msg,
+            repost_with_msg = false
         ) => {
-            //转评带上回复内容
-            try {
-                await this.basic_op.comment_submit(
-                    comment_msg
-                );
-                await sleep(3e3);
-                await this.basic_op.dynamic_repost(
-                    comment_msg
-                );
-                await sleep(3e3);
-                await this.basic_op.dynamic_thumb();
-            } catch (e) {
-                console.error(
-                    `${this.log_name}${this.page_url}转发失败，comment_repost_dynamic_with_content\t${e.stack}`
-                );
-                await this.log_record.my_throw(
-                    BiliElementMap.log_record.opus_dynamic.comment_repost_dynamic_with_content_fail, e
-                );
-                throw Error(`${BiliElementMap.log_record.opus_dynamic.comment_repost_dynamic_with_content_fail}\n${e.stack}`)
-            }
+            record_data.comment_msg = comment_msg;
+            let func_param_arr = [
+                {
+                    func: this.opus_op.check_follow_up,
+                    params: record_data.dynamic_info,
+                    err: BiliElementMap.log_record.opus_dynamic.err.follow.follow_up_fail,
+                    pg: this.global_var.current_page,
+                    reload_when_err: false
+                },
+                {
+                    func: this.basic_op.comment_submit,
+                    params: comment_msg,
+                    err: BiliElementMap.log_record.opus_dynamic.err.comment.dynamic_comment_fail,
+                    pg: this.global_var.current_page,
+                    reload_when_err: true
+                },
+                {func: sleep, params: 3e3},
+                {
+                    func: this.basic_op.dynamic_repost,
+                    params: repost_with_msg ? comment_msg : "",
+                    err: BiliElementMap.log_record.opus_dynamic.err.repost.dynamic_repost_fail,
+                    pg: this.global_var.current_page,
+                    reload_when_err: true
+                },
+                {func: sleep, params: 3e3},
+                {
+                    func: this.basic_op.dynamic_thumb,
+                    params: undefined,
+                    err: BiliElementMap.log_record.opus_dynamic.err.like.dynamic_like_fail,
+                    pg: this.global_var.current_page,
+                    reload_when_err: true
+                }
+            ]
+            await this.executeWithRetry(func_param_arr, record_data);
         },
         /**
          * 只评论，不转发
+         * @param record_data
          * @param {string} comment_msg
          * @returns
          */
-        only_comment: async (comment_msg) => {
+        only_comment: async (record_data, comment_msg) => {
+            record_data.comment_msg = comment_msg;
             //只评论
-            let page_url = this.page_url
-            try {
-                if (comment_msg != null) {
-                    await this.basic_op.comment_submit(
-                        comment_msg,
-                    );
-                } else {
-                    console.error(
-                        `${this.log_name}${page_url}\t${BiliElementMap.log_record.opus_dynamic.comment_msg_empty}\t${this.now}`
-                    );
-                    await this.log_record.my_throw(BiliElementMap.log_record.opus_dynamic.comment_msg_empty)
-                    throw Error(BiliElementMap.log_record.opus_dynamic.comment_msg_empty)
-                }
-                await sleep(1e3);
-                await this.basic_op.dynamic_thumb();
-            } catch (e) {
-                console.error(
-                    `${this.log_name}${page_url}评论获取失败\n${JSON.stringify(
-                        this.global_var.response.global_dynamic_data
-                    )}\t${this.now}`,
-                    e
-                );
-                await this.log_record.my_throw(
-                    BiliElementMap.log_record.opus_dynamic.dynamic_only_comment_fail
-                );
-                throw Error(`${BiliElementMap.log_record.opus_dynamic.dynamic_only_comment_fail}\n${e.stack}`)
-            }
+            let func_param_arr = [
+                {
+                    func: this.opus_op.check_follow_up,
+                    params: record_data.dynamic_info,
+                    err: BiliElementMap.log_record.opus_dynamic.err.follow.follow_up_fail,
+                    pg: this.global_var.current_page,
+                    reload_when_err: false
+                },
+                {
+                    func: this.basic_op.comment_submit,
+                    params: comment_msg,
+                    err: BiliElementMap.log_record.opus_dynamic.err.comment.dynamic_comment_fail,
+                    pg: this.global_var.current_page,
+                    reload_when_err: true
+                },
+                {func: sleep, params: 3e3},
+                {
+                    func: this.basic_op.dynamic_thumb,
+                    params: undefined,
+                    err: BiliElementMap.log_record.opus_dynamic.err.like.dynamic_like_fail,
+                    pg: this.global_var.current_page,
+                    reload_when_err: true
+                },
+            ]
+            await this.executeWithRetry(func_param_arr, record_data);
+
         },
         /**
          * 关注up
          * @param {TYPE_dynamic_info} dynamic_info
          * @return {Promise<boolean>}true 关注成功，继续执行 false 关注失败，提前退出执行
          */
-        follow_up: async (dynamic_info) => {
-            try {
-                let global_var = this.global_var;
-                const handle_relation_change_response = async (pg = undefined) => {
-                    if (global_var.response.relation_modify_response.code !== 0) {
-                        console.error(
-                            this.log_format(`点击关注失败\n${dynamic_info.dynamicUrl}\n${JSON.stringify(
-                                global_var.response
-                                    .relation_modify_response
-                            )}`)
-                        );
-                        if (global_var.response.relation_modify_response.code !== 22002) {
-                            await this.log_record.my_throw(BiliElementMap.log_record.opus_dynamic.follow_up_fail);
-                            if (
-                                pg && !pg.isClosed()
-                            ) {
-                                await pg.close();
-                            }
-                            console.error(
-                                this.log_format(`点击关注失败\n${dynamic_info.dynamicUrl}\n${JSON.stringify(
-                                    global_var.response
-                                        .relation_modify_response
-                                )}休眠1小时！`));
-                            await sleep(3600e3);
-                        } else {
-                            //{"code":22002,"message":"因对方隐私设置，你还不能关注","ttl":1}
-                            await this.log_record.my_throw(
-                                BiliElementMap.log_record.opus_dynamic.follow_up_fail_banned_by_up);
-                        }
-                        return false;
-                    } else {
-                        console.log(
-                            this.log_format(`关注成功！\thttps://space.bilibili.com/${dynamic_info.up_uid}`)
-                        );
-                    }
-                    return true
-                }
-
-                for (let i = 0; i <= 5; i++) {
-                    let up_mid = global_var.response.global_dynamic_data.item.modules.module_author.mid
-                    console.log(this.log_format(`未关注\thttps://space.bilibili.com/${up_mid}\t${this.page_url}`)
-                    );
-                    if (this.page_url.includes(BiliElementMap.url_path.opus_dynamic.opus_link)) {// opus 动态需要创建新的页面
-                        let follow_pg = await global_var.current_page
-                            .browser()
-                            .newPage();
-                        follow_pg.usage = BiliElementMap.browser_usage.follow_up
-
-                        try {
-                            await follow_pg.goto(
-                                `https://space.bilibili.com/${up_mid}`
-                            );
-                            await utils.Common.check_page_is_front(
-                                follow_pg
-                            );
-                            await Promise.all([
-                                follow_pg
-                                    .waitForSelector(
-                                        ".h-f-btn.h-follow"
-                                    )
-                                    .then((el) => el.click())
-                                    .catch(() => {
-                                        {
-                                            status: "fail";
-                                        }
-                                    }),
-                                (global_var.response.relation_modify_response =
-                                    await follow_pg
-                                        .waitForResponse(
-                                            (resp) =>
-                                                resp
-                                                    .url()
-                                                    .includes(
-                                                        BiliElementMap.url_path.user.relation_modify
-                                                    )
-                                        )
-                                        .then(
-                                            async (
-                                                response
-                                            ) => {
-                                                return await response.json();
-                                            }
-                                        )
-                                        .catch(() => {
-                                            status: "fail";
-                                        })),
-                            ])
-                            if (global_var.response.relation_modify_response) {
-                                if (!await handle_relation_change_response(follow_pg)) {
-                                    return false
-                                }
-                            }
-                            await sleep(5e3);
-                            break;
-                        } catch (e) {
-                            if (i >= 5) {
-                                await this.log_record.my_throw(
-                                    BiliElementMap.log_record.opus_dynamic.follow_up_fail
-                                );
-                                return false
-                            }
-                            if ((await follow_pg.$$(`.h-f-icon`)).length > 0) {
-                                console.log(this.log_format(`关注成功！\thttps://space.bilibili.com/${up_mid}`));
-                                break;
-                            }
-                            console.error(this.log_format(`第${i}次点击关注失败\n${dynamic_info.dynamicUrl}\n${JSON.stringify(
-                                    global_var.response.relation_modify_response
-                                )}\n${e.stack}`)
-                            );
-                            await sleep(3e3);
-                            continue;
-                        } finally {
-                            if (global_var.current_page.isClosed()) {
-                                await this.account_page_init()
-                            }
-                            if (!follow_pg.isClosed()) {
-                                await follow_pg.close()
-                            }
-                        }
-                    } else {
-                        try {
-                            await pptr_op.check_page_is_front(
-                                global_var.current_page
-                            );
-                            await global_var.current_page.hover(
-                                "div.bili-dyn-item__main > div.bili-dyn-item__avatar > div > div"
-                            );
-                            await sleep(5e3);
-                            await global_var.current_page.click(
-                                "div.bili-user-profile-view__info__button.follow"
-                            );
-                            await sleep(3e3);
-                            let follow_checked_btn;
-                            try {
-                                follow_checked_btn =
-                                    await global_var.current_page.$(
-                                        ".bili-user-profile-view__info__button.follow.checked",
-                                        {TIMEOUT: 10e3}
-                                    );
-                            } catch (e) {
-                                console.error(
-                                    this.log_format(`点击关注失败 https://space.bilibili.com/${up_mid}\n${e.static}`)
-                                );
-                                await this.log_record.my_throw(
-                                    BiliElementMap.log_record.opus_dynamic.follow_up_fail);
-                                return false
-                            }
-                            if (global_var.response.relation_modify_response) {
-                                if (!await handle_relation_change_response()) return false
-                            }
-                            if (follow_checked_btn) {
-                                console.log(
-                                    `${global_var.user_info.uname}\t关注成功！\thttps://space.bilibili.com/${global_var.response.global_dynamic_data.item.modules.module_author.mid}`
-                                );
-                                break;
-                            }
-                        } catch (e) {
-                            if (i >= 5) {
-                                await this.log_record.my_throw(
-                                    `${global_var.user_info.uname}\t关注失败`, e
-                                );
-                            }
-                            console.warn(
-                                this.log_format(`关注失败\n${e.stack}`)
-                            );
-                            await sleep(3e3);
-                            continue;
-                        }
-                    }
-                    break;
-                }
-            } catch (e) {
-                throw Error(`${BiliElementMap.log_record.opus_dynamic.follow_up_fail}\n${e.stack}`)
+        check_follow_up: async (dynamic_info) => {
+            let global_var = this.global_var;
+            if (global_var.response.global_dynamic_data.item
+                .modules.module_author.following !== null) {
+                return true;
             }
+            const handle_relation_change_response = async (pg = undefined) => {
+                if (global_var.response.relation_modify_response.code !== 0) {
+                    console.error(
+                        this.log_format(`点击关注失败\n${dynamic_info.dynamicUrl}\n${JSON.stringify(
+                            global_var.response
+                                .relation_modify_response
+                        )}`)
+                    );
+                    if (global_var.response.relation_modify_response.code !== 22002) {
+                        await this.log_record.my_throw(BiliElementMap.log_record.opus_dynamic.err.follow.follow_up_fail);
+                        if (
+                            pg && !pg.isClosed()
+                        ) {
+                            await pg.close();
+                        }
+                        return false
+                    } else {
+                        //{"code":22002,"message":"因对方隐私设置，你还不能关注","ttl":1}
+                        await this.log_record.dynamic_lottery_record(BiliElementMap.log_record.succ_info.follow_up_fail_banned_by_up);
+                        return true;
+                    }
+
+                } else {
+                    console.log(
+                        this.log_format(`关注成功！\thttps://space.bilibili.com/${dynamic_info.up_uid}`)
+                    );
+                }
+                return true
+            }
+            /**
+             * 执行关注
+             * @return {Promise<boolean>}
+             */
+            const do_follow_up = async () => {
+                if (this.page_url.includes(BiliElementMap.url_path.opus_dynamic.opus_link)) {// opus 动态需要创建新的页面
+                    let follow_pg = await this.create_new_pg(BiliElementMap.browser_usage.follow_up)
+                    try {
+                        await follow_pg.goto(
+                            `https://space.bilibili.com/${up_mid}`
+                        );
+                        await pptr_op.check_page_is_front(
+                            follow_pg
+                        );
+                        await Promise.all([
+                            follow_pg
+                                .waitForSelector(
+                                    ".h-f-btn.h-follow"
+                                )
+                                .then((el) => el.click())
+                            ,
+                            (global_var.response.relation_modify_response =
+                                await follow_pg
+                                    .waitForResponse(
+                                        (resp) =>
+                                            resp
+                                                .url()
+                                                .includes(
+                                                    BiliElementMap.url_path.user.relation_modify
+                                                )
+                                    )
+                                    .then(
+                                        async (
+                                            response
+                                        ) => {
+                                            return await response.json();
+                                        }
+                                    )),
+                        ])
+                        if (!global_var.response.relation_modify_response) {
+                            return false;
+                        }
+                        return await handle_relation_change_response(follow_pg);
+                    } catch (e) {
+                        throw e;
+                    } finally {
+                        await follow_pg.close();
+                    }
+                } else {
+                    await pptr_op.check_page_is_front(
+                        global_var.current_page
+                    );
+                    await global_var.current_page.hover(
+                        "div.bili-dyn-item__main > div.bili-dyn-item__avatar > div > div"
+                    );
+                    await sleep(3e3);
+                    await global_var.current_page.click(
+                        "div.bili-user-profile-view__info__button.follow"
+                    );
+                    await sleep(3e3);
+                    let follow_checked_btn;
+                    try {
+                        follow_checked_btn =
+                            await global_var.current_page.$(
+                                ".bili-user-profile-view__info__button.follow.checked",
+                                {TIMEOUT: 10e3}
+                            );
+                    } catch (e) {
+                        console.error(
+                            this.log_format(`点击关注失败 https://space.bilibili.com/${up_mid}\n${e.static}`)
+                        );
+                        await this.log_record.my_throw(
+                            BiliElementMap.log_record.opus_dynamic.err.follow.follow_up_fail);
+                        return false
+                    }
+                    if (follow_checked_btn) {
+                        console.log(
+                            `${global_var.user_info.uname}\t关注成功！\thttps://space.bilibili.com/${global_var.response.global_dynamic_data.item.modules.module_author.mid}`
+                        );
+                        return true;
+                    }
+                    if (!global_var.response.relation_modify_response) {
+                        return false;
+                    }
+                    return await handle_relation_change_response()
+                }
+            }
+            let up_mid = global_var.response.global_dynamic_data.item.modules.module_author.mid
+            console.log(this.log_format(`未关注\thttps://space.bilibili.com/${up_mid}\t${this.page_url}`)
+            );
+            let do_follow_up_result = await do_follow_up();
+            if (do_follow_up_result === false) {
+                console.error(this.log_format(`点击关注失败\n${dynamic_info.dynamicUrl}\n${JSON.stringify(global_var.response.relation_modify_response)}休眠1小时！`));
+                let temp_url = this.page_url;
+                await this.global_var.current_page.goto('about:blank');
+                await sleep(3600e3);
+                await this.global_var.current_page.goto(temp_url);
+                throw Error(`关注失败！`)
+            }
+            return do_follow_up_result;
+
         },
         /**
          * 已经在抽奖动态页面
@@ -325,21 +312,18 @@ class BiliDynamicPage extends BasePage {
             let record_data = new manual_op_fail_model(
                 dynamic_info
             )
-            try {
-                console.log(
-                    this.log_format(`开始抽奖，动态id:【${dynamic_info.dynId}】`)
+            if (!(await pptr_op.check_bili_login(global_var.current_page))) {
+                let err_msg = `${lottery_setting.CONFIG.COOKIENAME}账号登录失效！`;
+                console.error(this.log_format(err_msg));
+                await pptr_op.my_send_notify.push_me(
+                    err_msg,
+                    this.log_format(`${JSON.stringify(global_var.user_info, undefined, "\t")}`)
                 );
-                if (
-                    !(await pptr_op.check_bili_login(global_var.current_page))
-                ) {
-                    let err_msg = `${lottery_setting.CONFIG.COOKIENAME}账号登录失效！`;
-                    console.error(this.log_format(err_msg));
-                    await pptr_op.my_send_notify.push_me(
-                        err_msg,
-                        this.log_format(`${JSON.stringify(global_var.user_info, undefined, "\t")}`)
-                    );
-                    throw Error(BiliElementMap.log_record.critical_error.account_logout);
-                }
+                throw Error(BiliElementMap.log_record.critical_error.account_logout);
+            }
+
+            try {
+                console.log(this.log_format(`开始抽奖，动态id:【${dynamic_info.dynId}】`));
                 //region 判断是否是404动态
                 if (this.page_url.includes("www.bilibili.com/404") || await global_var.current_page.$(BiliElementMap.opus_dynamic.interact.dynamic_error_pic)) {
                     await global_var.current_page.goto(`https://www.bilibili.com/opus/${dynamic_info.dynId}`);
@@ -362,9 +346,9 @@ class BiliDynamicPage extends BasePage {
                             await utils.Common.Get_Opus_Dynamic_Data(global_var.current_page);
                     } catch (e) {
                         console.error(
-                            this.log_format(`${BiliElementMap.log_record.opus_dynamic.get_dynamic_info_fail}\n${e.stack}`)
+                            this.log_format(`${BiliElementMap.log_record.opus_dynamic.err.common.get_dynamic_info_fail}\n${e.stack}`)
                         );
-                        await this.log_record.my_throw(BiliElementMap.log_record.opus_dynamic.get_dynamic_info_fail);
+                        await this.log_record.my_throw(BiliElementMap.log_record.opus_dynamic.err.common.get_dynamic_info_fail);
                         global_var.response.global_dynamic_data = dynamic_info.dynContent;
                     }
                 }
@@ -386,8 +370,8 @@ class BiliDynamicPage extends BasePage {
                     }
                     bt += 1;
                     if (bt >= 3) {
-                        await this.log_record.my_throw(BiliElementMap.log_record.opus_dynamic.get_dynamic_info_fail);
-                        record_data.err_msg = BiliElementMap.log_record.opus_dynamic.get_dynamic_info_fail;
+                        await this.log_record.my_throw(BiliElementMap.log_record.opus_dynamic.err.common.get_dynamic_info_fail);
+                        record_data.err_msg = BiliElementMap.log_record.opus_dynamic.err.common.get_dynamic_info_fail;
                         await this.log_record.dynamic_lottery_record(record_data)
                         statistic_data.lottery_fail_record.push(record_data)
                         return false;
@@ -395,12 +379,6 @@ class BiliDynamicPage extends BasePage {
                     await global_var.current_page.reload();
                     await sleep(5e3);
                 }
-                await sleep(
-                    0.5 *
-                    utils.Common.random_choice(
-                        lottery_setting.lottery_module.Working_clearance_time
-                    )
-                );
                 let comment_forbidden_mark = false; //禁止评论标志
                 if (global_var.response.reply_main) {
                     if (global_var.response.reply_main?.code === 12061) {
@@ -414,13 +392,12 @@ class BiliDynamicPage extends BasePage {
                         (await global_var.current_page.$(BiliElementMap.opus_dynamic.interact.sidebar_like_btn_is_active)) ||
                         (await global_var.current_page.$(BiliElementMap.opus_dynamic.interact.old_like_btn_is_active));
                 } catch (e) {
-                    console.error(this.log_format(`获取点赞状态失败\t${this.page_url}\n${e.stack}`)
-                    );
+                    console.error(this.log_format(`获取点赞状态失败\t${this.page_url}\n${e.stack}`));
                 }
                 if (thumb_status) {
                     //先进行点赞判断
                     console.log(this.log_format(`${BiliElementMap.log_record.succ_info.thumbed_dynamic}\t${this.page_url}`));
-                    await sleep(utils.Common.random_choice(lottery_setting.lottery_module.Working_clearance_time));
+                    await sleep(3e3);
                     await this.log_record.my_throw(BiliElementMap.log_record.succ_info.thumbed_dynamic);
                     record_data.err_msg = BiliElementMap.log_record.succ_info.thumbed_dynamic;
                     await this.log_record.dynamic_lottery_record(record_data)
@@ -428,8 +405,7 @@ class BiliDynamicPage extends BasePage {
                     return false;
                 }
 
-                let is_past =
-                    this.judge_official_lottery_op.judge_official_lottery();
+                let is_past = this.judge_official_lottery_op.judge_official_lottery();
                 if (is_past === true) {
                     await sleep(
                         utils.Common.random_choice(
@@ -452,12 +428,8 @@ class BiliDynamicPage extends BasePage {
                     }
                 }
 
-                let dynamic_comment_count =
-                    global_var.response.global_dynamic_data.item.modules
-                        .module_stat.comment.count;
-                let dynamic_repost_count =
-                    global_var.response.global_dynamic_data.item.modules
-                        .module_stat.forward.count;
+                let dynamic_comment_count = global_var.response.global_dynamic_data.item.modules.module_stat.comment.count;
+                let dynamic_repost_count = global_var.response.global_dynamic_data.item.modules.module_stat.forward.count;
                 if (!(dynamic_comment_count > 30 || dynamic_repost_count > 30) && !dynamic_info.dynamicUrl.includes("tab=1")) {
                     let author_official_verify =
                         global_var.response.global_dynamic_data.item
@@ -504,102 +476,75 @@ class BiliDynamicPage extends BasePage {
                 let comment_msg;
                 if (dynamic_content === '' || dynamic_content === undefined) {
                     console.error(
-                        `${BiliElementMap.log_record.opus_dynamic.get_dynamic_content_fail}\n${global_var.response.global_dynamic_data}\n${this.page_url}`
+                        `${BiliElementMap.log_record.opus_dynamic.err.common.get_dynamic_content_fail}\n${global_var.response.global_dynamic_data}\n${this.page_url}`
                     );
                     await this.log_record.my_throw(
-                        BiliElementMap.log_record.opus_dynamic.get_dynamic_content_fail
+                        BiliElementMap.log_record.opus_dynamic.err.common.get_dynamic_content_fail
                     );
-                    record_data.err_msg = BiliElementMap.log_record.opus_dynamic.get_dynamic_content_fail
+                    record_data.err_msg = BiliElementMap.log_record.opus_dynamic.err.common.get_dynamic_content_fail
                     await this.log_record.dynamic_lottery_record(record_data)
                     statistic_data.lottery_fail_record.push(record_data)
                     return false;
                 }
-                if (!dynamic_info.dynamicUrl.includes("tab=1"))//如果是只转发的动态则不生成评论内容
-                {
-
-                    comment_msg = await this.comment_op.reply_comment_generator(
-                        dynamic_content,
-                        dynamic_info.dynId,
-                        record_data
-                    );
+                if (!dynamic_info.dynamicUrl.includes("tab=1")) {//如果是只转发的动态则不生成评论内容
+                    if (!comment_forbidden_mark) {
+                        comment_msg = await this.comment_op.reply_comment_generator(
+                            dynamic_content,
+                            dynamic_info.dynId,
+                            record_data
+                        );
+                    }
                 }
-                if (
-                    comment_msg === undefined ||
-                    !comment_msg.includes(BiliElementMap.log_record.succ_info.manual_reply)
-                ) {
 
-                    //如果包含undefined或者不需要人工回复就开始抽奖
+                if (comment_msg === undefined || !comment_msg.includes(BiliElementMap.log_record.succ_info.manual_reply)) {
                     if ((!comment_msg || typeof comment_msg != "string") && !(dynamic_info.dynamicUrl.includes("tab=1"))) {
-                        console.error(this.log_format(`${BiliElementMap.log_record.opus_dynamic.comment_msg_empty}\n${this.page_url}`))
-                        await this.log_record.my_throw(BiliElementMap.log_record.opus_dynamic.comment_msg_empty);
-                        record_data.err_msg = BiliElementMap.log_record.opus_dynamic.comment_msg_empty
+                        if (record_data.err_msg.includes(BiliElementMap.log_record.succ_info.manual_reply)) {
+                            statistic_data.lottery_manual_record.push(record_data);
+                            return false;
+                        }
+                        console.error(this.log_format(`${BiliElementMap.log_record.opus_dynamic.err.comment.comment_msg_empty}\n${this.page_url}`))
+                        await this.log_record.my_throw(BiliElementMap.log_record.opus_dynamic.err.comment.comment_msg_empty);
+                        record_data.err_msg = BiliElementMap.log_record.opus_dynamic.err.comment.comment_msg_empty
                         await this.log_record.dynamic_lottery_record(record_data)
                         statistic_data.lottery_fail_record.push(record_data)
                         return false;
                     }
-                    if (
-                        global_var.response.global_dynamic_data.item
-                            .modules.module_author.following == null
-                    ) {
-                        if (!await this.opus_op.follow_up(dynamic_info)) {
-                            await this.log_record.my_throw(BiliElementMap.log_record.opus_dynamic.follow_up_fail);
-                            record_data.err_msg = BiliElementMap.log_record.opus_dynamic.follow_up_fail
-                            await this.log_record.dynamic_lottery_record(record_data)
-                            statistic_data.lottery_fail_record.push(record_data)
-                            return false
-                        }
-                    }
-                    if (
-                        (await pptr_op.check_page_is_front(
-                            global_var.current_page
-                        )) === undefined
-                    ) {
+
+                    if ((await pptr_op.check_page_is_front(global_var.current_page)) === undefined) {
                         await this.account_page_init(false);
                         await global_var.current_page.goto(dynamic_info.dynamicUrl);
                     }
                     await global_var.current_page.evaluate(() => {
                         this.scrollTo(0, 1500);
                     });
-                    await sleep(1e3);
-                    await global_var.current_page.evaluate(() => {
-                        this.scrollTo(0, 1500);
-                    });
-                    await sleep(1e3);
                     await global_var.current_page.evaluate(() => {
                         this.scrollTo(0, -1500);
                     });
-                    await sleep(1e3);
 
                     // console.log(global_var.response.global_dynamic_data)
-                    if (
-                        dynamic_info.dynamicUrl.includes("tab=1") //|| comment_forbidden_mark
-                    ) {
-                        //只转发
-                        if (lottery_setting.CONFIG.Official_Lottery_Switch) {
-                            await this.opus_op.fast_repost();
-
-                            await sleep(
-                                utils.Common.random_choice(
-                                    lottery_setting.lottery_module.Working_clearance_time
-                                )
-                            );
-                            record_data.err_msg = BiliElementMap.log_record.succ_info.repost_dynamic
-                            await this.log_record.dynamic_lottery_record(record_data)
-                            statistic_data.lottery_succ_record.push(record_data)
-                            return true;
-                        } else {
-                            await this.log_record.my_throw(BiliElementMap.log_record.succ_info.past_official_lot);
-                            record_data.err_msg = BiliElementMap.log_record.succ_info.repost_dynamic
-                            await this.log_record.dynamic_lottery_record(record_data)
-                            statistic_data.lottery_succ_record.push(record_data)
-                            return false;
-                        }
-                    }
                     console.log(
                         this.log_format(
                             `${dynamic_info.dynamicUrl}\n动态内容：\n${dynamic_content}\n===============\n回复内容：${comment_msg}\n#############################`
                         )
                     );
+                    if (dynamic_info.dynamicUrl.includes("tab=1")) {
+                        //只转发
+                        if (lottery_setting.CONFIG.Official_Lottery_Switch) {
+                            await this.opus_op.fast_repost(record_data);
+                            await this.basic_op.sleep.single_round({pg: this.global_var.current_page});
+                            record_data.err_msg = BiliElementMap.log_record.succ_info.lot_succ
+                            await this.log_record.dynamic_lottery_record(record_data)
+                            statistic_data.lottery_succ_record.push(record_data)
+                            return true;
+                        } else {
+                            await this.log_record.my_throw(BiliElementMap.log_record.succ_info.past_official_lot);
+                            record_data.err_msg = BiliElementMap.log_record.opus_dynamic.repost_dynamic
+                            await this.log_record.dynamic_lottery_record(record_data)
+                            statistic_data.lottery_succ_record.push(record_data)
+                            return false;
+                        }
+                    }
+
                     if (dynamic_info.dynamicUrl.indexOf("tab=2") > -1) {
                         //评论加转发
                         if (
@@ -611,19 +556,19 @@ class BiliDynamicPage extends BasePage {
                                 dynamic_content
                             )
                         ) {
-                            await this.opus_op.comment_repost_dynamic(comment_msg);
+                            await this.opus_op.comment_repost_dynamic(record_data, comment_msg, true);
                         } else {
-                            await this.opus_op.comment_repost_dynamic();
+                            await this.opus_op.comment_repost_dynamic(record_data, comment_msg);
                         }
                     } else if (dynamic_info.dynamicUrl.indexOf("tab=2") === -1 && dynamic_info.dynamicUrl.indexOf("tab=1") === -1) {
                         //只评论不转发
-                        await this.opus_op.only_comment(comment_msg);
+                        await this.opus_op.only_comment(record_data, comment_msg);
                         await sleep(
                             utils.Common.random_choice(
                                 lottery_setting.lottery_module.Working_clearance_time
                             )
                         );
-                        record_data.err_msg = BiliElementMap.log_record.succ_info.comment_dynamic
+                        record_data.err_msg = BiliElementMap.log_record.succ_info.lot_succ
                         await this.log_record.dynamic_lottery_record(record_data)
                         statistic_data.lottery_succ_record.push(record_data)
                         return false
@@ -633,28 +578,24 @@ class BiliDynamicPage extends BasePage {
                             dynamic_info.dynamicUrl.indexOf("tab=1") > -1
                         )
                     ) {
-                        await this.log_record.my_throw(BiliElementMap.log_record.opus_dynamic.unknown_url_tab);
-                        record_data.err_msg = BiliElementMap.log_record.opus_dynamic.unknown_url_tab
+                        await this.log_record.my_throw(BiliElementMap.log_record.opus_dynamic.err.common.unknown_url_tab);
+                        record_data.err_msg = BiliElementMap.log_record.opus_dynamic.err.common.unknown_url_tab
                         await this.log_record.dynamic_lottery_record(record_data)
                         statistic_data.lottery_fail_record.push(record_data)
                         return false;
                     }
                 }
 
-                record_data.err_msg = comment_msg
+                record_data.err_msg = BiliElementMap.log_record.succ_info.lot_succ;
                 // 到这里就算是执行成功了！！！
                 await this.log_record.dynamic_lottery_record(record_data);
                 statistic_data.lottery_succ_record.push(record_data)
-                await sleep(
-                    utils.Common.random_choice(
-                        lottery_setting.lottery_module.Working_clearance_time
-                    )
-                );
+                await this.basic_op.sleep.single_round({pg: this.global_var.current_page});
                 return true;
             } catch (e) {
                 console.error(
                     this.log_format(
-                        `do_lottery函数执行失败\t${dynamic_info.dynamicUrl}\n${e.stack}`
+                        `do_lottery函数执行失败\t${dynamic_info.dynamicUrl}\n${e}`
                     )
                 );
                 if (e.toString().includes(`Requesting main frame too early`) ||
@@ -674,12 +615,14 @@ class BiliDynamicPage extends BasePage {
                 }
                 await sleep(10e3);
                 await this.log_record.my_throw(
-                    `${BiliElementMap.log_record.opus_dynamic.unknown_do_dynamic_lottery_error}${e.stack}`
+                    `${BiliElementMap.log_record.opus_dynamic.err.common.unknown_do_dynamic_lottery_error}${e.stack}`
                 );
-                record_data.err_msg = e.toString().replaceAll("Error: ", "")
+                record_data.err_msg = JSON.stringify(e.stack);
                 await this.log_record.dynamic_lottery_record(record_data);
                 statistic_data.lottery_fail_record.push(record_data)
                 return false;
+            } finally {
+
             }
         }
     }
@@ -696,12 +639,13 @@ class BiliDynamicPage extends BasePage {
              *
              * @type {TYPE_reserve_data[]}
              */
+            if (loop_list.length === 0) return [];
             let new_loop_list = Object.assign([], loop_list);
             new_loop_list.sort((a, b) => a.reserve_sid - b.reserve_sid); //升序
             let joined_infos = await AccountLogService.get_account_reserve_sid_info_by_sid_range(
                 {
                     sid_start: new_loop_list[0].reserve_sid.toString(),
-                    sid_end: new_loop_list.pop().reserve_sid.toString()
+                    sid_end: new_loop_list.slice(-1)[0].reserve_sid.toString()
                 }, this.account_id
             )
             let joined_sids = joined_infos.map(el => el.reserveinfo_sid);
@@ -788,20 +732,22 @@ class BiliDynamicPage extends BasePage {
         single: {
             reserve_lottery: async (reserve_info, new_reserve_data, join_success_list, joinfail_list) => {
                 let record_data = undefined;
+                this.global_var.response.space_reservation = undefined;
                 console.log(
                     `${this.global_var.user_info.uname}\t前往预约页面: ${reserve_info.reserve_url}\n`
                 );
-                this.global_var.response.space_reservation = undefined;
                 await pptr_op.check_page_is_front(this.global_var.current_page);
                 try {
                     await this.global_var.current_page.goto(
                         reserve_info.reserve_url
-                    );
-                    await sleep(10e3);
+                    ).then(async () => {
+                        await this.global_var.current_page.waitForResponse(response => response.url().includes(BiliElementMap.url_path.space.reservation))
+                    });
                     await pptr_op.check_page_is_front(this.global_var.current_page);
                 } catch (e) {
                     throw Error(`前往预约页面 ${reserve_info.reserve_url} 失败\nreserve_lottery_loop\n${e.stack}`)
                 }
+
                 if (!this.global_var.response.space_reservation) {
                     throw Error(`未获取到预约响应！`)
                 }
@@ -938,39 +884,15 @@ class BiliDynamicPage extends BasePage {
                         //每次抽奖循环时检测页面是否关闭，如果关闭则重新打开浏览器页面！
                         await this.account_page_init(false, BiliElementMap.browser_usage.lottery); //重新设置global_var.page
                     }
+                    await this.basic_op.dynamic_page_goto(dynamic_info);
                     global_var.current_dynamic_id = dynamic_info.dynId
                     global_var.fresh_global_response()
                     global_var.recorded_data = "";
                     await pptr_op.check_page_is_front(
                         global_var.current_page
                     );
-                    //#region 前往页面
-                    let break_time = 0;
-                    while (break_time <= 3) {
-                        break_time++;
-                        try {
-                            await global_var.current_page.goto(
-                                dynamic_info.dynamicUrl
-                            );
-                            break;
-                        } catch (e) {
-                            console.error(
-                                this.log_format(
-                                    `前往页面 ${dynamic_info.dynamicUrl} 失败！\n${e.stack}` +
-                                    break_time < 3 ? `\n重试第${break_time}次！` : `\n彻底失败！`
-                                )
-                            );
-                            global_var.current_page && await global_var.current_page.close();
-                            global_var.current_page && await global_var.current_page.browser().close();
-                            await sleep(10e3);
-                            await this.account_page_init(false);
-                        }
-                    }
-                    await sleep(5e3);
-                    //#endregion
 
                     let lottery_feedback = await this.opus_op.do_dynamic_lottery(dynamic_info, statistic_data);//抽奖执行
-
                     if (lottery_feedback && (dynamic_info.dynamicUrl.includes("tab=2") || dynamic_info.dynamicUrl.includes("tab=1"))) {
                         repost_counter++;
                     }
@@ -983,22 +905,9 @@ class BiliDynamicPage extends BasePage {
                         console.log(
                             this.log_format(`${JSON.stringify(dynamic_info)}\n${BiliElementMap.log_record.succ_info.thumbed_dynamic}不休眠`)
                         );
-                        await sleep(3e3);
                     } else {
-                        let st =
-                            utils.Common.random_choice(
-                                lottery_setting.lottery_module.lottery_sep_time
-                            ) *
-                            (1 + Math.random() * 4);
-                        if (
-                            (i +
-                                utils.Common.random_choice([
-                                    1, 2, 3, 4, 5, 6, 7,
-                                ])) %
-                            every_n_times_sleep_longtime ===
-                            0 &&
-                            longsleepflag[0]
-                        ) {
+                        let st = utils.Common.random_choice(lottery_setting.lottery_module.Working_clearance_time) + Math.random() * 4;
+                        if ((i + utils.Common.random_choice([1, 2, 3, 4, 5, 6, 7,])) % every_n_times_sleep_longtime === 0 && longsleepflag[0]) {
                             //每隔多少次休眠
                             st =
                                 utils.Common.random_choice(
@@ -1013,8 +922,7 @@ class BiliDynamicPage extends BasePage {
                             longsleepflag[1] = 0;
                         }
                         longsleepflag[1] += 1;
-                        console.log(this.log_format(`${dynamic_info.dynamicUrl}\t休眠${(st / 1000).toFixed(2)}秒`));
-                        await sleep(st); // 单个抽奖结束后等待时间
+                        await this.basic_op.sleep.single_round({st: st, pg: this.global_var.current_page});
                     }
                 } catch (e) {
                     // 执行失败
@@ -1023,13 +931,14 @@ class BiliDynamicPage extends BasePage {
                     );
                     await sleep(10e3);
                     if (global_var.current_page.isClosed()) {
+                        console.debug(this.log_format(`浏览器关闭，重试！`))
                         await this.account_init();
                         return await this.lottery_op.single.dynamic_lottery(dynamic_info_args)
                     }
                     throw Error(e)
+                } finally {
+                    await global_var.current_page.goto('about:blank');
                 }
-
-
             }
 
         },
@@ -1046,6 +955,9 @@ class BiliDynamicPage extends BasePage {
              * @returns
              */
             reserve_lottery: async (loop_list) => {
+                if (loop_list.length === 0) {
+                    return
+                }
                 loop_list = await this.filter_log_op.reserve_lottery(loop_list);
 
                 /**确认参加的列表*/
@@ -1082,7 +994,7 @@ class BiliDynamicPage extends BasePage {
                 }
                 new_reserve_data.data = [...new Set(new_reserve_data.data)]; //对数组去重
                 utils.BiliAPI.fileWrite(// 这个是给人看的数据
-                    "JsonData/预约抽奖.json",
+                    GLOBAL_CONFIG.file_path.reserve_lot_json,
                     JSON.stringify(new_reserve_data, undefined, "\t")
                 );
                 let available_reserve_infos = loop_list.filter(
@@ -1106,9 +1018,11 @@ class BiliDynamicPage extends BasePage {
              */
             dynamic_lottery: async (all_dynamic_info_list, task_name = "一般转发抽奖") => {
                 all_dynamic_info_list = await this.filter_log_op.dynamic_lottery(all_dynamic_info_list)
+                if (all_dynamic_info_list.length === 0) {
+                    return
+                }
                 //region 准备抽奖环境
-
-                let lottery_setting = Object.assign({}, this.lottery_setting);
+                let lottery_setting = this.lottery_setting
                 let global_var = this.global_var;
                 if (task_name === "必抽的大奖" || task_name === "必抽的官方抽奖") {
                     lottery_setting.CONFIG.CommonLottery_switch = true;
@@ -1120,43 +1034,6 @@ class BiliDynamicPage extends BasePage {
                     Math.floor(0.2 * all_dynamic_info_list.length),
                     all_dynamic_info_list
                 ); //打乱百分之十的抽奖链接
-                if (lottery_setting.CONFIG.lottery_sep_time_type === 1) {
-                    switch (all_dynamic_info_list.length) {
-                        case all_dynamic_info_list.length <= 50:
-                            lottery_setting.lottery_module.lottery_run_time = 3600e3;
-                            break;
-                        case 150 >= all_dynamic_info_list.length:
-                            lottery_setting.lottery_module.lottery_run_time = 1.5 * 3600e3;
-                            break;
-                        case 200 > all_dynamic_info_list.length:
-                            lottery_setting.lottery_module.lottery_run_time = 2 * 3600e3;
-                            break;
-                        case 300 > all_dynamic_info_list.length:
-                            lottery_setting.lottery_module.lottery_run_time = 2.5 * 3600e3;
-                            break;
-                        default:
-                            lottery_setting.lottery_module.lottery_run_time = 3 * 3600e3;
-                            break;
-                    }
-                }
-                if (
-                    lottery_setting.CONFIG.lottery_sep_time_type === 2 ||
-                    all_dynamic_info_list.length < 20
-                ) {
-                    lottery_setting.lottery_module.lottery_run_time =
-                        lottery_setting.lottery_module.lottery_sep_time[0] *
-                        all_dynamic_info_list.length;
-                }
-                lottery_setting.lottery_sep_time = utils.Common.generater_step_Array(
-                    Math.floor((0.5 * lottery_setting.lottery_module.lottery_run_time + 1) /
-                        (all_dynamic_info_list.length + 1)),
-                    Math.floor(
-                        (0.75 * lottery_setting.lottery_module.lottery_run_time + 1) /
-                        (all_dynamic_info_list.length + 1),
-                        10
-                    ),
-                    300
-                );
                 console.log(this.log_format(`运行时间约为${
                         lottery_setting.lottery_module.lottery_run_time / 1000 / 60
                     }分钟`)
@@ -1308,14 +1185,14 @@ class BiliDynamicPage extends BasePage {
                                 break;
                             } catch (e) {
                                 is_lot_error = true;
+                                if (e.message in BiliElementMap.log_record.critical_error) {
+                                    throw e;
+                                }
                                 if (loop_lot_retry_time > 3) {
                                     let record = await this.log_record.my_throw(`${BiliElementMap.log_record.critical_error.dynamic_lottery_fail}\n${e.stack}`);
                                     statistic_data.lottery_fail_record.push(new manual_op_fail_model(dynamic_info, record));
                                 }
-                                console.error(
-                                    this.log_format(
-                                        `单个lottery_loop执行失败，进行下一次尝试！\n${e.stack}`
-                                    )
+                                console.error(this.log_format(`单个lottery_loop执行失败，进行下一次尝试！\n${e.stack}`)
                                 );
                                 if (global_var.current_page.isClosed()) {
                                     //浏览器页面关闭则重新开启
@@ -1414,6 +1291,47 @@ class BiliDynamicPage extends BasePage {
                }) {
         this.start_time = utils.Common.dateNow();
         this.global_var.FLAG.抽奖中标志 = true;
+        const generate_sleep_time_arr = (lottery_num) => {
+            if (this.lottery_setting.CONFIG.lottery_sep_time_type === 1) {
+                switch (lottery_num) {
+                    case lottery_num <= 50:
+                        this.lottery_setting.lottery_module.lottery_run_time = 3600e3;
+                        break;
+                    case 150 >= lottery_num:
+                        this.lottery_setting.lottery_module.lottery_run_time = 1.5 * 3600e3;
+                        break;
+                    case 200 > lottery_num:
+                        this.lottery_setting.lottery_module.lottery_run_time = 2 * 3600e3;
+                        break;
+                    case 300 > lottery_num:
+                        this.lottery_setting.lottery_module.lottery_run_time = 2.5 * 3600e3;
+                        break;
+                    default:
+                        this.lottery_setting.lottery_module.lottery_run_time = 3 * 3600e3;
+                        break;
+                }
+            }
+            if (
+                this.lottery_setting.CONFIG.lottery_sep_time_type === 2 || // 等间隔
+                lottery_num < 20
+            ) {
+                this.lottery_setting.lottery_module.lottery_run_time =
+                    this.lottery_setting.lottery_module.Working_clearance_time[0] *
+                    lottery_num;
+            } else {
+                this.lottery_setting.lottery_module.Working_clearance_time = utils.Common.generater_step_Array(
+                    Math.floor((0.5 * this.lottery_setting.lottery_module.lottery_run_time + 1) /
+                        (lottery_num + 1)),
+                    Math.floor(
+                        (0.75 * this.lottery_setting.lottery_module.lottery_run_time + 1) /
+                        (lottery_num + 1),
+                        10
+                    ),
+                    1e3
+                )
+            }
+        }
+        generate_sleep_time_arr(must_join_common_lottery.length + common_lottery.length + official_lottery.length)
 
         class MyTask {
             a;
@@ -1424,9 +1342,6 @@ class BiliDynamicPage extends BasePage {
             }
 
             async run() {
-               if ( await this.t.account_page_init(true) ===false){
-                       throw Error(`账号未登录`)
-                   }
                 await this.func(...this.args);
             }
         }
@@ -1434,26 +1349,41 @@ class BiliDynamicPage extends BasePage {
 
         let tasks = [
             new MyTask(this.lottery_op.loop.dynamic_lottery, [common_lottery, "一般转发抽奖"]),
-            new MyTask(this.lottery_op.loop.dynamic_lottery, [must_join_common_lottery, "必抽的大奖"]),
-            new MyTask(this.lottery_op.loop.reserve_lottery, [reserve_lottery]),
-            new MyTask(this.lottery_op.loop.official_lottery, [official_lottery]),
+
         ]
         tasks = utils.Common.part_shuffle(tasks.length, tasks)
-        for (let task of tasks) {
-            console.log(this.log_format(`当前运行任务；${task.func.name}`))
-            await task.run.call({
-                t: this,
-                func: task.func,
-                args: task.args
-            }).catch(async e => {
-                console.error(e)
-                await pptr_op.my_send_notify.push_me(`${this.user_id} ${this.account_id}抽奖任务执行失败`, `${e.stack}`)
-            });
+        try {
+            if (await this.account_page_init(true) === false) { //没登录就直接退出！
+                let err_msg = `${this.user_id} ${this.account_id}账号未登录`
+                console.error(err_msg)
+                this.global_var.FLAG.抽奖中标志 = false;
+                return await pptr_op.my_send_notify.push_me(err_msg, `${JSON.stringify(this.global_var.system, undefined, '\t')}`)
+            }
+            tasks.unshift(new MyTask(this.lottery_op.loop.reserve_lottery, [reserve_lottery]));
+            tasks.unshift(new MyTask(this.lottery_op.loop.dynamic_lottery, [must_join_common_lottery, "必抽的大奖"]));
+            tasks.unshift(new MyTask(this.lottery_op.loop.official_lottery, [official_lottery]));
+            tasks.push(new MyTask(this.prevent_filter_op.prevent_filter_init, []));
+            for (let task of tasks) {
+                console.log(this.log_format(`当前运行任务；${task.func.name}`))
+                await task.run.call({
+                    func: task.func,
+                    args: task.args
+                }).catch(async e => {
+                    console.error(e)
+                    await pptr_op.my_send_notify.push_me(`${this.user_id} ${this.account_id}抽奖任务执行失败`, `${e.stack}`)
+                });
+            }
+        } catch (e) {
+            await this.task_end();
+            throw Error(e)
         }
+
         await this.task_end();
+
     }
 }
 
-module.exports = {
+module
+    .exports = {
     BiliDynamicPage
 }

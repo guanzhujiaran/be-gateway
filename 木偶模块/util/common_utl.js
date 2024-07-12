@@ -127,8 +127,9 @@ const pptr_op = {
                             .includes(
                                 "data.bilibili.com/log/web?content_type"
                             ) ||
-                        req.url().includes("cm.bilibili.com/cm/api/fees/pc") ||
-                        req.url().includes(`data.bilibili.com/v2/log/web`)
+                        req.url().includes("cm.bilibili.com/cm/api/fees/pc")
+                        // ||
+                        // req.url().includes(`data.bilibili.com/v2/log/web`)
                     ) {
                         //如果是浏览器要发起检测到作弊的请求，就拦截下来，不让它发出去！
                         return req.respond({

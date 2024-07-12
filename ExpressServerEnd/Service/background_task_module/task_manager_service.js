@@ -18,8 +18,7 @@ class TaskManager {
      *
      * @type {{[string]:{[string]:BiliLotteryOpus}}}
      */
-    user_account_hash_map = {
-    }
+    user_account_hash_map = {}
     opus_list = []
     live_service = new LIVE_LOT_Service(this.opus_list);
     dynamic_lottery_queue = new Queue("dynamic_lottery_queue", {
@@ -28,9 +27,9 @@ class TaskManager {
                 removeOnComplete: true,
                 removeOnFail: true,
                 // attempts:3,
-                backoff:{
-                    type:"exponential",
-                    delay:10e3,
+                backoff: {
+                    type: "exponential",
+                    delay: 10e3,
                 }
             },
 
@@ -58,19 +57,10 @@ class TaskManager {
      * 任务管理器，将任务都放到队列里面执行，这里连接到木偶模块，直接执行抽奖任务等！
      */
     constructor() {
-        this.dynamic_lottery_queue.addListener('completed', function (job, result) {
-            console.log(result);
-            // A job successfully completed with a `result`.
-            job.remove(); // 移除任务记录，防止下次添加同名jobId失败
-        })
-        this.dynamic_lottery_queue.on("error", async function (job, err) {
-            // await pptr_op.my_send_notify.push_me(`${job.name}执行失败！`, `${err}`)
-            console.error(`${job.name}执行失败！`, `${err}`);
-        })
         const dynamic_lottery_worker = new Worker("dynamic_lottery_queue", // 如果程序中断，bull里面自动会尝试再次执行！
             async job => {
                 let {uid, account_name} = job.data
-                console.log(`执行B站抽奖任务${JSON.stringify(job)}`);
+                console.debug(`执行B站抽奖任务${JSON.stringify(job)}`);
                 /**
                  * @type {BiliLotteryOpus}
                  */
@@ -78,17 +68,23 @@ class TaskManager {
                     uid: uid,
                     account_name: account_name
                 })
-
+                if (!opus) throw Error(`BiliLotteryOpus获取失败！`)
+                console.log(`【${uid} ${account_name}】Opus获取成功`)
                 return await opus.GetBiliDynamicPage().then(async BP => {
+                    if (BP.global_var.FLAG.抽奖中标志){
+                        console.error(`B站动态抽奖执行中！！`)
+                        return ;
+                    }
                     if (this.#bili_lottery_data.update_ts === undefined || (Date.now() / 1e3 - this.#bili_lottery_data.update_ts) > 60 * 60 * 24) {
+                        console.log(`获取抽奖数据中！`)
                         this.#bili_lottery_data.data = await utils.BiliAPI.BiliAPI.get_lottery_database()
-                        await job.log("添加抽奖数据至pg数据库！")
+                        console.log("添加抽奖数据至pg数据库！")
                         if (!this.#bili_lottery_data.data) return await pptr_op.my_send_notify.push_me('抽奖数据库内容为空！', "")
                         await Promise.all(this.#bili_lottery_data.data.common_lottery.map(async el => await AccountLogDao.add_dynamic_info(el)))
                         await Promise.all(this.#bili_lottery_data.data.official_lottery.map(async el => await AccountLogDao.add_official_dynamic_info(el)))
                         await Promise.all(this.#bili_lottery_data.data.reserve_lottery.map(async el => await AccountLogDao.add_reserve_info(el)))
                         this.#bili_lottery_data.update_ts = parseInt((Date.now() / 1e3).toFixed())
-                        await job.log("抽奖数据添加至pg数据库成功！")
+                        console.log("抽奖数据添加至pg数据库成功！")
                     }
                     await BP.main(this.#bili_lottery_data.data);
                     if (job.data.isRemoved !== true) {
@@ -98,10 +94,11 @@ class TaskManager {
             },
             {
                 concurrency: 10,
-                connection: redis_manager.connection
+                connection: redis_manager.connection,
+                autorun: false
             },
         )
-
+        dynamic_lottery_worker.run();
 
         event_bus.on(EVENT_NAME_MAP.ALL_LIVE_LOT, async () => {
             await this.live_service.main();
@@ -201,11 +198,24 @@ class TaskManager {
         if (!this.user_account_hash_map[uid]) {
             Object.assign(this.user_account_hash_map, {[uid]: {}})
         }
-        if (this.user_account_hash_map[uid][account_name]) {
+        let opus = this.user_account_hash_map[uid][account_name]
+        if (opus) {
+            let BG = await opus.GetBiliDynamicPage()
+            if (BG && BG.global_var.FLAG.抽奖中标志) {
+                return new base_api_model(
+                    {
+                        code: 1001,
+                        msg: "账号抽奖任务正在执行中"
+                    }
+                )
+            }
+            await this.dynamic_lottery_queue.add(EVENT_NAME_MAP.lot, {uid, account_name}, {
+                jobId: `${EVENT_NAME_MAP.lot}_${uid}_${account_name}`,
+            })
             return new base_api_model(
                 {
                     code: 1001,
-                    msg: "账号任务已存在！"
+                    msg: "账号任务已在队列中！"
                 }
             )
         }

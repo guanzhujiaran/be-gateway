@@ -7,6 +7,7 @@ class manual_op_fail_model{
     constructor(dynamic_info,err_msg="") {
         this.dynamic_info = dynamic_info;
         this.err_msg=err_msg;
+        this.comment_msg="";
     }
 }
 

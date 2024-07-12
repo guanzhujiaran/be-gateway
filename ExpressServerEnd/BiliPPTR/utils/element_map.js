@@ -2,6 +2,10 @@ const BiliElementMap = {
     opus_dynamic: {
         interact: {
             /**
+             * 分享动态弹窗
+             */
+            share_modal: `.bili-dyn-share__wrap`,
+            /**
              * 转发富文本框内部
              */
             rich_text_area: `.bili-rich-textarea__inner`,
@@ -39,7 +43,6 @@ const BiliElementMap = {
             dynamic_error_pic: `.error-container`,
         },
         response: {
-            wait_comment_response_failed: `检查是否评论被风控时未获取到响应`,
             _404_dynamic: `404动态`
 
         },
@@ -105,49 +108,72 @@ const BiliElementMap = {
     },
     log_record: {
         opus_dynamic: {
-            dynamic_like_fail: `动态点赞失败`,
-            dynamic_like_icon_fail: `动态点赞图标获取失败`,
-            dynamic_comment_kami_kakushi_fail: `动态评论失败，评论被隐藏`,
-            dynamic_comment_fail: `动态评论失败`,
-            dynamic_repost_fail: `动态转发失败`,
-            dynamic_fast_repost_fail: `快速动态转发失败`,
-            dynamic_repost_content_input_fail: `动态转发失败，转发内容输入失败`,
-            dynamic_comment_captcha_fail: `动态评论失败，需要验证码`,
-            dynamic_only_comment_fail: `评论动态失败`,
-            comment_msg_error: `动态评论内容出错`,
-            comment_msg_input_error: `动态评论内容输入出错`,
-            comment_thumb_fail: `评论点赞失败`,
-            comment_repost_dynamic_with_content_fail: `评论转发失败`,
-            comment_msg_empty: `评论获取失败，评论内容为空`,
-            comment_msg_generate_fail: `生成评论失败，需要人工回复的动态`,
-            comment_msg_content_error: `回复内容出错`,
-            follow_up_fail: `点击关注up失败`,
-            follow_up_fail_banned_by_up: `点击关注up失败，被拉黑了，不抽`,
-            get_dynamic_info_fail: `获取动态详情失败`,
-            not_enough_comment_count: `评论人数过少，需要人工判断`,
-            get_dynamic_content_fail: `获取到的动态内容为空`,
-            unknown_url_tab: `未知tab类型`,
-            unknown_do_dynamic_lottery_error: `动态抽奖函数发生未知错误，不可避免！`,
-        },
-        critical_error: {
-            account_logout: `账号未登录或被强制登出`,
-            lottery_loop_single_fail: `lottery_loop执行单条任务失败`,
-            dynamic_lottery_fail: `动态转发抽奖失败`
-        },
-        succ_info: { // 抽奖成功的反馈信息
-            only_comment_dynamic: `无需评论动态`,
-            past_official_lot: `过期的官方抽奖`,
-            thumbed_dynamic: `点过赞的动态`,
-            manual_reply: `需要人工回复的动态`,
-            manual_reply_non_lottery_up:`包含非抽奖up，需要人工回复的动态`,
-            _404_dynamic: `404动态`,
-            repost_dynamic:`单转发执行成功`,
-            comment_dynamic:`单评论执行成功`
-        },
-        response: {
-            reply_response_timeout: `动态评论失败，获取评论响应失败`,
-        },
+            //region 重要错误，算作执行失败！
+            err: {
+                like: {
+                    dynamic_like_fail: `\u200b动态点赞失败`,
+                    dynamic_like_icon_fail: `\u200b动态点赞图标获取失败`,
+                },
+                comment: {
+                    dynamic_comment_kami_kakushi_fail: `\u200b动态评论失败，评论被隐藏，评论被阿瓦隆干掉了~~`,
+                    dynamic_comment_fail: `\u200b动态评论失败`,
+                    dynamic_comment_captcha_fail: `\u200b动态评论失败，需要验证码`,
+                    comment_msg_error: `\u200b动态评论内容出错`,
+                    comment_msg_input_error: `\u200b动态评论内容输入出错`,
+                    comment_repost_dynamic_with_content_fail: `\u200b评论转发失败`,
+                    comment_msg_empty: `\u200b评论获取失败，评论内容为空`,
+                    comment_msg_content_error: `\u200b回复内容出错`,
+                    reply_response_timeout: `\u200b动态评论失败，获取评论响应失败`,
+                    comment_msg_generate_fail: `\u200b生成评论失败，需要人工回复的动态`,
+                },
+                repost: {
+                    dynamic_repost_fail: `\u200b动态转发失败`,
+                    dynamic_fast_repost_fail: `\u200b快速动态转发失败`,
+                    dynamic_repost_content_input_fail: `\u200b动态转发失败，转发内容输入失败`,
 
+                },
+                follow: {
+                    follow_up_fail: `\u200b点击关注up失败`,
+                },
+                common: {
+                    get_dynamic_info_fail: `\u200b获取动态详情失败`,
+                    get_dynamic_content_fail: `\u200b获取到的动态内容为空`,
+                    unknown_url_tab: `\u200b未知tab类型`,
+                    unknown_do_dynamic_lottery_error: `\u200b动态抽奖函数发生未知错误，不可避免！`
+                }
+            },
+            //endregion
+
+            //region 一般错误，不影响执行
+            comment_thumb_fail: `\u200b评论点赞失败`,
+            not_enough_comment_count: `\u200b评论人数过少，需要人工判断`,
+            repost_dynamic: `\u200b单转发执行成功`,
+            comment_dynamic: `\u200b单评论执行成功`,
+            thumb_dynamic: `\u200b单点赞执行成功`,
+            only_comment_dynamic: `\u200b无需评论动态`,
+            //endregion
+
+        },
+        //region 超重大级错误，直接退出抽奖的那种！
+        critical_error: {
+            account_logout: `\u200b账号未登录或被强制登出`,
+            lottery_loop_single_fail: `\u200blottery_loop执行单条任务失败`,
+            dynamic_lottery_fail: `\u200b动态转发抽奖失败`,
+            goto_page_fail: `\u200b前往页面失败`,
+        },
+        //endregion
+        //region 算作成功，但是有些需要人工判断
+        succ_info: { // 抽奖成功的反馈信息
+            lot_succ: `\u200b抽奖成功！`,
+            past_official_lot: `\u200b过期的官方抽奖`,
+            thumbed_dynamic: `\u200b点过赞的动态`,
+            manual_reply: `\u200b需要人工回复的动态`,
+            manual_reply_non_lottery_up: `\u200b包含非抽奖up，需要人工回复的动态`,
+            _404_dynamic: `\u200b404动态`,
+            follow_up_fail_banned_by_up: `\u200b点击关注up失败，被拉黑了，不抽`,
+
+        },
+        //endregion
     },
     browser_usage: {
         lottery: `lottery`,

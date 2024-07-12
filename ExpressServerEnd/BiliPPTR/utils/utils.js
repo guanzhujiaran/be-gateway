@@ -4,12 +4,33 @@ const superagent = require("superagent");
 const {AccountService} = require("@/ExpressServerEnd/Service/account_module/account_service");
 const axios = require("axios");
 const path = require('path');
+
 function sleep(ms) {
     return new Promise(resolve => setTimeout(() => resolve(sleep), ms));
 }
 
 const utils = {
     Common: {
+        extractStringsFromObject: (obj) => {
+            let strings = [];
+
+            function extractStrings(value) {
+                if (typeof value === 'string') {
+                    // 如果值是字符串，将其添加到数组中
+                    strings.push(value);
+                } else if (value && typeof value === 'object') {
+                    // 如果值是对象或数组，递归调用
+                    for (let key in value) {
+                        if (value.hasOwnProperty(key)) {
+                            extractStrings(value[key]);
+                        }
+                    }
+                }
+            }
+
+            extractStrings(obj);
+            return strings;
+        },
         getStringSimilarity: (str1, str2) => {
             let sameNum = 0;
             for (let i = 0; i < str1.length; i++) {
@@ -42,7 +63,7 @@ const utils = {
          * @return {string} "2024-06-26T19:15:54"
          */
         timestampToTime2: (timestamp) => {
-            let date = new Date(timestamp*1e3);
+            let date = new Date(timestamp * 1e3);
             let year = date.getFullYear();
             let month = ("0" + (date.getMonth() + 1)).slice(-2); // getMonth()返回的月份是从0开始的，所以需要+1
             let day = ("0" + date.getDate()).slice(-2);
@@ -157,28 +178,30 @@ const utils = {
             return dd !== td;
         },
         dateNow: () => Date.now(),
-        dateNow_s:()=> (Date.now()/1e3).toFixed(),
+        dateNow_s: () => (Date.now() / 1e3).toFixed(),
         /**
          * 移除表情包和话题和@，之后重新添加获取到的话题
          * @param {String} origin_str
          * @param {String} dynamic_content
+         * @param {String} uname
+         * @param {BiliLotterySetting} lottery_setting
          * @returns {String}
          */
-        remove_emoji_topic_at: (origin_str, dynamic_content = "") => {
+        remove_emoji_topic_at: (origin_str, dynamic_content = "", {uname, lottery_setting}) => {
             //移除表情包和话题和@
             if (origin_str) {
                 origin_str = origin_str.replaceAll(/＠/gim, "@");
                 origin_str = origin_str.replaceAll(/【/gim, "[");
                 origin_str = origin_str.replaceAll(/】/gim, "]");
                 let at_re = new RegExp(
-                    `@${global_var.user_info.uname}`,
+                    `@${uname}`,
                     "gmi"
                 );
                 if (!at_re.test(origin_str)) {
                     //如果没有@自己的尝试将@后面内容替换
                     origin_str = origin_str.replace(
                         /@.{0,12}? |@.{0,12}$/gim,
-                        function (match) {
+                        (match) => {
                             if (
                                 dynamic_content.includes(match.slice(1, -1))
                             ) {
@@ -186,8 +209,8 @@ const utils = {
                             }
                             return (
                                 "@" +
-                                utl.random_choice(
-                                    lottery_setting.at_member
+                                utils.Common.random_choice(
+                                    lottery_setting.lottery_module.at_member
                                 ) +
                                 " "
                             );
@@ -287,7 +310,7 @@ const utils = {
                     opus_init_detail = await opus_page.evaluate(
                         `window.__INITIAL_STATE__`
                     );
-                    if (opus_init_detail?.length) {
+                    if (opus_init_detail?.id) {
                         break;
                     } else {
                         await sleep(10e3);
@@ -443,71 +466,23 @@ const utils = {
                 console.log("保存Cookie", account_name, ckStr);
                 fs.writeFileSync(path, ckStr);
             },
-        }, fileRead: {
-            lottery_dynamic_ids: (filename) => {
-                let retlist = [];
-                try {
-                    if (fs.existsSync(__dirname + filename)) {
-                        let dynamic_ids = fs
-                            .readFileSync(__dirname + filename)
-                            .toString()
-                            .split("\n");
-                        for (let dynamic_id of dynamic_ids) {
-                            if (dynamic_id) {
-                                retlist.push(dynamic_id.trim());
-                            }
-                        }
-                    } else {
-                        //如果不存在则创建文件
-                        utils.BiliAPI.fileWrite(filename, "");
-                    }
-                } catch (e) {
-                    console.log(e, "fileRead.lottery_dynamic_ids");
-                }
-                return retlist;
-            }, /**
-             * 读取文件内容
-             * @param {*} filePath
-             * @returns 文件内容的字符串
-             */
-            getFileContent: (filePath) => {
-                try {
-                    return fs.readFileSync(__dirname + filePath, "utf8");
-                } catch (err) {
-                    console.log("Error reading file from disk:", err);
-                    return "";
-                }
-            }, /**
-             * 读取json文件
-             * @param {string} filePath - 文件路径
-             * @returns {Object}
-             */
-            json_file: (filePath) => {
-                try {
-                    const Str = fs.readFileSync(__dirname + filePath, "utf8");
-
-                    return JSON.parse(Str);
-                } catch (err) {
-                    console.error("Error reading file from disk:", err);
-                    return {};
-                }
-            },
-        }, fileWrite: (filename, writeString, method = "w") => {
+        }, fileRead: {},
+        fileWrite: (filename, writeString, method = "w") => {
             try {
                 if (typeof writeString == "object") {
                     writeString = JSON.stringify(writeString, undefined, "\t");
                 }
-                if (!fs.existsSync(path.join(__dirname , filename))) {
+                if (!fs.existsSync(filename)) {
                     //如果文件不存在就创建一个
                     method = "w";
                 }
                 if (writeString.slice(-1) === "\n") {
                     //如果结尾是\n就不添加了
-                    fs.writeFileSync(__dirname + filename, writeString, {
+                    fs.writeFileSync(filename, writeString, {
                         flag: method,
                     });
                 } else {
-                    fs.writeFileSync(__dirname + filename, writeString + "\n", {
+                    fs.writeFileSync(filename, writeString + "\n", {
                         flag: method,
                     });
                 }
@@ -555,7 +530,7 @@ const utils = {
                             }
                         });
                 });
-                console.debug(`使用api获取响应！${api}?${query}\t${JSON.stringify(resp.data).slice(0,100)}`);
+                console.debug(`使用api获取响应！${api}?${query}\t${JSON.stringify(resp).slice(0, 100)}`);
                 return resp;
             }, post: (api, data) => {
                 let resp = new Promise((resolve, reject) => {
@@ -594,24 +569,20 @@ const utils = {
                 });
             }, /**
              * 返回评论区response
-             * @param {Number} mode
              *  默认为 3
              0 3：仅按热度
              1：按热度+按时间
              2：仅按时间
-             * @param {Number} next
              按热度时：热度顺序页码（0 为第一页）
              按时间时：时间倒序楼层号
              默认为 0
-             * @param {Number} comment_id 即oid 目标评论区 id
-             * @param {Number} type 评论区类型代码
              * @returns {Promise}
              */
-            get_lottery_database:async function (){
+            get_lottery_database: async function () {
                 return (await this.get('http://127.0.0.1:23333/api/v1/lottery_database/bili/GetAllLottery',
                     {
-                        limit_time:259200,
-                        round_num:2
+                        limit_time: 259200,
+                        round_num: 2
                     })).data
             },
             get_reply_main: (mode, next, comment_id, type) => {
@@ -766,8 +737,9 @@ const pptr_op = {
                             .includes(
                                 "data.bilibili.com/log/web?content_type"
                             ) ||
-                        req.url().includes("cm.bilibili.com/cm/api/fees/pc") ||
-                        req.url().includes(`data.bilibili.com/v2/log/web`)
+                        req.url().includes("cm.bilibili.com/cm/api/fees/pc")
+                        // ||
+                        // req.url().includes(`data.bilibili.com/v2/log/web`)
                     ) {
                         //如果是浏览器要发起检测到作弊的请求，就拦截下来，不让它发出去！
                         return req.respond({
@@ -874,19 +846,19 @@ const pptr_op = {
          * @param {String} msg 内容
          */
         push_me: async function (title, msg) {
+            return console.log(`pushme\t${arguments[0]}\t${arguments[1]}`)
             try {
                 let resp = await axios.post("https://push.i-i.me", {
                     push_key: this.__push_key.pushme,
                     title: title,
                     content: msg,
                 });
-                if (resp.data !== "success") {
+                if (resp.data.data !== "success") {
                     console.error(`推送失败！原因：${resp.data}`);
                 }
             } catch (e) {
                 console.warn(
-                    e,
-                    `消息${(title + msg)}推送失败！\n尝试使用push_plus再次推送！`
+                    `消息${(title + msg)}推送失败！\n尝试使用push_plus再次推送！\n${e.msg}`
                 );
                 await this.push_plus(title, msg);
             }
@@ -899,7 +871,7 @@ const pptr_op = {
                     content: msg,
                     template: "txt",
                 });
-                if (resp.code !== 200) {
+                if (resp.data.code !== 200) {
                     console.error(
                         `推送${(title + msg)}失败！原因：${JSON.stringify(
                             resp.data

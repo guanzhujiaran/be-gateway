@@ -36,7 +36,6 @@ class DynamicLotteryGlobalVar {
     }
     FLAG = {
         吃饭休息标志: false,
-        评论响应标志: false,
         opus动态标志: false,
         抽奖中标志: false,
         风控标志: false,

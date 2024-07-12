@@ -31,16 +31,20 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true,
       defaultValue: 0
     },
-    face: {
-      type: DataTypes.INTEGER,
-      allowNull: true
-    },
     uid: {
       type: DataTypes.STRING(255),
       allowNull: true
     },
     settings: {
       type: DataTypes.JSON,
+      allowNull: true
+    },
+    nav_json: {
+      type: DataTypes.JSON,
+      allowNull: true
+    },
+    face: {
+      type: DataTypes.STRING(255),
       allowNull: true
     }
   }, {
