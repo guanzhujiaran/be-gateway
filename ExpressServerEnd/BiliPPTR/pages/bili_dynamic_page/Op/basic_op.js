@@ -944,7 +944,7 @@ class BasicOp extends BasePage {
                     topobj11,
                 ].join("");
                 let num = parseInt(
-                    findContent.match(/\d+/gim).join("") ||
+                    findContent.match(/\d+/gim)?.join("") ||
                     zhDigitToArabic(findContent)
                 );
                 if (num > 0 && num < 5) {
