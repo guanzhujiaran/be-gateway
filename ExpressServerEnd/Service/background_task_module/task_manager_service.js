@@ -13,15 +13,13 @@ const {
 } = require("@/ExpressServerEnd/BiliPPTR/utils/utils");
 const {AccountLogDao} = require("@/ExpressServerEnd/DAO/AccountLogDao");
 
-class TaskManager {
-    /**
-     *
-     * @type {{[string]:{[string]:BiliLotteryOpus}}}
-     */
-    user_account_hash_map = {}
-    opus_list = []
-    live_service = new LIVE_LOT_Service(this.opus_list);
-    dynamic_lottery_queue = new Queue("dynamic_lottery_queue", {
+class BaseTasks {
+    QueueName = {
+        dynamic_lottery_queue: "dynamic_lottery_queue",
+        live_lottery_queue: "live_lottery_queue",
+        daily_task_queue: "daily_task_queue"
+    }
+    dynamic_lottery_queue = new Queue(this.QueueName.dynamic_lottery_queue, {
             connection: redis_manager.connection,
             defaultJobOptions: {
                 removeOnComplete: true,
@@ -32,9 +30,52 @@ class TaskManager {
                     delay: 10e3,
                 }
             },
-
         },
     );
+
+
+    live_lottery_queue = new Queue(this.QueueName.live_lottery_queue, {
+            connection: redis_manager.connection,
+            defaultJobOptions: {
+                removeOnComplete: true,
+                removeOnFail: true,
+                // attempts:3,
+                backoff: {
+                    type: "exponential",
+                    delay: 10e3,
+                }
+            },
+        },
+    );
+
+
+    daily_task_queue = new Queue(this.QueueName.daily_task_queue, {
+            connection: redis_manager.connection,
+            defaultJobOptions: {
+                removeOnComplete: true,
+                removeOnFail: true,
+                // attempts:3,
+                backoff: {
+                    type: "exponential",
+                    delay: 10e3,
+                }
+            },
+        },
+    );
+
+    constructor() {
+
+    }
+}
+
+class TaskManager extends BaseTasks {
+    /**
+     *
+     * @type {{[string]:{[string]:BiliLotteryOpus}}}
+     */
+    user_account_hash_map = {}
+    opus_list = []
+    live_service = new LIVE_LOT_Service(this.opus_list);
     /**
      * update_ts 抽奖数据获取时间 秒
      * @type {
@@ -57,7 +98,8 @@ class TaskManager {
      * 任务管理器，将任务都放到队列里面执行，这里连接到木偶模块，直接执行抽奖任务等！
      */
     constructor() {
-        const dynamic_lottery_worker = new Worker("dynamic_lottery_queue", // 如果程序中断，bull里面自动会尝试再次执行！
+        super()
+        const dynamic_lottery_worker = new Worker(this.QueueName.dynamic_lottery_queue, // 如果程序中断，bull里面自动会尝试再次执行！
             async job => {
                 let {uid, account_name} = job.data
                 console.debug(`执行B站抽奖任务${JSON.stringify(job)}`);
@@ -71,9 +113,9 @@ class TaskManager {
                 if (!opus) throw Error(`BiliLotteryOpus获取失败！`)
                 console.log(`【${uid} ${account_name}】Opus获取成功`)
                 return await opus.GetBiliDynamicPage().then(async BP => {
-                    if (BP.global_var.FLAG.抽奖中标志){
+                    if (BP.global_var.FLAG.抽奖中标志) {
                         console.error(`B站动态抽奖执行中！！`)
-                        return ;
+                        return;
                     }
                     if (this.#bili_lottery_data.update_ts === undefined || (Date.now() / 1e3 - this.#bili_lottery_data.update_ts) > 60 * 60 * 24) {
                         console.log(`获取抽奖数据中！`)
@@ -100,9 +142,33 @@ class TaskManager {
         )
         dynamic_lottery_worker.run();
 
+        const daily_task_worker = new Worker(this.QueueName.daily_task_queue, async job => {
+            let {uid, account_name} = job.data
+            console.debug(`执行B站抽奖任务${JSON.stringify(job)}`);
+            /**
+             * @type {BiliLotteryOpus}
+             */
+            let opus = await this.#get_bili_opus_by_uid_account_name({
+                uid: uid,
+                account_name: account_name
+            })
+            if (!opus) throw Error(`BiliLotteryOpus获取失败！`)
+            console.log(`【${uid} ${account_name}】Opus获取成功`)
+
+        }, {
+            concurrency: 10,
+            connection: redis_manager.connection,
+            autorun: false
+        })
+
         event_bus.on(EVENT_NAME_MAP.ALL_LIVE_LOT, async () => {
             await this.live_service.main();
         })
+        //TODO 增加每日0点执行的任务和后台常驻的任务 设置一个worker，设置一个开始时间和超时时间，设置一个并发限制，因为内存有限
+        // 每日任务功能
+        // 直播任务功能
+        //
+
         // event_bus.emit(EVENT_NAME_MAP.ALL_LIVE_LOT) // 将直播任务丢到event里面执行
         event_bus.on(EVENT_NAME_MAP.log, async () => {
             while (1) {

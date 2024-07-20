@@ -360,15 +360,16 @@ class BasePage {
         }
         try {
             await this.global_var.current_page.goto(
-                "https://message.bilibili.com/?spm_id_from=333.1007.0.0#/love",
+                BiliElementMap.url_path.space.message,
                 {
                     waitUntil: "domcontentloaded",
                 }
             );
             await sleep(3e3);
             await this.global_var.current_page.goto("about:blank");
-        } catch {
+        } catch (e){
             await sleep(3e3);
+            console.error(e)
         }
 
         if (this.global_var.user_info.uname) {
@@ -401,7 +402,8 @@ class BasePage {
             (await this.global_var.current_page.browser().pages()).length === 0 ||
             !this.global_var.current_page.browser().connected
         ) {
-            await this.account_page_init(false);
+             await this.account_page_init(false);
+             this.global_var.current_page.usage = undefined
         }
         let br = this.global_var.current_page.browser();
         let new_pg = await br.newPage();
@@ -569,6 +571,9 @@ class BasePage {
             while (!success && retries < maxRetries) {
                 try {
                     success = await func(params);// 成功执行，不需要重试
+                    if (!success) {
+                        throw Error(`任务${i}执行失败！`)
+                    }
                 } catch (error) {
                     record_data.err_msg = err ? `${err}\n`.concat(`${error}`) : error
                     await this.log_record.dynamic_lottery_record(record_data);
@@ -576,9 +581,11 @@ class BasePage {
                     console.error(`Error executing function ${func.name}:`, error);
                     if (retries < maxRetries) {
                         console.warn(`Retrying (${retries}/${maxRetries})...`);
+
                         if (reload_when_err) {
                             await pg.reload()
                         }
+
                     } else {
                         console.error('Max retries reached. Moving to the next task.');
                     }

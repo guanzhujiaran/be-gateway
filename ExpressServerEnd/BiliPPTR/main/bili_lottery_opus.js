@@ -14,6 +14,7 @@ class BiliLotteryOpus {
      * @type {BiliDynamicPage}
      */
     #BiliDynamicPage;
+    #dailyTaskPage;
     #account_id;
     #user_id;
     user_name;
@@ -43,13 +44,7 @@ class BiliLotteryOpus {
         return this.#account_id;
     }
 
-    /**
-     *
-     * @return {Promise<BiliDynamicPage>}
-     * @constructor
-     */
-    async GetBiliDynamicPage() {
-        if (this.#BiliDynamicPage) return this.#BiliDynamicPage
+    async #prepare_account_info() {
         if (this.#BiliDynamicGlobalVar === undefined) {
             this.#BiliDynamicGlobalVar = new Proxy(new DynamicLotteryGlobalVar(this.user_name, this.account_name), {});
         }
@@ -57,6 +52,16 @@ class BiliLotteryOpus {
             let lottery_setting_resp = await AccountService.get_lottery_setting_by_account_name_and_uid(this.account_name, this.#user_id)
             this.#BiliLotterySetting = new Proxy(lottery_setting_resp.data.info.settings.lottery_setting, {});
         }
+    }
+
+    /**
+     *
+     * @return {Promise<BiliDynamicPage>}
+     * @constructor
+     */
+    async GetBiliDynamicPage() {
+        if (this.#BiliDynamicPage) return this.#BiliDynamicPage
+        await this.#prepare_account_info()
         this.#BiliDynamicPage = new BiliDynamicPage(
             this.account_name,
             this.user_name,
@@ -67,6 +72,8 @@ class BiliLotteryOpus {
         )
         return this.#BiliDynamicPage
     }
+
+
 }
 
 module.exports = BiliLotteryOpus;

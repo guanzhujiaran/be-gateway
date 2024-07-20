@@ -26,6 +26,41 @@ class BasicOp extends BasePage {
                 await sleep(st)
             }
         },
+        check_global_pg_open: async () => {
+            if (this.global_var.current_page.isClosed()) {
+                //浏览器页面关闭则重新开启
+                await this.account_page_init(false, BiliElementMap.browser_usage.lottery);
+                await sleep(10e3);
+            }
+        },
+        global_pg_goto: async (url) => {
+            if (this.page_url.includes(url)) return true;
+            let break_time = 0;
+            while (1) {
+                break_time++;
+                try {
+                    await this.global_var.current_page.goto(
+                        url, {waitUntil: "networkidle2"}
+                    );
+                    return true;
+                } catch (e) {
+                    console.error(
+                        this.log_format(
+                            `前往页面 ${url} 失败！\n${e.stack}` +
+                            break_time < 3 ? `\n重试第${break_time}次！` : `\n彻底失败！`
+                        )
+                    );
+                    if (break_time > 3) {
+                        throw e;
+                    }
+                    this.global_var.current_page && await this.global_var.current_page.close();
+                    this.global_var.current_page && await this.global_var.current_page.browser().close();
+                    await sleep(10e3);
+                    await this.check_global_pg_open();
+                }
+            }
+
+        },
         /**
          * 前往动态页面
          * @param {TYPE_dynamic_info} dynamic_info
@@ -64,31 +99,40 @@ class BasicOp extends BasePage {
          * @param {string} input_text_area_element
          * @param {string} error_name
          * @param {"modal"|"plain"} text_area_type 文本域类型 modal指弹出式的文本框，plain指普通的文本框
+         * @param {Page} pg_or_frame
+         * @param {boolean}reload 出错后是否刷新页面
          * @return {Promise<void>}
          */
-        check_text_area_input_same_text: async (modal_input_text, modal_popup_btn_element, input_text_area_element, error_name, text_area_type) => {
+        check_text_area_input_same_text: async (modal_input_text,
+                                                modal_popup_btn_element,
+                                                input_text_area_element,
+                                                error_name,
+                                                text_area_type,
+                                                pg_or_frame = this.global_var.current_page,
+                                                reload=true,
+                                                ) => {
             let msg_box;
             for (let bt = 0; bt <= 5; bt++) {
                 try {
                     await pptr_op.check_page_is_front(this.global_var.current_page);
-                    await this.global_var.current_page
+                    await pg_or_frame
                         .waitForSelector(modal_popup_btn_element)
                         .then(async (el) => {
                             await el.click();
                         });
                     await sleep(3e3);
-                    msg_box = await this.global_var.current_page.waitForSelector(input_text_area_element);
+                    msg_box = await pg_or_frame.waitForSelector(input_text_area_element);
                     await msg_box.focus();
                     let msg_box_content;
                     if (text_area_type === 'modal') {
                         msg_box_content = await this.basic_op.get_opus_dynamic_repost_area_content(msg_box);
                     } else if (text_area_type === 'plain') {
-                        msg_box_content = await this.global_var.current_page.$eval(input_text_area_element, (el) => el.value);
+                        msg_box_content = await pg_or_frame.$eval(input_text_area_element, (el) => el.value);
                     }
                     let _bt = 0;
                     //#region 输入转发内容
                     while (modal_input_text && !msg_box_content.includes(modal_input_text)) {//回复栏里的东西等于回复内容时break
-                        msg_box = await this.global_var.current_page.waitForSelector(input_text_area_element);
+                        msg_box = await pg_or_frame.waitForSelector(input_text_area_element);
                         await msg_box.focus();
                         await sleep(3e3);
                         await msg_box.type(modal_input_text, {
@@ -101,14 +145,14 @@ class BasicOp extends BasePage {
                                 await this.global_var.current_page.mouse.click(10, 10);
                                 await sleep(3e3);
                                 console.error("弹出框里内容与转发内容不符，删除弹出框里内容", `\nmsg_box_content:${msg_box_content}\ntextarea_input_text:${modal_input_text}`);
-                                await this.global_var.current_page
+                                await pg_or_frame
                                     .waitForSelector(modal_popup_btn_element)
                                     .then(async (el) => {
                                         await el.click();
                                     });//重新点开转发modal
                             }
                         } else if (text_area_type === 'plain') {
-                            msg_box_content = await this.global_var.current_page.$eval(input_text_area_element, (el) => el.value);
+                            msg_box_content = await pg_or_frame.$eval(input_text_area_element, (el) => el.value);
                             if (utils.Common.remove_invisible_char(msg_box_content.replaceAll(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, "")) !== utils.Common.remove_invisible_char(modal_input_text.replaceAll(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, ""))) {
                                 //如果不等就删掉重新输入
                                 await sleep(1e3);
@@ -138,9 +182,11 @@ class BasicOp extends BasePage {
                         throw Error(e);
                     }
                     console.error(`${this.log_name}${this.page_url}\t${error_name}\n${e.stack}`);
-                    await this.global_var.current_page.reload({
+                    if (reload) {
+                        await this.global_var.current_page.reload({
                         waitUntil: 'networkidle2'
                     });
+                    }
                 }
             }
         },
@@ -381,7 +427,8 @@ class BasicOp extends BasePage {
 
             for (let i = 0; i < 10; i++) {
                 if (this.global_var.response.comment_dyn_response) {
-                    console.log(this.log_format(`检查评论是否被阿瓦隆中`));
+                    console.log(this.log_format(`检查评论是否被阿瓦隆中，先等待评论显示！`));
+                    await this.basic_op.sleep.single_op(5e3);//这里必须等待，不然api请求的评论列表里面可能会没加载出来，估计因为B站上了AI审核评论，所以同步慢了点？
                     let check_reply_result = await this.basic_op.check_reply(this.global_var.response.comment_dyn_response, utils.BiliAPI.BiliAPI.draw_dynamic_id(page_url));
                     if (check_reply_result) {
                         console.log(this.log_format(`评论成功，躲过阿瓦隆`));
@@ -1733,7 +1780,7 @@ class BasicOp extends BasePage {
          * @param record_data
          * @return {Promise<undefined|string>}
          */
-        reply_comment_generator: async (dynamic_content,dynamic_id,record_data) => {
+        reply_comment_generator: async (dynamic_content, dynamic_id, record_data) => {
             //生成所需评论//生成评论
             let comment_msg = undefined;
             if (
@@ -1871,8 +1918,8 @@ class BasicOp extends BasePage {
                                     );
                                 }
                                 comment_msg = para_msg === undefined || para_msg === "" ? copy_msg : para_msg;
-                                if (!comment_msg){
-                                    e.next=99;
+                                if (!comment_msg) {
+                                    e.next = 99;
                                     console.error(this.log_format(`${this.page_url}\t评论内容为空，跳过！`));
                                 }
                                 break;
@@ -2426,7 +2473,7 @@ ${Dynamic_content}
             }
             while (1) {
                 try {
-                    let format_str = `问：请根据这三个反引号括起来的文字创作相似的句子，直接将输出内容放在{"data":"xxx"}的data中回答。\n\`\`\`\n${OriginMessage}\n\`\`\`\n答：`;
+                    let format_str = `问：请根据这三个反引号括起来的文字创作相似的句子，不要修改"@"对象的名称和"#"包裹的话题内容，直接将输出内容放在{"data":"xxx"}的data中回答。\n\`\`\`\n${OriginMessage}\n\`\`\`\n答：`;
                     let res_string = await axios.post(
                         "http://localhost:3000/ChatGPT/ask",
                         {data: format_str}
@@ -2795,7 +2842,9 @@ ${Dynamic_content}
                                             BiliElementMap.opus_dynamic.video.share_iframe_editor_textarea,
                                             BiliElementMap.opus_dynamic.video.share_iframe_editor_textarea,
                                             `分享视频输入内容失败！`,
-                                            "plain"
+                                            "plain",
+                                            share_iframe,
+                                            false
                                         )
                                     } catch (e) {
                                         console.error(this.log_format(`分享视频输入内容失败！\n${e.stack}`))

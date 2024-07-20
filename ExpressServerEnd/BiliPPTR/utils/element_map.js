@@ -41,6 +41,7 @@ const BiliElementMap = {
             t_dynamic_publish_btn: `.bili-dyn-publishing__action.launcher`,
             t_dynamic_publish_confirm_btn: `.bili-dyn-specification-popup__btn.bili-button.primary.bili-button--medium`,
             dynamic_error_pic: `.error-container`,
+            follow_btn: `.h-f-btn.h-follow`,
         },
         response: {
             _404_dynamic: `404动态`
@@ -61,8 +62,8 @@ const BiliElementMap = {
             share_btn_hover: `#share-btn-outer`,
             share_btn: `.share-btn`,
             share_iframe_editor_textarea: `#editor`,
-            share_btn_clickable: `.share-btn.clickable`
-
+            share_btn_clickable: `.share-btn.clickable`,
+            share_iframe: `iframe[name="dynmic-share"]`
         },
         dynamic_attach_card: {
             charge_card: `.bili-dyn-upower-lottery__title.bili-ellipsis`,
@@ -82,6 +83,7 @@ const BiliElementMap = {
             nav: `x/web-interface/nav`,
             relation_modify: `x/relation/modify`,
             msg_unread: `msgfeed/unread`,
+            home:`https://account.bilibili.com/account/home`,
         },
         opus_dynamic: {
             opus_link: `www.bilibili.com/opus`,
@@ -103,7 +105,7 @@ const BiliElementMap = {
         },
         space: {
             reservation: `space/reservation`,
-
+            message:`https://message.bilibili.com/?spm_id_from=333.1007.0.0#/love`,
         }
     },
     log_record: {
@@ -177,7 +179,8 @@ const BiliElementMap = {
     },
     browser_usage: {
         lottery: `lottery`,
-        follow_up: `关注up主`
+        follow_up: `关注up主`,
+        daily_task: `每日任务`,
     }
 }
 Object.freeze(BiliElementMap)

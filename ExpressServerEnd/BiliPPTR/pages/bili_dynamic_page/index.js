@@ -11,6 +11,8 @@ const BasicOp = require("@/ExpressServerEnd/BiliPPTR/pages/bili_dynamic_page/Op/
 const {manual_op_fail_model} = require("@/ExpressServerEnd/BiliPPTR/models/pages/bili_dynamic_page_model");
 const {AccountLogService} = require("@/ExpressServerEnd/Service/account_log_module/account_log_service");
 const {response} = require("express");
+const {AccountService} = require("@/ExpressServerEnd/Service/account_module/account_service");
+const {BiliLotterySetting} = require("@/ExpressServerEnd/Model/api/v1/account/account_model");
 
 
 class BiliDynamicPage extends BasePage {
@@ -206,18 +208,12 @@ class BiliDynamicPage extends BasePage {
                 if (this.page_url.includes(BiliElementMap.url_path.opus_dynamic.opus_link)) {// opus 动态需要创建新的页面
                     let follow_pg = await this.create_new_pg(BiliElementMap.browser_usage.follow_up)
                     try {
-                        await follow_pg.goto(
-                            `https://space.bilibili.com/${up_mid}`
-                        );
+                        await follow_pg.goto(`https://space.bilibili.com/${up_mid}`)
                         await pptr_op.check_page_is_front(
                             follow_pg
                         );
                         await Promise.all([
-                            follow_pg
-                                .waitForSelector(
-                                    ".h-f-btn.h-follow"
-                                )
-                                .then((el) => el.click())
+                            follow_pg.waitForSelector(BiliElementMap.opus_dynamic.interact.follow_btn).then((el) => el.click())
                             ,
                             (global_var.response.relation_modify_response =
                                 await follow_pg
@@ -288,13 +284,16 @@ class BiliDynamicPage extends BasePage {
             let up_mid = global_var.response.global_dynamic_data.item.modules.module_author.mid
             console.log(this.log_format(`未关注\thttps://space.bilibili.com/${up_mid}\t${this.page_url}`)
             );
-            let do_follow_up_result = await do_follow_up();
+            let do_follow_up_result = await do_follow_up().then(async (result) => {
+                await this.basic_op.sleep.single_op()
+                return result
+            });
             if (do_follow_up_result === false) {
                 console.error(this.log_format(`点击关注失败\n${dynamic_info.dynamicUrl}\n${JSON.stringify(global_var.response.relation_modify_response)}休眠1小时！`));
                 let temp_url = this.page_url;
-                await this.global_var.current_page.goto('about:blank');
+                await this.basic_op.global_pg_goto('about:blank');
                 await sleep(3600e3);
-                await this.global_var.current_page.goto(temp_url);
+                await this.basic_op.global_pg_goto(temp_url);
                 throw Error(`关注失败！`)
             }
             return do_follow_up_result;
@@ -326,7 +325,7 @@ class BiliDynamicPage extends BasePage {
                 console.log(this.log_format(`开始抽奖，动态id:【${dynamic_info.dynId}】`));
                 //region 判断是否是404动态
                 if (this.page_url.includes("www.bilibili.com/404") || await global_var.current_page.$(BiliElementMap.opus_dynamic.interact.dynamic_error_pic)) {
-                    await global_var.current_page.goto(`https://www.bilibili.com/opus/${dynamic_info.dynId}`);
+                    await this.basic_op.global_pg_goto(`https://www.bilibili.com/opus/${dynamic_info.dynId}`);
                     if (global_var.response.global_dynamic_data === -412) {
                         let err_msg = `${BiliElementMap.opus_dynamic.response._404_dynamic}\t${dynamic_info.dynamicUrl}`
                         console.warn(this.log_format(err_msg));
@@ -512,7 +511,7 @@ class BiliDynamicPage extends BasePage {
 
                     if ((await pptr_op.check_page_is_front(global_var.current_page)) === undefined) {
                         await this.account_page_init(false);
-                        await global_var.current_page.goto(dynamic_info.dynamicUrl);
+                        await this.basic_op.global_pg_goto(dynamic_info.dynamicUrl);
                     }
                     await global_var.current_page.evaluate(() => {
                         this.scrollTo(0, 1500);
@@ -551,7 +550,7 @@ class BiliDynamicPage extends BasePage {
                             Math.random() * 0.6 <
                             lottery_setting.lottery_module.repost_chance ||
                             comment_msg?.includes("#") ||
-                            global_var.response.reply_main.code === 12061 ||
+                            global_var.response.reply_main?.code === 12061 ||
                             this.comment_op.repost_with_comment_judge(
                                 dynamic_content
                             )
@@ -649,7 +648,7 @@ class BiliDynamicPage extends BasePage {
                 }, this.account_id
             )
             let joined_sids = joined_infos.map(el => el.reserveinfo_sid);
-            loop_list = new_loop_list.filter(el => !joined_sids.includes(el.reserveinfo_sid))
+            loop_list = new_loop_list.filter(el => !joined_sids.includes(el.reserve_sid.toString()))
             return loop_list
         },
         /**
@@ -738,14 +737,15 @@ class BiliDynamicPage extends BasePage {
                 );
                 await pptr_op.check_page_is_front(this.global_var.current_page);
                 try {
-                    await this.global_var.current_page.goto(
-                        reserve_info.reserve_url
-                    ).then(async () => {
-                        await this.global_var.current_page.waitForResponse(response => response.url().includes(BiliElementMap.url_path.space.reservation))
-                    });
+                    await Promise.all([
+                        this.basic_op.global_pg_goto(
+                            reserve_info.reserve_url
+                        ),
+                        this.global_var.current_page.waitForResponse(response => response.url().includes(BiliElementMap.url_path.space.reservation))
+                    ])
                     await pptr_op.check_page_is_front(this.global_var.current_page);
                 } catch (e) {
-                    throw Error(`前往预约页面 ${reserve_info.reserve_url} 失败\nreserve_lottery_loop\n${e.stack}`)
+                    throw Error(`前往预约页面 ${reserve_info.reserve_url} 并等待预约响应失败\nreserve_lottery_loop\n${e.stack}`)
                 }
 
                 if (!this.global_var.response.space_reservation) {
@@ -884,14 +884,13 @@ class BiliDynamicPage extends BasePage {
                         //每次抽奖循环时检测页面是否关闭，如果关闭则重新打开浏览器页面！
                         await this.account_page_init(false, BiliElementMap.browser_usage.lottery); //重新设置global_var.page
                     }
-                    await this.basic_op.dynamic_page_goto(dynamic_info);
                     global_var.current_dynamic_id = dynamic_info.dynId
                     global_var.fresh_global_response()
                     global_var.recorded_data = "";
                     await pptr_op.check_page_is_front(
                         global_var.current_page
                     );
-
+                    await this.basic_op.dynamic_page_goto(dynamic_info);
                     let lottery_feedback = await this.opus_op.do_dynamic_lottery(dynamic_info, statistic_data);//抽奖执行
                     if (lottery_feedback && (dynamic_info.dynamicUrl.includes("tab=2") || dynamic_info.dynamicUrl.includes("tab=1"))) {
                         repost_counter++;
@@ -937,7 +936,7 @@ class BiliDynamicPage extends BasePage {
                     }
                     throw Error(e)
                 } finally {
-                    await global_var.current_page.goto('about:blank');
+                    await this.basic_op.global_pg_goto('about:blank');
                 }
             }
 
@@ -1022,12 +1021,23 @@ class BiliDynamicPage extends BasePage {
                     return
                 }
                 //region 准备抽奖环境
+                let need_fresh_lottery_setting = false;
                 let lottery_setting = this.lottery_setting
                 let global_var = this.global_var;
                 if (task_name === "必抽的大奖" || task_name === "必抽的官方抽奖") {
                     lottery_setting.CONFIG.CommonLottery_switch = true;
                     lottery_setting.CONFIG.Only_Comment_Lottery_Switch = false;
                     lottery_setting.CONFIG.Official_Lottery_Switch = true;
+                    if (lottery_setting.copy_reply_module.AI_reply_chance > 0) {
+                        lottery_setting.copy_reply_module.AI_reply_chance = 1;
+                    }
+                    if (lottery_setting.copy_reply_module.comment_copy_chance > 0) {
+                        lottery_setting.copy_reply_module.comment_copy_chance = 1;
+                    }
+                    if (lottery_setting.copy_reply_module.comment_paraphrase_chance > 0) {
+                        lottery_setting.copy_reply_module.comment_paraphrase_chance = 1;
+                    }
+                    need_fresh_lottery_setting = true;
                 }
                 //对抽奖队列进行循环
                 all_dynamic_info_list = utils.Common.part_shuffle(
@@ -1215,6 +1225,15 @@ class BiliDynamicPage extends BasePage {
                 } finally {
                     global_var.fresh_global_response()
                     global_var.recorded_data = "";
+                    if (need_fresh_lottery_setting) {
+                        let lottery_setting_resp = await AccountService.get_lottery_setting_by_account_name_and_uid(this.account_name, this.user_id)
+                        if (lottery_setting_resp.data.info.settings.lottery_setting) {
+                            this.lottery_setting = new Proxy(lottery_setting_resp.data.info.settings.lottery_setting, {});
+                        } else {
+                            console.error(this.log_format(`获取${this.account_name}的抽奖设置失败！使用默认配置`));
+                            this.lottery_setting = new BiliLotterySetting(this.account_name);
+                        }
+                    }
                 }
 
                 let manual_statistic_data_md = `动态链接 | 动态内容 | up昵称 | 人工回复原因\n--- | --- | --- | ---\n`
@@ -1345,10 +1364,8 @@ class BiliDynamicPage extends BasePage {
                 await this.func(...this.args);
             }
         }
-
-
         let tasks = [
-            new MyTask(this.lottery_op.loop.dynamic_lottery, [common_lottery, "一般转发抽奖"]),
+            new MyTask(this.lottery_op.loop.dynamic_lottery, [common_lottery, "一般转发抽奖"]),//测试过了，没啥问题，还差一个断网测试
 
         ]
         tasks = utils.Common.part_shuffle(tasks.length, tasks)
@@ -1359,10 +1376,10 @@ class BiliDynamicPage extends BasePage {
                 this.global_var.FLAG.抽奖中标志 = false;
                 return await pptr_op.my_send_notify.push_me(err_msg, `${JSON.stringify(this.global_var.system, undefined, '\t')}`)
             }
-            tasks.unshift(new MyTask(this.lottery_op.loop.reserve_lottery, [reserve_lottery]));
-            tasks.unshift(new MyTask(this.lottery_op.loop.dynamic_lottery, [must_join_common_lottery, "必抽的大奖"]));
-            tasks.unshift(new MyTask(this.lottery_op.loop.official_lottery, [official_lottery]));
-            tasks.push(new MyTask(this.prevent_filter_op.prevent_filter_init, []));
+            tasks.unshift(new MyTask(this.lottery_op.loop.reserve_lottery, [reserve_lottery]));//测试过了，没啥问题，还差一个断网测试
+            tasks.unshift(new MyTask(this.lottery_op.loop.dynamic_lottery, [must_join_common_lottery, "必抽的大奖"]));//测试过了，没啥问题，还差一个断网测试
+            tasks.unshift(new MyTask(this.lottery_op.loop.official_lottery, [official_lottery]));//测试过了，没啥问题，还差一个断网测试
+            tasks.push(new MyTask(this.prevent_filter_op.prevent_filter_init, []));//测试过了，没啥问题，还差一个断网测试
             for (let task of tasks) {
                 console.log(this.log_format(`当前运行任务；${task.func.name}`))
                 await task.run.call({
@@ -1377,7 +1394,6 @@ class BiliDynamicPage extends BasePage {
             await this.task_end();
             throw Error(e)
         }
-
         await this.task_end();
 
     }
