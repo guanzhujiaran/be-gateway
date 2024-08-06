@@ -5,9 +5,13 @@ const {
     TAccountInfo_LotteryLog,
     TAccountInfo_ReserveLog,
     TAtariInfo,
+    TCommonLog,
     TDynamicInfo,
+    TLiveLotteryLog,
+    TLogBiliDailyTask,
     TLotteryLogInfo,
-    TReserveLotteryInfo, TUserInfo, sequelize,
+    TReserveLotteryInfo,
+    TUserInfo,
 } = require("@/ExpressServerEnd/DAO/SqlHelper");
 const {UserDao} = require("@/ExpressServerEnd/DAO/UserDao");
 const {Op} = require("sequelize");
@@ -95,7 +99,14 @@ class AccountLogDao {
 
     }
 
-    static async add_lottery_log_info({lottery_log, is_success, is_manual_reply, dynamic_info_id, lottery_type,comment_msg}) {
+    static async add_lottery_log_info({
+                                          lottery_log,
+                                          is_success,
+                                          is_manual_reply,
+                                          dynamic_info_id,
+                                          lottery_type,
+                                          comment_msg
+                                      }) {
         return await TLotteryLogInfo.upsert({
             lottery_log: lottery_log,
             is_success: is_success,
@@ -104,7 +115,7 @@ class AccountLogDao {
             add_ts: Math.ceil((new Date()).getTime() / 1e3),
             update_ts: Math.ceil((new Date()).getTime() / 1e3),
             lottery_type: lottery_type,
-            comment_msg:comment_msg
+            comment_msg: comment_msg
         });
     }
 
@@ -214,6 +225,62 @@ class AccountLogDao {
     }
 
     //endregion
+    static async create_log_bili_daily_task({account_id, sanlian_ts = 0, bcoin_ts = 0, charge_ts = 0} = {}) {
+        return await TLogBiliDailyTask.create({
+            log_account_id: account_id,
+            sanlian_ts: sanlian_ts,
+            bcoin_ts: bcoin_ts,
+            charge_ts: charge_ts
+        })
+    }
+
+    static async update_sanlian_ts({account_id, sanlian_ts}) {
+        let log_info = await this.get_log_bili_daily_task_by_account_id(account_id)
+        if (!log_info) {
+            return await this.create_log_bili_daily_task({account_id: account_id, sanlian_ts: sanlian_ts})
+        }
+        log_info.sanlian_ts = sanlian_ts;
+        return await log_info.save()
+    }
+
+    static async update_bcoin_ts({account_id, bcoin_ts}) {
+        let log_info = await this.get_log_bili_daily_task_by_account_id(account_id)
+        if (!log_info) {
+            return await this.create_log_bili_daily_task({account_id: account_id, bcoin_ts: bcoin_ts})
+        }
+        log_info.bcoin_ts = bcoin_ts;
+        return await log_info.save()
+    }
+
+    static async update_charge_ts({account_id, charge_ts}) {
+        let log_info = await this.get_log_bili_daily_task_by_account_id(account_id)
+        if (!log_info) {
+            return await this.create_log_bili_daily_task({account_id: account_id, charge_ts: charge_ts})
+        }
+        log_info.charge_ts = charge_ts;
+        return await log_info.save()
+    }
+
+    static async get_log_bili_daily_task_by_account_id(account_id) {
+        return await TLogBiliDailyTask.findOne(
+            {
+                where: {
+                    log_account_id: account_id
+                }
+            }
+        );
+    }
+
+    static async add_common_log_by_account_id({account_id, contents, ts, func_name, module_name}) {
+        return await TCommonLog.create({
+            common_log_account_id: account_id,
+            contents: contents,
+            ts: ts,
+            func_name: func_name,
+            module_name: module_name
+        })
+    }
+
 }
 
 module.exports = {AccountLogDao}

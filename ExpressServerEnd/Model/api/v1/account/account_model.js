@@ -1,4 +1,5 @@
 const {AccountDao} = require("@/ExpressServerEnd/DAO/AccountDao");
+const {GLOBAL_CONFIG} = require("@/ExpressServerEnd/BiliPPTR/config/global_config");
 
 class BiliLotterySetting {
 
@@ -37,8 +38,9 @@ class BiliLotterySetting {
         ProfileDir: "Default",
         /**
          * @type {string} 代理，标准格式：http://127.0.0.1:114514
+         * 默认设置成本地的ipv6代理
          */
-        proxy: "",
+        proxy: GLOBAL_CONFIG.lot_module.default_proxy,
         /**
          * @type {boolean} 是否监听ws，执行统一的刷弹幕操作
          */
@@ -80,7 +82,7 @@ class BiliLotterySetting {
          */
         share_copy_chance: 0.5,
         /**
-         * @type {string} 分享视频结束后，创建文字动态的内容
+         * @type {string[]} 分享视频结束后，创建文字动态的内容
          */
         create_word_dynamic_chp: ["晚安"],
         /**
@@ -172,6 +174,14 @@ class BiliLotterySetting {
          * @type {string[]} 遇到恰饭动态时的回复内容
          */
         qiafan_promotion: ['冲'],
+    }
+    live_lottery_module = {
+        /**@type { boolean } 是否开启*/
+        anchor_switch: true,
+        redpack_switch: true,
+        anchor_unignore_words: [],
+        /**@type {number} 红包最低参加的金瓜子价值（1元=1000金瓜子） */
+        redpack_limit_price: 50e3
     }
 
     constructor(account_name) {

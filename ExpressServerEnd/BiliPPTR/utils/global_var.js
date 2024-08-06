@@ -1,11 +1,16 @@
 /**
  * 动态抽奖用的全局变量
  */
-class DynamicLotteryGlobalVar {
+class BaseGlobalVar {
     /**
      * @type {Page | undefined}
      */
     current_page;
+}
+
+class DynamicLotteryGlobalVar extends BaseGlobalVar {
+
+
     current_dynamic_id = 0
     TIME = {
         Init_Time: new Date(Date.now()), /**@property 非抽奖时间段*/
@@ -39,7 +44,9 @@ class DynamicLotteryGlobalVar {
         opus动态标志: false,
         抽奖中标志: false,
         风控标志: false,
-        抽奖暂停标志: false //抽奖暂停标志
+        抽奖暂停标志: false, //抽奖暂停标志
+        初始化浏览器中标志: false,
+        执行其他任务中标志: false,//是否在执行其他任务（对于当前页面而言）
     }
     recorded_data = "" //抽奖反馈信息
     user_info = {
@@ -58,6 +65,7 @@ class DynamicLotteryGlobalVar {
     }
 
     constructor(system_user_name, system_account_name) {
+        super();
         this.system = {
             user_name: system_user_name,
             account_name: system_account_name,
@@ -66,4 +74,4 @@ class DynamicLotteryGlobalVar {
 }
 
 
-module.exports = {DynamicLotteryGlobalVar};
+module.exports = {DynamicLotteryGlobalVar, BaseGlobalVar};

@@ -9,7 +9,7 @@ class UserDao {
     //#region UserInfo表的增删改查
     /**
      * @typedef {Object} UserCredentials
-     * @property {number} uid - 用户ID
+     * @property {string} uid - 用户ID
      * @property {string} user_name - 用户名
      * @property {string} pwd - 加密后的密码
      */
@@ -20,7 +20,7 @@ class UserDao {
      */
     /**
      * 通过uid查找userinfo
-     * @param {number} uid
+     * @param {string|number} uid
      * @returns {Promise<UserCredentials|undefined> }
      * --{
      "uid": "1",

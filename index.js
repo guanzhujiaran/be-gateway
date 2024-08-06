@@ -217,7 +217,7 @@ async function main() {
 		console.log(i);
 		if (unfollow_mode) {
 			let lot = new DO_Lottery(i, browser_mode, opus动态标志);
-			let event_name = `${EVENT_NAME_MAP.lot_unfollow}_${i}`;
+			let event_name = `${EVENT_NAME_MAP.Lot_Unfollow}_${i}`;
 			if (event_bus.event_list.indexOf(event_name) == -1) {
 				event_bus.on(event_name, async () => {
 					await lot.unfollow_module();

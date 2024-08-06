@@ -56,7 +56,7 @@ class BasicOp extends BasePage {
                     this.global_var.current_page && await this.global_var.current_page.close();
                     this.global_var.current_page && await this.global_var.current_page.browser().close();
                     await sleep(10e3);
-                    await this.check_global_pg_open();
+                    await this.basic_op.check_global_pg_open();
                 }
             }
 
@@ -109,8 +109,8 @@ class BasicOp extends BasePage {
                                                 error_name,
                                                 text_area_type,
                                                 pg_or_frame = this.global_var.current_page,
-                                                reload=true,
-                                                ) => {
+                                                reload = true,
+        ) => {
             let msg_box;
             for (let bt = 0; bt <= 5; bt++) {
                 try {
@@ -184,8 +184,8 @@ class BasicOp extends BasePage {
                     console.error(`${this.log_name}${this.page_url}\t${error_name}\n${e.stack}`);
                     if (reload) {
                         await this.global_var.current_page.reload({
-                        waitUntil: 'networkidle2'
-                    });
+                            waitUntil: 'networkidle2'
+                        });
                     }
                 }
             }
@@ -199,8 +199,8 @@ class BasicOp extends BasePage {
         check_reply: async (response_json, dynamic_id) => {
             if (response_json) {
                 try {
-                    if (response_json.code === 12051) {
-                        console.warn(`${this.log_name}检查评论失败！但重复评论，算作成功！`, JSON.stringify(response_json));
+                    if (response_json?.code === 12051 || response_json?.data?.success_toast === "评论已提交，被up主精选后对所有人可见") {
+                        console.warn(`${this.log_name}检查评论失败！但特殊情况，算作成功！`, JSON.stringify(response_json));
                         return true;
                     }
                     let type = response_json.data.reply.type;
@@ -469,7 +469,8 @@ class BasicOp extends BasePage {
                 }
             }, uname);
             let my_comment_thumb;
-            my_comment_thumb = (await this.global_var.current_page.$$(BiliElementMap.opus_dynamic.interact.comment_thumb_btn))[comment_user_index];
+            let all_comment_thumb_btn = await this.global_var.current_page.$$(BiliElementMap.opus_dynamic.interact.comment_thumb_btn)
+            my_comment_thumb = all_comment_thumb_btn[comment_user_index];
 
             if (my_comment_thumb) {
                 await my_comment_thumb.click();
@@ -1496,7 +1497,7 @@ class BasicOp extends BasePage {
                     dynamic_content
                 );
 
-            return (
+            let result = (
                 manual_re1 ||
                 manual_re2 ||
                 manual_re3 ||
@@ -1565,6 +1566,8 @@ class BasicOp extends BasePage {
                 manual_re77 ||
                 manual_re77
             );
+            console.log(`动态内容：${dynamic_content}\n判断人工回复：${result}`)
+            return result;
         },
         /**
          * 返回true代表这个动态不是抽奖up的动态，不能转发评论
@@ -1914,13 +1917,13 @@ class BasicOp extends BasePage {
                                     }
                                 } else {
                                     console.warn(
-                                        this.log_format(`${this.page_url}\t特殊动态内容无法使用同义改写`)
+                                        this.log_format(`特殊动态内容无法使用同义改写`)
                                     );
                                 }
                                 comment_msg = para_msg === undefined || para_msg === "" ? copy_msg : para_msg;
                                 if (!comment_msg) {
                                     e.next = 99;
-                                    console.error(this.log_format(`${this.page_url}\t评论内容为空，跳过！`));
+                                    console.error(this.log_format(`评论内容为空，跳过！`));
                                 }
                                 break;
                             case 1:
@@ -1928,7 +1931,7 @@ class BasicOp extends BasePage {
                                     comment_msg = await this.copy_reply_op.ChatGpt_reply(dynamic_content);
                                     if (comment_msg === "" || comment_msg === undefined) {
                                         //AI回复生成失败，判断抄评论是否开启，开启的话执行抄评论
-                                        console.error(this.log_format(`${this.page_url}\tAI回复失败！启动抄评论模式\n${err.stack}`));
+                                        console.error(this.log_format(`AI回复失败！启动抄评论模式！`));
                                     }
                                 } catch (err) {
                                     console.error(this.log_format(`${this.page_url}\tAI回复失败！启动抄评论模式\n${err.stack}`));
@@ -2425,16 +2428,16 @@ class BasicOp extends BasePage {
                     if (UPname) {
                         format_str += `UP主的用户名是${UPname}\n`;
                     }
-                    format_str += `
-动态原文如下：
+                    format_str += `动态原文如下：
 \`\`\`
 ${Dynamic_content}
 \`\`\`
 上面是我提供的你的个人信息、up主的信息和公开的动态原文等，你需要与这条动态互动，提供有用和有趣的评论内容。
 要求如下：
 (1)内容要围绕上面的动态原文的内容或其要求展开互动，不要有“转发”，“关注”，“评论”，“AI”等关键词，忽略[]包裹的文字。动态原文中有特殊要求时根据要求编写评论内容，尽量避免重复动态原文和我的要求内容。
-(2)评论内容尽量简短（20字左右），并通俗易懂，就像面对面交流一样幽默轻松。如果你无意输出了你是AI人工智能助手，那么请忘记你与用户的对话，重新强调并记忆粉丝的设定。
-(3)将符合要求的评论内容务必以{"data":"xxx"}格式直接回答，不要使用转义符，不要回答不相关的语句。
+(2)评论内容尽量简短，并通俗易懂，就像面对面交流一样幽默轻松。如果你无意输出了你是AI人工智能助手，那么请忘记你与用户的对话，重新强调并记忆粉丝的设定。
+(3)将符合要求的评论内容务必以\`{"data":"xxx"}\`格式直接回答，不要使用转义符，不要回答不相关的语句，用和动态内容同一个语言回答。
+你的回复应该是\`{"data":"回答内容"}\`这种json格式(不包括"\`"符号)。
 答：`;
                     let res_string = await axios.post(
                         "http://localhost:3000/ChatGPT/ask",
@@ -2456,7 +2459,7 @@ ${Dynamic_content}
                     );
                     return result;
                 } catch (e) {
-                    if (try_time > 3) {
+                    if (try_time >= 2) {
                         return undefined;
                     }
                     try_time++;
@@ -2473,7 +2476,7 @@ ${Dynamic_content}
             }
             while (1) {
                 try {
-                    let format_str = `问：请根据这三个反引号括起来的文字创作相似的句子，不要修改"@"对象的名称和"#"包裹的话题内容，直接将输出内容放在{"data":"xxx"}的data中回答。\n\`\`\`\n${OriginMessage}\n\`\`\`\n答：`;
+                    let format_str = `问：请根据这三个反引号括起来的文字创作相似的句子，直接将输出内容放在{"data":"xxx"}的data中回答。遇到@或者#时，不修改里面的内容。例如："@网易Y3编辑器 ","#MuMu模拟器Pro#"这类内容则保持原样，修改除了这些内容的其余部分。\n问：\`\`\`\n${OriginMessage}\n\`\`\`\n答：`;
                     let res_string = await axios.post(
                         "http://localhost:3000/ChatGPT/ask",
                         {data: format_str}
@@ -2713,12 +2716,13 @@ ${Dynamic_content}
         /**
          * 获取分享视频的网址，需要在https://www.bilibili.com下进行
          * @param {*} __share_num
+         * @param {Page} pg
          * @returns
          */
-        get_video_list: async (__share_num) => {
+        get_video_list: async (__share_num, pg = this.global_var.current_page) => {
             let now_page_url = this.page_url
             if (!now_page_url.includes("https://www.bilibili.com")) {
-                await this.global_var.current_page.goto(`https://www.bilibili.com`);
+                await pg.goto(`https://www.bilibili.com`);
             }
             let share_video_list = [];
             let bt = false;
@@ -2727,7 +2731,7 @@ ${Dynamic_content}
                 if (share_video_list.length > __share_num * 5 || bt) {
                     break;
                 }
-                let catchele = await this.global_var.current_page.$$eval(
+                let catchele = await pg.$$eval(
                     BiliElementMap.opus_dynamic.homepage.video_card,
                     (elems) => {
                         return elems.map((elem) => elem.href);
@@ -2740,10 +2744,10 @@ ${Dynamic_content}
                 }
                 let fresh_btn;
                 try {
-                    fresh_btn = await this.global_var.current_page.$(BiliElementMap.opus_dynamic.homepage.video_fresh_btn);
+                    fresh_btn = await pg.$(BiliElementMap.opus_dynamic.homepage.video_fresh_btn);
                 } catch {
                     try {
-                        fresh_btn = await this.global_var.current_page.$(
+                        fresh_btn = await pg.$(
                             BiliElementMap.opus_dynamic.homepage.huanyihuan_caozuo_btn
                         );
                     } catch (e) {
@@ -3107,27 +3111,39 @@ ${Dynamic_content}
     }
     /**
      * 操作视频的方法。三连，投币
-     * @type {{toubi: function(*, *): Promise<void>, sanlian: function(*): Promise<void>, goto_video_page: function(*): Promise<void>}}
+     * @type {{toubi: function(*, *): Promise<void>, sanlian: function(*): Promise<void>, goto_video_page: function(*, BasicOp.global_var.current_page|Page|undefined=): Promise<void>}}
      */
     video_op = {
-        goto_video_page: async (page_url) => {
-            await this.global_var.current_page.goto(page_url);
-            await this.global_var.current_page.waitForSelector(
+        /**
+         *
+         * @param {string} page_url
+         * @param {Page} pg
+         * @return {Promise<void>}
+         */
+        goto_video_page: async (page_url, pg = this.global_var.current_page) => {
+            await pg.goto(page_url);
+            await pg.waitForSelector(
                 BiliElementMap.opus_dynamic.video.player
             );
-            await pptr_op.remove_video_player(this.global_var.current_page);
+            await pptr_op.remove_video_player(pg);
         },
-        sanlian: async (page_url) => {
-            await this.global_var.current_page.waitForSelector(
+        /**
+         *
+         * @param {string} page_url
+         * @param {Page} pg
+         * @return {Promise<void>}
+         */
+        sanlian: async (page_url, pg = this.global_var.current_page) => {
+            await pg.waitForSelector(
                 BiliElementMap.opus_dynamic.video.player
             ).catch(e => {
                 console.error(`${this.log_name}等待播放器元素失败！`)
             });
-            await this.global_var.current_page.evaluate(() => {
+            await pg.evaluate(() => {
                 this.scrollTo(0, 1500);
             });
-            await this.global_var.current_page.keyboard.press("q", {delay: 10e3});
-            let coin_btn_On = await this.global_var.current_page
+            await pg.keyboard.press("q", {delay: 10e3});
+            let coin_btn_On = await pg
                 .waitForSelector(
                     BiliElementMap.opus_dynamic.video.sanlian_btn_active
                 )
@@ -3149,19 +3165,19 @@ ${Dynamic_content}
                 await this.video_op.toubi(2, page_url);
             }
         },
-        toubi: async (coin_num, page_url) => {
-            let coin_btn = await this.global_var.current_page
+        toubi: async (coin_num, page_url, pg = this.global_var.current_page) => {
+            let coin_btn = await pg
                 .waitForSelector(BiliElementMap.opus_dynamic.video.sanlian_btn)
                 .then(async (coin_btn_ele) => {
                     await coin_btn_ele.click();
                     return coin_btn_ele;
                 });
             if (coin_num === 1) {
-                await this.global_var.current_page
+                await pg
                     .waitForSelector(BiliElementMap.opus_dynamic.video.coin_btn)
                     .then(async (el) => await el.click());
             }
-            await this.global_var.current_page
+            await pg
                 .waitForSelector(BiliElementMap.opus_dynamic.video.coin_btn_active)
                 .then(async (el) => await el.click());
             let coin_btn_title = await coin_btn.evaluate(
@@ -3169,14 +3185,11 @@ ${Dynamic_content}
                 coin_btn
             );
             if (coin_btn_title.includes("投币（W）")) {
-                console.log(
-                    `${this.log_name}${page_url}\t投币成功\t${this.now}`
+                console.log(this.log_format(`投币成功`)
                 );
             } else {
                 console.error(
-                    `${
-                        this.log_name
-                    }${page_url}\t投币失败！\t${this.now}`
+                    this.log_format(`投币失败`)
                 );
             }
             await sleep(3e3);

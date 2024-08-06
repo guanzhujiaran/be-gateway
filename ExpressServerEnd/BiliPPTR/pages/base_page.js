@@ -10,8 +10,7 @@ const {AccountLogService} = require("@/ExpressServerEnd/Service/account_log_modu
 const {AccountDao} = require("@/ExpressServerEnd/DAO/AccountDao");
 const {UserDao} = require("@/ExpressServerEnd/DAO/UserDao");
 const {AccountService} = require("@/ExpressServerEnd/Service/account_module/account_service");
-const {join} = require("node:path");
-
+const {resolve} = require('path')
 class BasePage {
 
     /**
@@ -29,12 +28,14 @@ class BasePage {
         this.user_id = user_id;
         this.account_id = account_id;
         this.global_var = global_var;
+        /**
+         * @type {BiliLotterySetting}
+         */
         this.lottery_setting = lottery_setting;
-
     }
 
     #manual_reply_err_set = new Set(utils.Common.extractStringsFromObject(BiliElementMap.log_record.opus_dynamic.err))
-    #critical_err_set = new Set(utils.Common.extractStringsFromObject(BiliElementMap.log_record.critical_error.err))
+    #critical_err_set = new Set(utils.Common.extractStringsFromObject(BiliElementMap.log_record.critical_error))
     #succ_info_set = new Set(utils.Common.extractStringsFromObject(BiliElementMap.log_record.succ_info))
 
     get log_name() {
@@ -367,7 +368,7 @@ class BasePage {
             );
             await sleep(3e3);
             await this.global_var.current_page.goto("about:blank");
-        } catch (e){
+        } catch (e) {
             await sleep(3e3);
             console.error(e)
         }
@@ -396,19 +397,24 @@ class BasePage {
         }
     };
 
-    async create_new_pg(usage = BiliElementMap.browser_usage) {
+    async create_new_pg(usage = BiliElementMap.browser_usage.lottery) {
         if (
             !this.global_var.current_page ||
             (await this.global_var.current_page.browser().pages()).length === 0 ||
             !this.global_var.current_page.browser().connected
         ) {
-             await this.account_page_init(false);
-             this.global_var.current_page.usage = undefined
+            await this.account_page_init(false, BiliElementMap.browser_usage.useless);
         }
         let br = this.global_var.current_page.browser();
         let new_pg = await br.newPage();
         new_pg.usage = usage
         await pptr_op.hook_teck_logdata(new_pg);
+        let pages = await br.pages()
+        for (let page of pages) {
+            if (page.usage === BiliElementMap.browser_usage.useless) {
+                await page.close();
+            }
+        }
         return new_pg
     }
 
@@ -419,117 +425,128 @@ class BasePage {
      * @return {Promise<boolean>}
      */
     async account_page_init(need_check_login = false, usage = BiliElementMap.browser_usage.lottery) {
-        if (
-            !this.global_var.current_page ||
-            (await this.global_var.current_page.browser().pages()).length === 0 ||
-            !this.global_var.current_page.browser().connected
-        ) {
-            //浏览器未打开状态
-            let cookieStr;
-            // try {
-            //     cookieStr = await utils.BiliAPI.cookieSetting.getCookie(
-            //         this.uname,
-            //         this.account_name
-            //     );
-            // } catch {
-            // }
-            let browser;
-            let __args = [];
-            if (this.lottery_setting.CONFIG.proxy && URL.canParse(this.lottery_setting.CONFIG.proxy)) {
-                console.debug(this.log_format(`使用代理：${this.lottery_setting.CONFIG.proxy}`))
-                __args.push(`--proxy-server=${this.lottery_setting.CONFIG.proxy}`);
-            }
-            __args.push(
-                "--disable-web-security",
-                "--start-stack-profiler",
-                "-–ignore-certificate-errors",
-                "--disable-infobars",
-                "--disable-session-crashed-bubble",
-                "--disable-gpu",
-                "--disable-dev-shm-usage",
-                "--mute-audio",
-                "--disable-extensions",
-                "--no-zygote",
-                "--disable-xss-auditor",
-                "--disable-popup-blocking",
-                "--start-maximized",
-                "--disable-infobars",
-                "--window-position=0,0",
-                "--ignore-certifcate-errors",
-                "--ignore-certifcate-errors-spki-list",
-                "--window-size=1920,1080",
-                "--disable-accelerated-2d-canvas",
-                "--disable-webgl",
-                // "--no-sandbox",
-                "--disable-setuid-sandbox",
-                `--profile-directory=${this.lottery_setting.CONFIG.ProfileDir ? this.lottery_setting.CONFIG.proxy : "Default"}`,
-            );
-            for (let retry = 1; retry < 6; retry++) {
-                //五次重试启动浏览器的机会
-                try {
-                    browser = await puppeteer.launch({
-                        executablePath: GLOBAL_CONFIG.basic_module.browser_executable_path, //浏览器路径
-                        headless: false, //false为显示浏览器界面
-                        defaultViewport: {
-                            //分辨率
-                            width: 1920 + Math.floor((Math.random() - 1) * 200), // [-100,100]
-                            height: 1080 + Math.floor((Math.random() - 1) * 200),// [-100,100]
-                            deviceScaleFactor: 0,
-                        },
-                        args: __args,
-                        // 路径是相对运行的根目录而言
-                        userDataDir: this.lottery_setting.CONFIG.PersistStore ? `BrowserData/${this.uname}/${this.account_name}` : undefined,
-                        ignoreDefaultArgs: [
-                            "--enable-automation",
-                            "--disable-extensions",
-                            "--disable-client-side-phishing-detection",
-                            "--disable-sync",
-                            '--use-mock-keychain',
-                            // "--no-first-run",
-                        ],
-                        ignoreHTTPSErrors: true,
-                        pipe: true,
-                        // protocol: "webDriverBiDi" //webDriverBiDi 这个模式无法拦截请求响应
-                    });
-                    console.debug(this.log_format(`浏览器启动！`))
+        while (this.global_var.FLAG.初始化浏览器中标志) {
+            await sleep(10e3);
+        }
+        this.global_var.FLAG.初始化浏览器中标志 = true;
+        try {
+            if (
+                !this.global_var.current_page ||
+                (await this.global_var.current_page.browser().pages()).length === 0 ||
+                !this.global_var.current_page.browser().connected
+            ) {
+                //浏览器未打开状态
+                let cookieStr;
+                // try {
+                //     cookieStr = await utils.BiliAPI.cookieSetting.getCookie(
+                //         this.uname,
+                //         this.account_name
+                //     );
+                // } catch {
+                // }
+                let browser;
+                let __args = [];
+                if (this.lottery_setting.CONFIG.proxy && URL.canParse(this.lottery_setting.CONFIG.proxy)) {
+                    console.debug(this.log_format(`使用代理：${this.lottery_setting.CONFIG.proxy}`))
+                    __args.push(`--proxy-server=${this.lottery_setting.CONFIG.proxy}`);
+                }
+                __args.push(
+                    "--disable-web-security",
+                    "--start-stack-profiler",
+                    "-–ignore-certificate-errors",
+                    "--disable-infobars",
+                    "--disable-session-crashed-bubble",
+                    "--disable-gpu",
+                    "--disable-dev-shm-usage",
+                    "--mute-audio",
+                    "--disable-extensions",
+                    "--no-zygote",
+                    "--disable-xss-auditor",
+                    "--disable-popup-blocking",
+                    "--start-maximized",
+                    "--disable-infobars",
+                    "--window-position=0,0",
+                    "--ignore-certifcate-errors",
+                    "--ignore-certifcate-errors-spki-list",
+                    "--window-size=1920,1080",
+                    "--disable-accelerated-2d-canvas",
+                    "--disable-webgl",
+                    // "--no-sandbox",
+                    "--disable-setuid-sandbox",
+                    `--profile-directory=${this.lottery_setting.CONFIG.ProfileDir ? this.lottery_setting.CONFIG.ProfileDir : "Default"}`,
+                );
+                for (let retry = 1; retry < 6; retry++) {
+                    //五次重试启动浏览器的机会
+                    try {
+                        browser = await puppeteer.launch({
+                            executablePath: GLOBAL_CONFIG.basic_module.browser_executable_path, //浏览器路径
+                            headless: false, //false为显示浏览器界面
+                            defaultViewport: {
+                                //分辨率 随机分辨率防止指纹一致？
+                                width: 1920 + Math.floor((Math.random() - 1) * 400), // [-100,100]
+                                height: 1080 + Math.floor((Math.random() - 1) * 400),// [-100,100]
+                                deviceScaleFactor: 0,
+                            },
+                            args: __args,
+                            userDataDir: this.lottery_setting.CONFIG.PersistStore ? resolve(__dirname, `..`, `..`, `..`, `BrowserData`, this.uname, this.account_name) : undefined,
+                            ignoreDefaultArgs: [
+                                "--enable-automation",
+                                "--disable-extensions",
+                                "--disable-client-side-phishing-detection",
+                                "--disable-sync",
+                                '--use-mock-keychain',
+                                // "--no-first-run",
+                            ],
+                            ignoreHTTPSErrors: true,
+                            pipe: true,
+                            // protocol: "webDriverBiDi" //webDriverBiDi 这个模式无法拦截请求响应
+                        });
+                        console.debug(this.log_format(`浏览器启动！`))
 
-                    let page = (await browser.pages())[0];
-                    page.usage = usage
-                    await pptr_op.hook_teck_logdata(page);
-                    this.global_var.current_page = page;
-                    await this.global_var_listen(this.global_var.current_page);
-                    //await global_var.page.setUserAgent(useragent);
-                    // let ck = utils.BiliAPI.browserSetting.getCookies(
-                    //     cookieStr,
-                    //     ".bilibili.com"
-                    // );
-                    break;
-                } catch (e) {
-                    console.error(this.log_format(`浏览器启动失败，重试第${retry}次！\n${e.stack}`));
-                    await sleep(10e3);
-                    if (retry === 6) {
-                        throw Error(this.log_format(`浏览器启动彻底失败\n${e.stack}`))
+                        let page = (await browser.pages())[0];
+                        page.usage = usage
+                        await pptr_op.hook_teck_logdata(page);
+                        this.global_var.current_page = page;
+                        await this.global_var_listen(this.global_var.current_page);
+                        //await global_var.page.setUserAgent(useragent);
+                        // let ck = utils.BiliAPI.browserSetting.getCookies(
+                        //     cookieStr,
+                        //     ".bilibili.com"
+                        // );
+                        break;
+                    } catch (e) {
+                        console.error(this.log_format(`浏览器启动失败，重试第${retry}次！\n${e.stack}`));
+                        await sleep(10e3);
+                        if (retry === 6) {
+                            throw Error(this.log_format(`浏览器启动彻底失败\n${e.stack}`))
+                        }
                     }
                 }
             }
-        }
-        if (this.global_var.current_page && this.global_var.current_page.isClosed()) {
-            //浏览器未关闭，抽奖页面已关闭
-            let br = this.global_var.current_page.browser();
-            let new_pg = await br.newPage();
-            new_pg.usage = usage
-            await pptr_op.hook_teck_logdata(new_pg);
-            this.global_var.current_page = new_pg;
-            await this.global_var_listen(this.global_var.current_page);
-        }
-        let pages = await this.global_var.current_page.browser().pages()
-        for (let page of pages) {
-            if (page.usage === undefined) {
-                await page.close();
+            if (this.global_var.current_page && this.global_var.current_page.isClosed() || this.global_var.current_page.usage !== usage) {
+                //浏览器未关闭，抽奖页面已关闭
+                let br = this.global_var.current_page.browser();
+                let new_pg = await br.newPage();
+                new_pg.usage = usage
+                await pptr_op.hook_teck_logdata(new_pg);
+                this.global_var.current_page = new_pg;
+                await this.global_var_listen(this.global_var.current_page);
             }
-        }
-        if (!this.global_var.user_info.uname || need_check_login) {
-            return await this.check_login(true);
+            this.global_var.current_page.usage = usage;
+            let pages = await this.global_var.current_page.browser().pages()
+            for (let page of pages) {
+                if (page.usage === undefined) {
+                    await page.close();
+                }
+            }
+            if (!this.global_var.user_info.uname || need_check_login) {
+                return await this.check_login(true);
+            }
+        } catch (e) {
+            console.error(this.log_format(`浏览器启动失败！\n${e}`))
+            throw (e);
+        } finally {
+            this.global_var.FLAG.初始化浏览器中标志 = false;
         }
         return true
     }
@@ -541,20 +558,20 @@ class BasePage {
     async task_end() {
         this.global_var.current_page ? await (async () => {
             await this.global_var.current_page.close();
-            await this.global_var.current_page.browser().close();
+            // await this.global_var.current_page.browser().close();//只要管好自己的页面就行了，其他的页面自行处理
         })() : {}
 
         this.global_var.FLAG.抽奖中标志 = false;
     }
 
     /**
-     *
+     * 所有任务都通过这里执行
      * @param {
      * {
      * func:(...args:any[])=>Promise<*>,
      * params:*,
      * err:string|undefined,
-     * create_new_pg: puppeteer.Page | undefined,
+     * pg: Page|undefined,
      * reload_when_err:boolean | undefined
      * }[]
      * }tasks
@@ -570,11 +587,15 @@ class BasePage {
 
             while (!success && retries < maxRetries) {
                 try {
+                    while (this.global_var.FLAG.执行其他任务中标志) {
+                        await sleep(3e3);
+                    }
                     success = await func(params);// 成功执行，不需要重试
                     if (!success) {
                         throw Error(`任务${i}执行失败！`)
                     }
                 } catch (error) {
+
                     record_data.err_msg = err ? `${err}\n`.concat(`${error}`) : error
                     await this.log_record.dynamic_lottery_record(record_data);
                     retries++;

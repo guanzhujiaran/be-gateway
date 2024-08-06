@@ -41,11 +41,7 @@ const BiliElementMap = {
             t_dynamic_publish_btn: `.bili-dyn-publishing__action.launcher`,
             t_dynamic_publish_confirm_btn: `.bili-dyn-specification-popup__btn.bili-button.primary.bili-button--medium`,
             dynamic_error_pic: `.error-container`,
-            follow_btn: `.h-f-btn.h-follow`,
-        },
-        response: {
-            _404_dynamic: `404动态`
-
+            follow_btn: `.h-f-btn.h-follow, .h-f-btn.h-follow-oldfan`,
         },
         captcha: {
             comment_captcha: `.comment-captcha`,
@@ -78,6 +74,22 @@ const BiliElementMap = {
 
         }
     },
+    live_page:{
+        dm_send_btn: ".bl-button--primary.bl-button--small", //发送弹幕按钮
+		dm_input_box: ".chat-input.border-box", //弹幕输入框
+		like_btn: ".like-btn",
+		anchor_icon: ".anchor-lot-icon",
+		anchor_join_btn: `[class*="join-btn-"]`,
+		contribution_btn: ".switch-btn-bg.live-skin-highlight-bg", //贡献值下拉框按钮
+		gift_package: ".gift-control-section .gift-package", //包裹按钮
+		gift_item_free: ".gift-item.package.free",
+		live_room_treasurebox: {
+			round_item: ".round-item", // 金宝箱侧边栏
+			join_btn: ".bl-button.bl-button--primary", //参加金宝箱按钮
+		},
+		rightArrow_btn: ".pointer.arrow-box", //直播的功能展开箭头
+		live_player: `#live-player-ctnr`, //直播播放器！
+    },
     url_path: {
         user: {
             nav: `x/web-interface/nav`,
@@ -101,7 +113,7 @@ const BiliElementMap = {
              */
             dynamic_reply_main: `x/v2/reply/main`,
             dynamic_reply_main_wbi: `x/v2/reply/wbi/main`,
-
+            article:`read/cv`
         },
         space: {
             reservation: `space/reservation`,
@@ -132,7 +144,7 @@ const BiliElementMap = {
                     dynamic_repost_fail: `\u200b动态转发失败`,
                     dynamic_fast_repost_fail: `\u200b快速动态转发失败`,
                     dynamic_repost_content_input_fail: `\u200b动态转发失败，转发内容输入失败`,
-
+                    official_lottery_switch_off:`\u200b未开启官方抽奖`
                 },
                 follow: {
                     follow_up_fail: `\u200b点击关注up失败`,
@@ -146,7 +158,7 @@ const BiliElementMap = {
             },
             //endregion
 
-            //region 一般错误，不影响执行
+            //region 一般错误或日志，不影响执行
             comment_thumb_fail: `\u200b评论点赞失败`,
             not_enough_comment_count: `\u200b评论人数过少，需要人工判断`,
             repost_dynamic: `\u200b单转发执行成功`,
@@ -173,7 +185,6 @@ const BiliElementMap = {
             manual_reply_non_lottery_up: `\u200b包含非抽奖up，需要人工回复的动态`,
             _404_dynamic: `\u200b404动态`,
             follow_up_fail_banned_by_up: `\u200b点击关注up失败，被拉黑了，不抽`,
-
         },
         //endregion
     },
@@ -181,6 +192,8 @@ const BiliElementMap = {
         lottery: `lottery`,
         follow_up: `关注up主`,
         daily_task: `每日任务`,
+        useless:`无用`,
+        unfollow:`取关`
     }
 }
 Object.freeze(BiliElementMap)

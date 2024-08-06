@@ -37,11 +37,16 @@ module.exports = function(sequelize, DataTypes) {
     lottery_type: {
       type: DataTypes.ARRAY(DataTypes.INTEGER),
       allowNull: true,
-      comment: "抽奖类型 \n0：普通抽奖\n1：官方抽奖\n2：预约抽奖"
+      comment: "抽奖类型 \n0：只评论抽奖\n1：转发评论抽奖\n2：官方抽奖（只转发抽奖）\n"
     },
     update_ts: {
       type: DataTypes.INTEGER,
       allowNull: true
+    },
+    comment_msg: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      comment: "记录评论内容"
     }
   }, {
     sequelize,

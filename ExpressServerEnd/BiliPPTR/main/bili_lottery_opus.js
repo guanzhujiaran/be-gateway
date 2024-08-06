@@ -2,6 +2,9 @@ const {BiliDynamicPage} = require('@/ExpressServerEnd/BiliPPTR/pages/bili_dynami
 const {AccountService} = require("@/ExpressServerEnd/Service/account_module/account_service");
 const {AccountDao} = require("@/ExpressServerEnd/DAO/AccountDao");
 const {DynamicLotteryGlobalVar} = require("@/ExpressServerEnd/BiliPPTR/utils/global_var");
+const {BiliDailyTaskPage} = require("@/ExpressServerEnd/BiliPPTR/pages/daily_tasks_page");
+const {BiliUnfollowPage} = require("@/ExpressServerEnd/BiliPPTR/pages/unfollow_page");
+const {utils} = require("@/ExpressServerEnd/BiliPPTR/utils/utils");
 
 
 /**
@@ -14,7 +17,14 @@ class BiliLotteryOpus {
      * @type {BiliDynamicPage}
      */
     #BiliDynamicPage;
-    #dailyTaskPage;
+    /**
+     * @type {BiliDailyTaskPage}
+     */
+    #BiliDailyTaskPage
+    /**
+     * @type {BiliUnfollowPage}
+     */
+    #BiliUnfollowPage
     #account_id;
     #user_id;
     user_name;
@@ -73,7 +83,37 @@ class BiliLotteryOpus {
         return this.#BiliDynamicPage
     }
 
+    /**
+     *
+     * @return {Promise<BiliDailyTaskPage>}
+     * @constructor
+     */
+    async GetBiliDailyTaskPage() {
+        if (this.#BiliDailyTaskPage) return this.#BiliDailyTaskPage;
+        await this.#prepare_account_info();
+        this.#BiliDailyTaskPage = new BiliDailyTaskPage(
+            {bili_dynamic_page: await this.GetBiliDynamicPage()}
+        )
+        return this.#BiliDailyTaskPage
+    }
 
+    /**
+     *
+     * @return {Promise<BiliUnfollowPage>}
+     * @constructor
+     */
+    async GetBiliUnfollowPage() {
+        if (this.#BiliUnfollowPage) return this.#BiliUnfollowPage;
+        await this.#prepare_account_info();
+        this.#BiliUnfollowPage = new BiliUnfollowPage(
+            {bili_dynamic_page: await this.GetBiliDynamicPage()}
+        )
+        return this.#BiliUnfollowPage
+    }
+
+    SetBiliLotterySetting(lottery_setting) {
+        utils.Common.updateProxy(this.#BiliLotterySetting, lottery_setting);
+    }
 }
 
 module.exports = BiliLotteryOpus;

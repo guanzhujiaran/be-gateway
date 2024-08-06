@@ -30,11 +30,13 @@ const GLOBAL_CONFIG = {
 			"3532811",
 			"1508263674",
 		],
+		default_proxy:"http://192.168.1.11:3128"
 	},
 	file_path:{
 		comment_resp_record:join( log_path,'评论响应.csv'),
 		reserve_lot_json:join( log_path,'预约抽奖.json'),
-	}
+		live_lottery_setting_json:join(log_path,`live_lot_setting.json`)
+	},
 };
 
 module.exports = {GLOBAL_CONFIG};

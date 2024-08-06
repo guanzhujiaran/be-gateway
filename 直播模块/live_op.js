@@ -631,7 +631,7 @@ class LIVE_LOT {
 							`直播抽奖flag开启中，自动执行取关脚本！`,
 							"info"
 						);
-						let event_name = `${EVENT_NAME_MAP.lot_unfollow}_${this.__DO_Lottery_class.account_name}`;
+						let event_name = `${EVENT_NAME_MAP.Lot_Unfollow}_${this.__DO_Lottery_class.account_name}`;
 						if (event_bus.event_list.indexOf(event_name) == -1) {
 							event_bus.on(event_name, async () => {
 								try {

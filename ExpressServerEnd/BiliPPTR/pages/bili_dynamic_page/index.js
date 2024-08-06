@@ -103,7 +103,7 @@ class BiliDynamicPage extends BasePage {
                     params: comment_msg,
                     err: BiliElementMap.log_record.opus_dynamic.err.comment.dynamic_comment_fail,
                     pg: this.global_var.current_page,
-                    reload_when_err: true
+                    reload_when_err: false
                 },
                 {func: sleep, params: 3e3},
                 {
@@ -146,7 +146,7 @@ class BiliDynamicPage extends BasePage {
                     params: comment_msg,
                     err: BiliElementMap.log_record.opus_dynamic.err.comment.dynamic_comment_fail,
                     pg: this.global_var.current_page,
-                    reload_when_err: true
+                    reload_when_err: false
                 },
                 {func: sleep, params: 3e3},
                 {
@@ -303,7 +303,10 @@ class BiliDynamicPage extends BasePage {
          * 已经在抽奖动态页面
          * @param {TYPE_dynamic_info} dynamic_info
          * @param statistic_data
-         * @return {Promise<boolean>} 转发了返回true，没转发返回false
+         * @return {Promise<{
+         *     has_repost:boolean,
+         *     feedback_info:string,
+         * }>} 转发了返回true，没转发返回false
          */
         do_dynamic_lottery: async (dynamic_info, statistic_data) => {
             let global_var = this.global_var;
@@ -325,21 +328,18 @@ class BiliDynamicPage extends BasePage {
                 console.log(this.log_format(`开始抽奖，动态id:【${dynamic_info.dynId}】`));
                 //region 判断是否是404动态
                 if (this.page_url.includes("www.bilibili.com/404") || await global_var.current_page.$(BiliElementMap.opus_dynamic.interact.dynamic_error_pic)) {
-                    await this.basic_op.global_pg_goto(`https://www.bilibili.com/opus/${dynamic_info.dynId}`);
-                    if (global_var.response.global_dynamic_data === -412) {
-                        let err_msg = `${BiliElementMap.opus_dynamic.response._404_dynamic}\t${dynamic_info.dynamicUrl}`
-                        console.warn(this.log_format(err_msg));
-                        await this.log_record.my_throw(BiliElementMap.opus_dynamic.response._404_dynamic);
-                        record_data.err_msg = BiliElementMap.opus_dynamic.response._404_dynamic;
-                        await this.log_record.dynamic_lottery_record(record_data)
-                        statistic_data.lottery_succ_record.push(record_data)
-                        return false;
-                    }
+                    let err_msg = `${BiliElementMap.log_record.succ_info._404_dynamic}\n${dynamic_info.dynamicUrl}`
+                    console.warn(this.log_format(err_msg));
+                    await this.log_record.my_throw(BiliElementMap.log_record.succ_info._404_dynamic);
+                    record_data.err_msg = BiliElementMap.log_record.succ_info._404_dynamic;
+                    await this.log_record.dynamic_lottery_record(record_data)
+                    statistic_data.lottery_succ_record.push(record_data)
+                    return {has_repost: false, feedback_info: BiliElementMap.log_record.succ_info._404_dynamic};
                 }
                 //endregion
 
 
-                if (this.page_url.includes(`www.bilibili.com/opus`)) {
+                if (this.page_url.includes(BiliElementMap.url_path.opus_dynamic.opus_link)) {
                     try {
                         global_var.response.global_dynamic_data =
                             await utils.Common.Get_Opus_Dynamic_Data(global_var.current_page);
@@ -367,13 +367,20 @@ class BiliDynamicPage extends BasePage {
                             console.error(this.log_format(`未获取到动态信息\t${this.page_url}\n${e.stack}`))
                         }
                     }
+                    if (this.page_url.includes(BiliElementMap.url_path.opus_dynamic.article)) {
+                        await this.basic_op.global_pg_goto(`https://t.bilibili.com/${dynamic_info.dynId}`)
+                        continue;
+                    }
                     bt += 1;
                     if (bt >= 3) {
                         await this.log_record.my_throw(BiliElementMap.log_record.opus_dynamic.err.common.get_dynamic_info_fail);
                         record_data.err_msg = BiliElementMap.log_record.opus_dynamic.err.common.get_dynamic_info_fail;
                         await this.log_record.dynamic_lottery_record(record_data)
                         statistic_data.lottery_fail_record.push(record_data)
-                        return false;
+                        return {
+                            has_repost: false,
+                            feedback_info: BiliElementMap.log_record.opus_dynamic.err.common.get_dynamic_info_fail
+                        };
                     }
                     await global_var.current_page.reload();
                     await sleep(5e3);
@@ -401,22 +408,17 @@ class BiliDynamicPage extends BasePage {
                     record_data.err_msg = BiliElementMap.log_record.succ_info.thumbed_dynamic;
                     await this.log_record.dynamic_lottery_record(record_data)
                     statistic_data.lottery_succ_record.push(record_data)
-                    return false;
+                    return {has_repost: false, feedback_info: BiliElementMap.log_record.succ_info.thumbed_dynamic};
                 }
 
                 let is_past = this.judge_official_lottery_op.judge_official_lottery();
                 if (is_past === true) {
-                    await sleep(
-                        utils.Common.random_choice(
-                            lottery_setting.lottery_module.Working_clearance_time
-                        )
-                    );
                     console.error(`${BiliElementMap.log_record.succ_info.past_official_lot}\t${this.page_url}`)
                     await this.log_record.my_throw(BiliElementMap.log_record.succ_info.past_official_lot);
                     record_data.err_msg = BiliElementMap.log_record.succ_info.past_official_lot;
                     await this.log_record.dynamic_lottery_record(record_data)
                     statistic_data.lottery_succ_record.push(record_data)
-                    return false;
+                    return {has_repost: false, feedback_info: BiliElementMap.log_record.succ_info.past_official_lot};
                 } else if (is_past === false) {
                     //未过期的官方抽奖
                     if (
@@ -442,7 +444,10 @@ class BiliDynamicPage extends BasePage {
                         record_data.err_msg = BiliElementMap.log_record.opus_dynamic.not_enough_comment_count
                         await this.log_record.dynamic_lottery_record(record_data)
                         statistic_data.lottery_manual_record.push(record_data)
-                        return false;
+                        return {
+                            has_repost: false,
+                            feedback_info: BiliElementMap.log_record.opus_dynamic.not_enough_comment_count
+                        };
                     } else {
                         if (dynamic_comment_count <= 10) {
                             //官方的动态少于10个评论不参加
@@ -453,7 +458,10 @@ class BiliDynamicPage extends BasePage {
                             record_data.err_msg = BiliElementMap.log_record.opus_dynamic.not_enough_comment_count
                             await this.log_record.dynamic_lottery_record(record_data)
                             statistic_data.lottery_manual_record.push(record_data)
-                            return false;
+                            return {
+                                has_repost: false,
+                                feedback_info: BiliElementMap.log_record.opus_dynamic.not_enough_comment_count
+                            };
                         }
                     }
                 }
@@ -475,7 +483,7 @@ class BiliDynamicPage extends BasePage {
                 let comment_msg;
                 if (dynamic_content === '' || dynamic_content === undefined) {
                     console.error(
-                        `${BiliElementMap.log_record.opus_dynamic.err.common.get_dynamic_content_fail}\n${global_var.response.global_dynamic_data}\n${this.page_url}`
+                        this.log_format(`${BiliElementMap.log_record.opus_dynamic.err.common.get_dynamic_content_fail}\n${global_var.response.global_dynamic_data}\n${this.page_url}`)
                     );
                     await this.log_record.my_throw(
                         BiliElementMap.log_record.opus_dynamic.err.common.get_dynamic_content_fail
@@ -483,7 +491,10 @@ class BiliDynamicPage extends BasePage {
                     record_data.err_msg = BiliElementMap.log_record.opus_dynamic.err.common.get_dynamic_content_fail
                     await this.log_record.dynamic_lottery_record(record_data)
                     statistic_data.lottery_fail_record.push(record_data)
-                    return false;
+                    return {
+                        has_repost: false,
+                        feedback_info: BiliElementMap.log_record.opus_dynamic.err.common.get_dynamic_content_fail
+                    };
                 }
                 if (!dynamic_info.dynamicUrl.includes("tab=1")) {//如果是只转发的动态则不生成评论内容
                     if (!comment_forbidden_mark) {
@@ -499,14 +510,17 @@ class BiliDynamicPage extends BasePage {
                     if ((!comment_msg || typeof comment_msg != "string") && !(dynamic_info.dynamicUrl.includes("tab=1"))) {
                         if (record_data.err_msg.includes(BiliElementMap.log_record.succ_info.manual_reply)) {
                             statistic_data.lottery_manual_record.push(record_data);
-                            return false;
+                            return {has_repost: false, feedback_info: BiliElementMap.log_record.succ_info.manual_reply}
                         }
                         console.error(this.log_format(`${BiliElementMap.log_record.opus_dynamic.err.comment.comment_msg_empty}\n${this.page_url}`))
                         await this.log_record.my_throw(BiliElementMap.log_record.opus_dynamic.err.comment.comment_msg_empty);
                         record_data.err_msg = BiliElementMap.log_record.opus_dynamic.err.comment.comment_msg_empty
                         await this.log_record.dynamic_lottery_record(record_data)
                         statistic_data.lottery_fail_record.push(record_data)
-                        return false;
+                        return {
+                            has_repost: false,
+                            feedback_info: BiliElementMap.log_record.opus_dynamic.err.comment.comment_msg_empty
+                        }
                     }
 
                     if ((await pptr_op.check_page_is_front(global_var.current_page)) === undefined) {
@@ -534,13 +548,16 @@ class BiliDynamicPage extends BasePage {
                             record_data.err_msg = BiliElementMap.log_record.succ_info.lot_succ
                             await this.log_record.dynamic_lottery_record(record_data)
                             statistic_data.lottery_succ_record.push(record_data)
-                            return true;
+                            return {has_repost: false, feedback_info: `官方抽奖成功！`}
                         } else {
-                            await this.log_record.my_throw(BiliElementMap.log_record.succ_info.past_official_lot);
-                            record_data.err_msg = BiliElementMap.log_record.opus_dynamic.repost_dynamic
+                            await this.log_record.my_throw(BiliElementMap.log_record.opus_dynamic.err.repost.official_lottery_switch_off);
+                            record_data.err_msg = BiliElementMap.log_record.opus_dynamic.err.repost.official_lottery_switch_off
                             await this.log_record.dynamic_lottery_record(record_data)
                             statistic_data.lottery_succ_record.push(record_data)
-                            return false;
+                            return {
+                                has_repost: false,
+                                feedback_info: BiliElementMap.log_record.opus_dynamic.err.repost.official_lottery_switch_off
+                            };
                         }
                     }
 
@@ -570,7 +587,7 @@ class BiliDynamicPage extends BasePage {
                         record_data.err_msg = BiliElementMap.log_record.succ_info.lot_succ
                         await this.log_record.dynamic_lottery_record(record_data)
                         statistic_data.lottery_succ_record.push(record_data)
-                        return false
+                        return {has_repost: false, feedback_info: `评论内容：${comment_msg}`}
                     } else if (
                         !(
                             dynamic_info.dynamicUrl.indexOf("tab=2") > -1 ||
@@ -581,7 +598,10 @@ class BiliDynamicPage extends BasePage {
                         record_data.err_msg = BiliElementMap.log_record.opus_dynamic.err.common.unknown_url_tab
                         await this.log_record.dynamic_lottery_record(record_data)
                         statistic_data.lottery_fail_record.push(record_data)
-                        return false;
+                        return {
+                            has_repost: false,
+                            feedback_info: BiliElementMap.log_record.opus_dynamic.err.common.unknown_url_tab
+                        };
                     }
                 }
 
@@ -590,7 +610,7 @@ class BiliDynamicPage extends BasePage {
                 await this.log_record.dynamic_lottery_record(record_data);
                 statistic_data.lottery_succ_record.push(record_data)
                 await this.basic_op.sleep.single_round({pg: this.global_var.current_page});
-                return true;
+                return {has_repost: true, feedback_info: `评论转发内容：${comment_msg}`};
             } catch (e) {
                 console.error(
                     this.log_format(
@@ -610,7 +630,7 @@ class BiliDynamicPage extends BasePage {
                     await this.log_record.my_throw(BiliElementMap.log_record.critical_error.account_logout)
                     record_data.err_msg = BiliElementMap.log_record.critical_error.account_logout
                     await this.log_record.dynamic_lottery_record(record_data);
-                    return false
+                    return {has_repost: false, feedback_info: BiliElementMap.log_record.critical_error.account_logout}
                 }
                 await sleep(10e3);
                 await this.log_record.my_throw(
@@ -619,7 +639,7 @@ class BiliDynamicPage extends BasePage {
                 record_data.err_msg = JSON.stringify(e.stack);
                 await this.log_record.dynamic_lottery_record(record_data);
                 statistic_data.lottery_fail_record.push(record_data)
-                return false;
+                return {has_repost: false, feedback_info: e.stack};
             } finally {
 
             }
@@ -886,16 +906,15 @@ class BiliDynamicPage extends BasePage {
                     }
                     global_var.current_dynamic_id = dynamic_info.dynId
                     global_var.fresh_global_response()
-                    global_var.recorded_data = "";
                     await pptr_op.check_page_is_front(
                         global_var.current_page
                     );
                     await this.basic_op.dynamic_page_goto(dynamic_info);
                     let lottery_feedback = await this.opus_op.do_dynamic_lottery(dynamic_info, statistic_data);//抽奖执行
-                    if (lottery_feedback && (dynamic_info.dynamicUrl.includes("tab=2") || dynamic_info.dynamicUrl.includes("tab=1"))) {
+                    if (lottery_feedback.has_repost && (dynamic_info.dynamicUrl.includes("tab=2") || dynamic_info.dynamicUrl.includes("tab=1"))) {
                         repost_counter++;
                     }
-                    let record = global_var.recorded_data;
+                    let record = lottery_feedback.feedback_info;
                     console.log(
                         this.log_format(`${JSON.stringify(dynamic_info)}\n转评反馈：\n${record}\n==============================\n`)
                     );
@@ -1224,7 +1243,6 @@ class BiliDynamicPage extends BasePage {
                     console.error(this.log_format(`lottery_loop执行失败，退出循环！\n${e.stack}`));
                 } finally {
                     global_var.fresh_global_response()
-                    global_var.recorded_data = "";
                     if (need_fresh_lottery_setting) {
                         let lottery_setting_resp = await AccountService.get_lottery_setting_by_account_name_and_uid(this.account_name, this.user_id)
                         if (lottery_setting_resp.data.info.settings.lottery_setting) {
@@ -1294,6 +1312,28 @@ class BiliDynamicPage extends BasePage {
         }
     }
 
+    get latest_lottery_info() {
+        return {
+            common_lottery: this.common_lottery,
+            must_join_common_lottery: this.must_join_common_lottery,
+            official_lottery: this.official_lottery,
+            reserve_lottery: this.reserve_lottery
+        }
+    }
+
+    set latest_lottery_info({
+                                common_lottery,
+                                must_join_common_lottery,
+                                official_lottery,
+                                reserve_lottery
+                            }) {
+        this.common_lottery = common_lottery;
+        this.must_join_common_lottery = must_join_common_lottery;
+        this.official_lottery = official_lottery;
+        this.reserve_lottery = reserve_lottery;
+    }
+
+
     /**
      * 抽奖页面执行抽奖
      * @param common_lottery
@@ -1361,9 +1401,13 @@ class BiliDynamicPage extends BasePage {
             }
 
             async run() {
+                while (this.global_var.FLAG.执行其他任务中标志) {
+                    await sleep(3e3);
+                }
                 await this.func(...this.args);
             }
         }
+
         let tasks = [
             new MyTask(this.lottery_op.loop.dynamic_lottery, [common_lottery, "一般转发抽奖"]),//测试过了，没啥问题，还差一个断网测试
 
@@ -1384,7 +1428,8 @@ class BiliDynamicPage extends BasePage {
                 console.log(this.log_format(`当前运行任务；${task.func.name}`))
                 await task.run.call({
                     func: task.func,
-                    args: task.args
+                    args: task.args,
+                    global_var: this.global_var
                 }).catch(async e => {
                     console.error(e)
                     await pptr_op.my_send_notify.push_me(`${this.user_id} ${this.account_id}抽奖任务执行失败`, `${e.stack}`)
@@ -1399,7 +1444,6 @@ class BiliDynamicPage extends BasePage {
     }
 }
 
-module
-    .exports = {
+module.exports = {
     BiliDynamicPage
 }

@@ -19,7 +19,7 @@ router.post('/bili/run',
             }
             let uid = req.auth.uid;
             let account_name = req.body.account_name;
-            let result = await task_manager.add_user_account_task(uid, account_name);
+            let result = await task_manager.add_user_account_dynamic_lottery_task(uid, account_name);
             let result_json = result.toJSON()
             return resp.json(result_json)
         } catch (e) {

@@ -3,7 +3,7 @@ const {Queue, Worker} = require('bullmq');
 const {AccountDao} = require("@/ExpressServerEnd/DAO/AccountDao");
 const {UserDao} = require("@/ExpressServerEnd/DAO/UserDao");
 const {base_api_model} = require("@/ExpressServerEnd/Model/base_model/base_model");
-const {LIVE_LOT_Service} = require("@/直播模块/live_op");
+// const {LIVE_LOT_Service} = require("@/直播模块/live_op");
 const {event_bus, EVENT_NAME_MAP} = require('@/lib/helper/event_bus')
 const BiliLotteryOpus = require("@/ExpressServerEnd/BiliPPTR/main/bili_lottery_opus");
 const {
@@ -12,12 +12,14 @@ const {
     sleep
 } = require("@/ExpressServerEnd/BiliPPTR/utils/utils");
 const {AccountLogDao} = require("@/ExpressServerEnd/DAO/AccountLogDao");
+const config = require("@/ExpressServerEnd/config");
 
 class BaseTasks {
     QueueName = {
         dynamic_lottery_queue: "dynamic_lottery_queue",
         live_lottery_queue: "live_lottery_queue",
-        daily_task_queue: "daily_task_queue"
+        daily_task_queue: "daily_task_queue",
+        unfollow_task_queue: "unfollow_task_queue",
     }
     dynamic_lottery_queue = new Queue(this.QueueName.dynamic_lottery_queue, {
             connection: redis_manager.connection,
@@ -32,8 +34,6 @@ class BaseTasks {
             },
         },
     );
-
-
     live_lottery_queue = new Queue(this.QueueName.live_lottery_queue, {
             connection: redis_manager.connection,
             defaultJobOptions: {
@@ -47,8 +47,6 @@ class BaseTasks {
             },
         },
     );
-
-
     daily_task_queue = new Queue(this.QueueName.daily_task_queue, {
             connection: redis_manager.connection,
             defaultJobOptions: {
@@ -62,9 +60,20 @@ class BaseTasks {
             },
         },
     );
+    unfollow_task_queue = new Queue(this.QueueName.unfollow_task_queue, {
+        connection: redis_manager.connection,
+        defaultJobOptions: {
+            removeOnComplete: true,
+            removeOnFail: true,
+            // attempts:3,
+            backoff: {
+                type: "exponential",
+                delay: 10e3,
+            }
+        },
+    },)
 
     constructor() {
-
     }
 }
 
@@ -75,7 +84,6 @@ class TaskManager extends BaseTasks {
      */
     user_account_hash_map = {}
     opus_list = []
-    live_service = new LIVE_LOT_Service(this.opus_list);
     /**
      * update_ts 抽奖数据获取时间 秒
      * @type {
@@ -101,7 +109,8 @@ class TaskManager extends BaseTasks {
         super()
         const dynamic_lottery_worker = new Worker(this.QueueName.dynamic_lottery_queue, // 如果程序中断，bull里面自动会尝试再次执行！
             async job => {
-                let {uid, account_name} = job.data
+                let {uid, account_name} = job.data;
+                await this.add_user_account_daily_task({uid: uid, account_name: account_name}, true);
                 console.debug(`执行B站抽奖任务${JSON.stringify(job)}`);
                 /**
                  * @type {BiliLotteryOpus}
@@ -128,7 +137,10 @@ class TaskManager extends BaseTasks {
                         this.#bili_lottery_data.update_ts = parseInt((Date.now() / 1e3).toFixed())
                         console.log("抽奖数据添加至pg数据库成功！")
                     }
+                    BP.latest_lottery_info = this.#bili_lottery_data.data;
                     await BP.main(this.#bili_lottery_data.data);
+                    let BU = await opus.GetBiliUnfollowPage();
+                    await BU.main();
                     if (job.data.isRemoved !== true) {
                         await this.#restart_lot_by_bili_dynamic_page_instance(BP);
                     }
@@ -141,10 +153,9 @@ class TaskManager extends BaseTasks {
             },
         )
         dynamic_lottery_worker.run();
-
         const daily_task_worker = new Worker(this.QueueName.daily_task_queue, async job => {
             let {uid, account_name} = job.data
-            console.debug(`执行B站抽奖任务${JSON.stringify(job)}`);
+            console.debug(`执行B站每日任务${JSON.stringify(job)}`);
             /**
              * @type {BiliLotteryOpus}
              */
@@ -154,16 +165,40 @@ class TaskManager extends BaseTasks {
             })
             if (!opus) throw Error(`BiliLotteryOpus获取失败！`)
             console.log(`【${uid} ${account_name}】Opus获取成功`)
-
+            return opus.GetBiliDailyTaskPage().then(async BD => {
+                await BD.main();
+            })
         }, {
             concurrency: 10,
             connection: redis_manager.connection,
             autorun: false
         })
+        daily_task_worker.run();
 
-        event_bus.on(EVENT_NAME_MAP.ALL_LIVE_LOT, async () => {
-            await this.live_service.main();
+        const unfollow_task_worker = new Worker(this.QueueName.unfollow_task_queue, async job => {
+            let {uid, account_name} = job.data
+            console.debug(`执行B站取关任务${JSON.stringify(job)}`);
+            /**
+             * @type {BiliLotteryOpus}
+             */
+            let opus = await this.#get_bili_opus_by_uid_account_name({
+                uid: uid,
+                account_name: account_name
+            })
+            if (!opus) throw Error(`BiliLotteryOpus获取失败！`)
+            console.log(`【${uid} ${account_name}】Opus获取成功`)
+            return opus.GetBiliUnfollowPage().then(async BU => {
+                await BU.main();
+            })
+        }, {
+            concurrency: 10,
+            connection: redis_manager.connection,
+            autorun: false
         })
+        unfollow_task_worker.run()
+        // event_bus.on(EVENT_NAME_MAP.ALL_LIVE_LOT, async () => {
+        //     await this.live_service.main();
+        // })
         //TODO 增加每日0点执行的任务和后台常驻的任务 设置一个worker，设置一个开始时间和超时时间，设置一个并发限制，因为内存有限
         // 每日任务功能
         // 直播任务功能
@@ -212,7 +247,7 @@ class TaskManager extends BaseTasks {
         if (opus) {
             return opus
         }
-        await this.add_user_account_task(uid, account_name);
+        await this.add_user_account_dynamic_lottery_task(uid, account_name);
         return this.user_account_hash_map[uid][account_name]
     }
 
@@ -256,11 +291,56 @@ class TaskManager extends BaseTasks {
     }
 
     /**
+     * 将每日任务添加到队列
+     * @param uid
+     * @param account_name
+     * @param immediate_run_once
+     * @return {Promise<void>}
+     */
+    async add_user_account_daily_task({uid, account_name}, immediate_run_once = false) {
+        if (immediate_run_once) {
+            await this.daily_task_queue.add(EVENT_NAME_MAP.Daily_TASK, {
+                    uid: uid,
+                    account_name: account_name
+                }, {
+                    jobId: `${EVENT_NAME_MAP.Daily_TASK}_${uid}_${account_name}`,
+                }
+            )
+        }
+        await this.daily_task_queue.add(EVENT_NAME_MAP.Daily_TASK, {
+                uid: uid,
+                account_name: account_name
+            }, {
+                jobId: `${EVENT_NAME_MAP.Daily_TASK}_${uid}_${account_name}`,
+                repeat: {
+                    cron: config.cron_config.daily_task
+                }
+            }
+        )
+    }
+
+    /**
+     * 执行取关任务
+     * @param uid
+     * @param account_name
+     * @return {Promise<void>}
+     */
+    async add_user_account_unfollow_task({uid, account_name}) {
+        await this.unfollow_task_queue.add(EVENT_NAME_MAP.Lot_Unfollow, {
+                uid: uid,
+                account_name: account_name
+            }, {
+                jobId: `${EVENT_NAME_MAP.Lot_Unfollow}_${uid}_${account_name}`,
+            }
+        )
+    }
+
+    /**
      * 将账号添加到任务队列
      * @param uid {number}
      * @param account_name {string}
      */
-    async add_user_account_task(uid, account_name) {
+    async add_user_account_dynamic_lottery_task(uid, account_name) {
         if (!this.user_account_hash_map[uid]) {
             Object.assign(this.user_account_hash_map, {[uid]: {}})
         }
@@ -308,13 +388,47 @@ class TaskManager extends BaseTasks {
         await this.dynamic_lottery_queue.add(EVENT_NAME_MAP.lot, {uid, account_name}, {
             jobId: `${EVENT_NAME_MAP.lot}_${uid}_${account_name}`,
         })
-
+        await this.add_user_account_daily_task({uid: uid, account_name: account_name}, true);
         return new base_api_model({
             data: true,
             msg: '添加成功！'
         })
     }
 
+    /**
+     *
+     * @param uid
+     * @param account_name
+     * @return {Promise<BiliLotteryOpus|*|base_api_model>}
+     */
+    async get_user_account_opus(uid, account_name) {
+        if (!this.user_account_hash_map[uid]) {
+            Object.assign(this.user_account_hash_map, {[uid]: {}})
+        }
+        let opus = this.user_account_hash_map[uid][account_name]
+        if (opus) {
+            await opus.GetBiliDynamicPage()
+            return opus;
+        }
+        let user_info = await UserDao.get_user_info_by_uid(uid);
+        if (!user_info) {
+            return new base_api_model(
+                {
+                    code: 1000,
+                    msg: "账号不存在，无法执行任务！"
+                }
+            )
+        }
+
+
+        let bili_lottery_opus = new BiliLotteryOpus({
+            user_id: user_info.uid,
+            user_name: user_info.user_name,
+            account_name: account_name
+        });
+        await bili_lottery_opus.GetBiliDynamicPage()
+        return bili_lottery_opus;
+    }
 
     async remove_user_account_task_before_next_job(uid, account_name) {
         if (!this.user_account_hash_map[uid]) {
@@ -368,7 +482,7 @@ class TaskManager extends BaseTasks {
                     user_name: user_info.user_name,
                     account_name: el.account_name
                 });
-                this.live_service.DO_Lottery_list.push(bili_lottery_opus.Do_Lottery)
+                // this.live_service.DO_Lottery_list.push(bili_lottery_opus.Do_Lottery)
                 Object.assign(this.user_account_hash_map[uid], {[el.account_name]: bili_lottery_opus})
                 this.opus_list.push(bili_lottery_opus)
                 this.dynamic_lottery_queue.add(EVENT_NAME_MAP.lot, {
@@ -383,6 +497,26 @@ class TaskManager extends BaseTasks {
             data: true,
             msg: '添加成功！'
         })
+    }
+
+    async apply_account_lottery_setting({uid, account_name, lottery_setting}) {
+        if (!this.user_account_hash_map[uid] || !this.user_account_hash_map[uid][account_name]) {
+            return new base_api_model(
+                {
+                    code: 0,
+                    msg: "设置同步成功"
+                }
+            )
+        }
+        let opus = await this.get_user_account_opus(uid, account_name);
+        opus.SetBiliLotterySetting(lottery_setting);
+        return new base_api_model(
+            {
+                code: 0,
+                msg: "设置同步成功"
+            }
+        )
+
     }
 
     async get_account_running_status(uid, account_name) {
