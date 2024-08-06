@@ -221,7 +221,15 @@ const utils = {
             let dd = d.getDate();
             return dd !== td;
         },
+        /**
+         * 获取当前时间戳（毫秒）
+         * @return {number}
+         */
         dateNow: () => Date.now(),
+        /**
+         * 获取当前时间戳（秒）
+         * @return {string}
+         */
         dateNow_s: () => (Date.now() / 1e3).toFixed(),
         /**
          * 移除表情包和话题和@，之后重新添加获取到的话题
@@ -696,7 +704,7 @@ const utils = {
          * @param {boolean} isFormData 是否发送的是formdata
          * @returns {Promise<Object>}
          */
-        ajax: async (pg, url, method, data, headers, isFormData = false) => {
+        ajax: async (pg, url, method, data, headers = undefined, isFormData = false) => {
             let new_headers = new Headers({
                 accept: "application/json, text/plain, */*",
                 "accept-language": "en-US,en;q=0.9",
@@ -827,13 +835,7 @@ const utils = {
                 "content-type": "application/x-www-form-urlencoded",
                 accept: "application/json, text/plain, */*",
             };
-            return await utils.BAPI.ajax(
-                pg,
-                url,
-                "post",
-                new URLSearchParams(data).toString(),
-                headers
-            );
+            return await utils.BAPI.ajax(pg, url, "post", new URLSearchParams(data).toString(), headers);
         },
         queryContributionRank: async (pg, ruid, room_id) => {
             let url =
@@ -919,7 +921,7 @@ const utils = {
          * @param {number} uid
          * @param {number} anchor_uid 是房主的uid，不是天选id，注意！！！
          * @param {string} csrf
-         * @returns {Promise<JSON>}
+         * @returns {Promise<Object>}
          */
         like_info_v3_like_likeReportV3: async (
             pg,
@@ -946,13 +948,7 @@ const utils = {
                 visit_id: "",
             };
 
-            return await utils.BAPI.ajax(
-                pg,
-                url,
-                "post",
-                new URLSearchParams(data).toString(),
-                headers
-            );
+            return await utils.BAPI.ajax(pg, url, "post", new URLSearchParams(data).toString(), headers);
         },
         anchor_join: async (pg, id, room_id) => {
             let url =
@@ -978,13 +974,7 @@ const utils = {
                 "sec-fetch-mode": "cors",
                 "sec-fetch-site": "same-site",
             };
-            return await utils.BAPI.ajax(
-                pg,
-                url,
-                "post",
-                new URLSearchParams(data).toString(),
-                headers
-            );
+            return await utils.BAPI.ajax(pg, url, "post", new URLSearchParams(data).toString(), headers);
         },
         gift: {
             bag_list: async (pg, room_id) => {

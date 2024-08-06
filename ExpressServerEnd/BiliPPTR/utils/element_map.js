@@ -74,28 +74,28 @@ const BiliElementMap = {
 
         }
     },
-    live_page:{
+    live_page: {
         dm_send_btn: ".bl-button--primary.bl-button--small", //发送弹幕按钮
-		dm_input_box: ".chat-input.border-box", //弹幕输入框
-		like_btn: ".like-btn",
-		anchor_icon: ".anchor-lot-icon",
-		anchor_join_btn: `[class*="join-btn-"]`,
-		contribution_btn: ".switch-btn-bg.live-skin-highlight-bg", //贡献值下拉框按钮
-		gift_package: ".gift-control-section .gift-package", //包裹按钮
-		gift_item_free: ".gift-item.package.free",
-		live_room_treasurebox: {
-			round_item: ".round-item", // 金宝箱侧边栏
-			join_btn: ".bl-button.bl-button--primary", //参加金宝箱按钮
-		},
-		rightArrow_btn: ".pointer.arrow-box", //直播的功能展开箭头
-		live_player: `#live-player-ctnr`, //直播播放器！
+        dm_input_box: ".chat-input.border-box", //弹幕输入框
+        like_btn: ".like-btn",
+        anchor_icon: ".anchor-lot-icon",
+        anchor_join_btn: `[class*="join-btn-"]`,
+        contribution_btn: ".switch-btn-bg.live-skin-highlight-bg", //贡献值下拉框按钮
+        gift_package: ".gift-control-section .gift-package", //包裹按钮
+        gift_item_free: ".gift-item.package.free",
+        live_room_treasurebox: {
+            round_item: ".round-item", // 金宝箱侧边栏
+            join_btn: ".bl-button.bl-button--primary", //参加金宝箱按钮
+        },
+        rightArrow_btn: ".pointer.arrow-box", //直播的功能展开箭头
+        live_player: `#live-player-ctnr`, //直播播放器！
     },
     url_path: {
         user: {
             nav: `x/web-interface/nav`,
             relation_modify: `x/relation/modify`,
             msg_unread: `msgfeed/unread`,
-            home:`https://account.bilibili.com/account/home`,
+            home: `https://account.bilibili.com/account/home`,
         },
         opus_dynamic: {
             opus_link: `www.bilibili.com/opus`,
@@ -113,11 +113,16 @@ const BiliElementMap = {
              */
             dynamic_reply_main: `x/v2/reply/main`,
             dynamic_reply_main_wbi: `x/v2/reply/wbi/main`,
-            article:`read/cv`
+            article: `read/cv`
         },
         space: {
             reservation: `space/reservation`,
-            message:`https://message.bilibili.com/?spm_id_from=333.1007.0.0#/love`,
+            message: `https://message.bilibili.com/?spm_id_from=333.1007.0.0#/love`,
+        },
+        live: {
+            anchor: {
+                join: "/Anchor/Join",
+            },
         }
     },
     log_record: {
@@ -144,7 +149,7 @@ const BiliElementMap = {
                     dynamic_repost_fail: `\u200b动态转发失败`,
                     dynamic_fast_repost_fail: `\u200b快速动态转发失败`,
                     dynamic_repost_content_input_fail: `\u200b动态转发失败，转发内容输入失败`,
-                    official_lottery_switch_off:`\u200b未开启官方抽奖`
+                    official_lottery_switch_off: `\u200b未开启官方抽奖`
                 },
                 follow: {
                     follow_up_fail: `\u200b点击关注up失败`,
@@ -192,8 +197,8 @@ const BiliElementMap = {
         lottery: `lottery`,
         follow_up: `关注up主`,
         daily_task: `每日任务`,
-        useless:`无用`,
-        unfollow:`取关`
+        useless: `无用`,
+        unfollow: `取关`
     }
 }
 Object.freeze(BiliElementMap)

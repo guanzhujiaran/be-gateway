@@ -27,6 +27,9 @@ class BasePage {
         this.uname = uname;
         this.user_id = user_id;
         this.account_id = account_id;
+        /**
+         * @type {DynamicLotteryGlobalVar}
+         */
         this.global_var = global_var;
         /**
          * @type {BiliLotterySetting}

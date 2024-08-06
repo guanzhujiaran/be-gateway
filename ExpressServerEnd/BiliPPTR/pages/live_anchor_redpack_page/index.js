@@ -1,13 +1,13 @@
 const {BiliElementMap} = require("@/ExpressServerEnd/BiliPPTR/utils/element_map");
-const {BaseGlobalVar} = require("@/ExpressServerEnd/BiliPPTR/utils/global_var");
-const {utils} = require("@/ExpressServerEnd/BiliPPTR/utils/utils");
+const {BaseGlobalVar, LiveLotteryGlobalVar} = require("@/ExpressServerEnd/BiliPPTR/utils/global_var");
+const {utils, pptr_op, sleep} = require("@/ExpressServerEnd/BiliPPTR/utils/utils");
 const {AccountLogService} = require("@/ExpressServerEnd/Service/account_log_module/account_log_service");
 const {ExcTaskParams} = require("@/ExpressServerEnd/BiliPPTR/models/pages/tasks_model");
-const {pptr_op, sleep} = require("@/木偶模块/util/common_utl");
 const {BiliOtherPage} = require("@/ExpressServerEnd/BiliPPTR/pages/base_other_page");
 const {GLOBAL_CONFIG} = require("@/ExpressServerEnd/BiliPPTR/config/global_config");
 const {live_lottery_setting} = require("@/ExpressServerEnd/BiliPPTR/models/pages/live_anchor_redpack_module");
 const fs = require("fs");
+const {ExecutionContext} = require("puppeteer-core");
 
 class BiliLiveLotPage extends BiliOtherPage {
     basic_op = {
@@ -149,7 +149,109 @@ class BiliLiveLotPage extends BiliOtherPage {
             }
         },
     }
-
+    polymer_op = {
+        //通过一般操作组合成一套完整的操作
+        /**
+         * 无限循环发送弹幕
+         * @param {Page} pg
+         * @param {String} dm_msg
+         * @param {AbortSignal} signal
+         * @param {boolean} cheat_mode
+         */
+        live_send_dm_loop: async (pg, dm_msg, signal, cheat_mode = false) => {
+            let dm_list = [dm_msg];
+            if (cheat_mode) {
+                for (let i = 1; i < 30 - dm_msg.length; i++) {
+                    dm_list.push(dm_msg + " ".repeat(i));
+                }
+            }
+            while (1) {
+                for (let msg of dm_list) {
+                    if (signal.aborted) {
+                        return;
+                    }
+                    await this.basic_op.input_dm(pg, msg);
+                    await sleep(100);
+                    await this.basic_op.send_dm(pg, msg);
+                    if (!cheat_mode) {
+                        await sleep(6 * 1e3);
+                    } else {
+                        await sleep(500);
+                    }
+                }
+            }
+        },
+        live_send_dm_single: async (pg, dm_msg, cheat_mode = false) => {
+            await this.basic_op.input_dm(pg, dm_msg);
+            await sleep(100);
+            await this.basic_op.send_dm(pg, dm_msg);
+            if (!cheat_mode) {
+                await sleep(6 * 1e3);
+            } else {
+                await sleep(500);
+            }
+        },
+        BAPI_live_send_dm_single: async (pg, dm_msg, cheat_mode = false) => {
+            await utils.BAPI.send_dm(pg, dm_msg);
+            if (!cheat_mode) {
+                await sleep(6 * 1e3);
+            } else {
+                await sleep(500);
+            }
+        },
+        /**
+         *
+         * @param {Page} pg
+         * @param {number} times
+         * @param {number} room_id
+         * @param {number} uid
+         * @param {number} anchor_uid
+         * @param {string} csrf
+         * @returns
+         */
+        increase_ContributionRank: async (
+            pg,
+            times = 10,
+            room_id,
+            uid,
+            anchor_uid,
+            csrf
+        ) => {
+            if (times <= 0) {
+                return;
+            }
+            let click_like_flag = true;
+            for (let i = 0; i < times; i++) {
+                let resp = await utils.BAPI.like_info_v3_like_likeReportV3(
+                    pg,
+                    15,
+                    room_id,
+                    uid,
+                    anchor_uid,
+                    csrf
+                );
+                await sleep(2e3);
+                if (resp.code) {
+                    console.error(this.bili_dynamic_page.log_format(`${uid}\t${csrf}\t点赞失败！${JSON.stringify(resp)}`));
+                    throw Error(`${uid}\t${csrf}\t点赞失败！${JSON.stringify(resp)}`)
+                } else {
+                    console.log(this.bili_dynamic_page.log_format(`点赞成功！${JSON.stringify(resp)}`));
+                }
+            }
+            if (!click_like_flag) {
+                let dm_list = ["[dog]", "[妙]", "[哇]"];
+                //如果是发评论就只发送一半的次数
+                for (let i = 0; i < Math.ceil(times / 2); i++) {
+                    let dm = utils.Common.random_choice(dm_list);
+                    await this.polymer_op.live_send_dm_single(pg, dm);
+                    await sleep(5e3);
+                }
+            }
+        },
+        getOnlineGoldRank: async (pg, ruid, room_id) => {
+            return await utils.BAPI.queryContributionRank(pg, ruid, room_id);
+        }
+    }
 
     /**
      * 直播抽奖不使用全局变量的页面，因为同时会有多个直播抽奖，所以都使用单独的页面
@@ -157,9 +259,16 @@ class BiliLiveLotPage extends BiliOtherPage {
      */
     constructor({bili_dynamic_page}) {
         super({bili_dynamic_page: bili_dynamic_page})
+        this.global_var = new LiveLotteryGlobalVar()
     }
 
-    async #join_redpacket_lot({pg, room_id, anchor_uid, lot_id, total_price}) {
+    /**
+     *
+     * @param {Page} pg
+     * @param {LiveRedPackType} lottery_info
+     * @return {Promise<void>}
+     */
+    async #join_redpacket_lot({pg, lottery_info}) {
         try {
             if (!this.CONFIG.live_info.csrf) {
                 this.CONFIG.live_info.csrf = await pptr_op.get_bili_cjt(pg);
@@ -252,12 +361,12 @@ class BiliLiveLotPage extends BiliOtherPage {
             }, 180e3);
             if (resp_data.code == 0) {
                 this.CONFIG.redpacket.times.success++;
-                this.API.chatLog(
+                console.log(
                     `【直播间电池道具】房间号：https://live.bilibili.com/${room_id} ，直播间道具红包总值${
                         total_price / 1000
                     }元参与成功！\t${JSON.stringify(resp_data)}`
                 );
-                this.API.chatLog(`尝试点赞3次直播间`);
+                console.log(`尝试点赞3次直播间`);
                 await live_op.polymer_op.increase_ContributionRank(
                     new_pg,
                     3,
@@ -272,13 +381,13 @@ class BiliLiveLotPage extends BiliOtherPage {
                             let onlineNum = da.data.onlineNum;
                             let score = da.data.ownInfo.score;
                             let rank = da.data.ownInfo.rank;
-                            this.API.chatLog(
+                            console.log(
                                 `【直播间电池道具】目前在线人数：${onlineNum}贡献值：${score}排名：${rank}`,
                                 "success"
                             );
                             if (score == 0) {
                                 if (this.CONFIG.redpacket.join_risk_mark) {
-                                    this.API.chatLog(
+                                    console.log(
                                         `【直播间电池道具】房间号：https://live.bilibili.com/${room_id}，参加抽奖后直播间无贡献值，可能已经风控！，暂停抽奖${this.CONFIG.redpacket.risk_sleeptime}分钟！`,
                                         "warning"
                                     );
@@ -287,7 +396,7 @@ class BiliLiveLotPage extends BiliOtherPage {
                                     setTimeout(() => {
                                         this.CONFIG.redpacket.join_risk_mark = false;
                                     }, this.CONFIG.redpacket.risk_sleeptime);
-                                    this.API.chatLog(
+                                    console.log(
                                         `【直播间电池道具】[${room_id}](https://live.bilibili.com/${room_id})直播间无贡献值，可能已经风控！`,
                                         "warning"
                                     );
@@ -299,7 +408,7 @@ class BiliLiveLotPage extends BiliOtherPage {
                             }
 
                             if (score < 10) {
-                                this.API.chatLog(
+                                console.log(
                                     `【直播间电池道具】开始在直播间[${room_id}](https://live.bilibili.com/${room_id})尝试增加${
                                         10 - score
                                     }点贡献值`
@@ -314,7 +423,7 @@ class BiliLiveLotPage extends BiliOtherPage {
                                 );
                             }
                         } else {
-                            this.API.chatLog(
+                            console.log(
                                 `获取直播间贡献值失败！${JSON.stringify(da)}`
                             );
                             this.CONFIG.redpacket.join_risk_mark = true;
@@ -328,7 +437,7 @@ class BiliLiveLotPage extends BiliOtherPage {
                 // 每日上限
                 this.CONFIG.redpacket.times.fail++;
                 this.CONFIG.redpacket.max_joined_switch = true;
-                this.API.chatLog(
+                console.log(
                     `【直播间电池道具】达到每日上限！${room_id}直播间道具红包参与反馈：${JSON.stringify(
                         resp_data
                     )}`,
@@ -337,7 +446,7 @@ class BiliLiveLotPage extends BiliOtherPage {
             } else if (resp_data.code == 1009114) {
                 // 已抽奖
                 this.CONFIG.redpacket.times.fail++;
-                this.API.chatLog(
+                console.log(
                     `【直播间电池道具】${room_id}直播间道具红包参与反馈：${JSON.stringify(
                         resp_data
                     )}`,
@@ -346,7 +455,7 @@ class BiliLiveLotPage extends BiliOtherPage {
             } else {
                 this.CONFIG.redpacket.times.fail++;
                 this.CONFIG.redpacket.join_risk_mark = true;
-                this.API.chatLog(
+                console.log(
                     `【直播间电池道具】${room_id}直播间道具红包参与反馈：${JSON.stringify(
                         resp_data
                     )}`,
@@ -354,7 +463,7 @@ class BiliLiveLotPage extends BiliOtherPage {
                 );
             }
 
-            this.API.chatLog(
+            console.log(
                 `【直播间电池道具】参加直播间[${room_id}](https://live.bilibili.com/${room_id})道具红包反馈：${JSON.stringify(
                     resp_data
                 )}`
@@ -368,7 +477,7 @@ class BiliLiveLotPage extends BiliOtherPage {
         } catch (e) {
             this.CONFIG.redpacket.times.fail++;
             this.CONFIG.redpacket.join_risk_mark = true;
-            this.API.chatLog(`参加红包抽奖失败！${e}\n${e.stack}`, "error");
+            console.log(`参加红包抽奖失败！${e}\n${e.stack}`, "error");
             this.Lot_log.log_write(
                 `ERROR\t参加直播间[${room_id}](https://live.bilibili.com/${room_id})道具红包失败！：${e.toString()}`,
                 "道具红包"
@@ -376,6 +485,193 @@ class BiliLiveLotPage extends BiliOtherPage {
             throw e;
         }
     }
+
+    /**
+     * 通过独立的html参加天选抽奖
+     * @param {Page} pg
+     * @param {LiveAnchorType} lottery_info
+     * @returns
+     */
+    async #join_anchor_lot({pg, lottery_info}) {
+        await pptr_op.check_page_is_front(pg);
+        if (!this.global_var.live_info.csrf) {
+            this.global_var.live_info.csrf = await pptr_op.get_bili_cjt(pg);
+        } //获取csrf
+        let unusual_mark = false;
+        let anchor_join_resp;
+        const goto_live_page = async () => {
+            await pg.goto(`https://live.bilibili.com/${lottery_info.room_id}`);
+            await this.basic_op.remove_live_player(pg);
+        }
+        const before_anchor_lot = async () => {
+            if (this.CONFIG.live_info.ALLFollowingList.indexOf(lottery_info.anchor_uid) === -1 && lottery_info.require_type !== 0) {
+                await utils.BAPI.IsUserFollow(pg, lottery_info.anchor_uid).then(
+                    async (data) => {
+                        if (data.code === 0) {
+                            if (!data.data.follow) {
+                                unusual_mark = true; //参加抽奖前、是需要关注的抽奖、确认是未关注状态
+                            }
+                        } else {
+                            console.error(this.bili_dynamic_page.log_format(`检查关注的响应获取失败！${JSON.stringify(data)}`));
+                        }
+                    }
+                );
+            }
+            this.global_var.anchor.joined_anchor_id_list.push(lottery_info.lot_id);
+            if (this.global_var.anchor.joined_anchor_id_list.length > 200) {
+                this.global_var.anchor.joined_anchor_id_list = this.global_var.anchor.joined_anchor_id_list.slice(-50);
+            }
+        }
+        const exec_anchor_lot = async () => {
+            await pg.waitForSelector(BiliElementMap.live_page.rightArrow_btn, {
+                timeout: 10e3,
+            }).then(async (btn) => await btn.click());
+            await pg.waitForSelector(BiliElementMap.live_page.anchor_icon);
+            let anchor_icon = await pg.waitForSelector(BiliElementMap.live_page.anchor_icon, {timeout: 10e3});
+            //没有获取到天选抽奖的图标
+            if (!anchor_icon) throw Error(`ERROR\t参加直播间${lottery_info.room_id}天选抽奖失败，原因：没有获取到天选抽奖的图标！`)
+            await anchor_icon.click();
+            let anchor_iframe = await pg.waitForFrame(frame => frame.url().includes("live.bilibili.com/p/html/live-lottery/anchor-join.html"));
+            await anchor_iframe.waitForSelector(BiliElementMap.live_page.anchor_join_btn);
+            let anchor_join_btn = await anchor_iframe?.$(BiliElementMap.live_page.anchor_join_btn);
+            if (!anchor_join_btn) throw Error(`未在iframe中找到天选参与按钮！`)
+            let __anchor_join_resp;
+            await Promise.all([
+                anchor_join_btn.click(),
+                __anchor_join_resp = await pg.waitForResponse(
+                    (resp) => resp.url().includes(BiliElementMap.url_path.live.anchor.join),
+                    {timeout: 10e3}
+                )
+            ])
+            anchor_join_resp = await __anchor_join_resp.json();
+        }
+        const after_anchor_lot = async () => {
+            if ((anchor_join_resp.code === 400) && (lottery_info.gift_num * lottery_info.gift_price !== 0)) {
+                console.error(
+                    this.bili_dynamic_page.log_format(`【天选抽奖 ${
+                        this.bili_dynamic_page.global_var.user_info.uname
+                    }】 参与 【${pg.url()}】 金瓜子余额不足!`)
+                );
+                throw Error(`金瓜子余额不足！`);
+            }
+            if (anchor_join_resp.code === 0) {
+                console.log(this.bili_dynamic_page.log_format(`尝试点赞3次直播间`));
+                await this.polymer_op.increase_ContributionRank(
+                    pg,
+                    3,
+                    lottery_info.room_id,
+                    this.global_var.live_info.uid,
+                    lottery_info.anchor_uid,
+                    this.global_var.live_info.csrf
+                );
+                await this.polymer_op.getOnlineGoldRank(
+                    pg,
+                    lottery_info.anchor_uid,
+                    lottery_info.room_id
+                ).then(async (da) => {
+                    if (da.code === 0) {
+                        let onlineNum = da.data.onlineNum;
+                        let score = da.data.ownInfo.score;
+                        let rank = da.data.ownInfo.rank;
+                        console.log(this.bili_dynamic_page.log_format(`【天选时刻】目前在线人数：${onlineNum} 贡献值：${score} 排名：${rank}`));
+                        if (score === 0) {
+                            if (this.global_var.anchor.join_risk_mark) {
+                                console.warn(
+                                    `【天选时刻】房间号：https://live.bilibili.com/${lottery_info.room_id}，参加抽奖后直播间无贡献值，可能已经风控！暂停抽奖${
+                                        this.bili_dynamic_page.lottery_setting.live_lottery_module.risk_sleeptime_s * 1e3
+                                    }分钟！`,
+                                );
+                            } else {
+                                this.global_var.anchor.join_risk_mark = true;
+                                setTimeout(() => {
+                                    this.global_var.anchor.join_risk_mark = false;
+                                }, this.bili_dynamic_page.lottery_setting.live_lottery_module.risk_sleeptime_s * 1e3);
+                                console.warn(this.bili_dynamic_page.log_format(`【天选时刻】${lottery_info.room_id}直播间无贡献值，可能已经风控！)`));
+                            }
+                        }
+                        if (score < 10) {
+                            console.log(
+                                this.bili_dynamic_page.log_format(`【天选时刻】开始在直播间${lottery_info.room_id}尝试增加${
+                                    10 - score
+                                }点贡献值！`)
+                            );
+                            await this.polymer_op.increase_ContributionRank(
+                                pg,
+                                10 - score,
+                                lottery_info.room_id,
+                                this.global_var.live_info.uid,
+                                lottery_info.anchor_uid,
+                                this.global_var.live_info.csrf
+                            );
+                        }
+                    }
+                });
+            } else {
+                this.global_var.anchor.join_risk_mark = true;
+                throw Error(`参加抽奖失败！${JSON.stringify(anchor_join_resp)}`);
+            }
+            console.log(this.bili_dynamic_page.log_format(`SUCCESS\t参加直播间[${lottery_info.room_id}](https://live.bilibili.com/${lottery_info.room_id})天选抽奖反馈：${JSON.stringify(
+                    anchor_join_resp
+                )}`)
+            );
+            if (unusual_mark) {
+                //查看是否关注，如果关注失败则账号被风控！
+                await utils.BAPI.IsUserFollow(pg, lottery_info.anchor_uid).then(
+                    async (data) => {
+                        if (data.code === 0) {
+                            if (!data.data.follow) {
+                                //参加抽奖后还是未关注状态判断为异常
+                                this.global_var.anchor.join_risk_mark = true;
+                                console.error(
+                                    this.bili_dynamic_page.log_format(`【天选时刻 ${
+                                        this.CONFIG.live_info.uname
+                                    }】检测到${lottery_info.room_id}关注异常，暂停抽奖${
+                                        this.bili_dynamic_page.lottery_setting.live_lottery_module.risk_sleeptime_s /
+                                        60
+                                    }分钟！\n${JSON.stringify(data)}`)
+                                );
+                                setTimeout(async () => {
+                                    this.global_var.anchor.join_risk_mark = false;
+                                }, this.bili_dynamic_page.lottery_setting.live_lottery_module.risk_sleeptime_s * 1e3);
+                            } else {
+                                this.global_var.live_info.ALLFollowingList.push(
+                                    lottery_info.anchor_uid
+                                );
+                            }
+                        }
+                    }
+                );
+            }
+        }
+
+        if (await this.executeWithRetry([
+            new ExcTaskParams({func: goto_live_page, params: [], err: "前往页面失败", pg: pg, reload_when_err: false}),
+            new ExcTaskParams({
+                func: before_anchor_lot,
+                params: [],
+                err: "天选抽奖准备失败",
+                pg: pg,
+                reload_when_err: false
+            }),
+            new ExcTaskParams({
+                func: exec_anchor_lot,
+                params: [],
+                err: "天选抽奖执行失败",
+                pg: pg,
+                reload_when_err: true
+            }),
+            new ExcTaskParams({
+                func: after_anchor_lot,
+                params: [],
+                err: "天选抽奖后处理失败",
+                pg: pg,
+                reload_when_err: false
+            })
+        ])){
+            await
+        }
+
+    };
 
     /**
      *
@@ -422,7 +718,13 @@ class BiliLiveLotPage extends BiliOtherPage {
      *
      * @param {LiveAnchorType|LiveRedPackType|LiveGoldBoxType} lottery_info
      */
-    #is_need_join({lottery_info}) {
+    async #is_need_join({lottery_info}) {
+        if ((lottery_info.end_time && (utils.Common.dateNow_s() - lottery_info.end_time) < 30) ||
+            (lottery_info.join_end_time && (utils.Common.dateNow_s() - lottery_info.join_end_time) < 30)
+        ) {
+            console.log(this.bili_dynamic_page.log_format(`当前抽奖剩余时间小于30s，跳过`))
+            return false
+        }
         if (lottery_info.type === "gold_box") return true;
         if (lottery_info.type === "anchor") {
             if (!this.bili_dynamic_page.lottery_setting.live_lottery_module.anchor_switch) return false;
@@ -432,21 +734,36 @@ class BiliLiveLotPage extends BiliOtherPage {
             ) {
                 return true
             }
+            await AccountLogService.add_live_lot_log({
+                account_id: this.bili_dynamic_page.account_id,
+                lot_id: lottery_info.lot_id,
+                type: lottery_info.type,
+                is_succ: true,
+                feedback_info: `忽略奖品名称：${lottery_info.award_name}`
+            })
             return false
         }
         if (lottery_info.type === "popularity_red_pocket") {
             if (!this.bili_dynamic_page.lottery_setting.live_lottery_module.redpack_switch) return false
             if (lottery_info.total_price > this.bili_dynamic_page.lottery_setting.live_lottery_module.redpack_limit_price) return true;
+            await AccountLogService.add_live_lot_log({
+                account_id: this.bili_dynamic_page.account_id,
+                lot_id: lottery_info.lot_id,
+                type: lottery_info.type,
+                is_succ: true,
+                feedback_info: `忽略金额：${lottery_info.total_price}`
+            })
             return false
         }
     }
+
 
     /**
      *
      * @param {LiveAnchorType|LiveRedPackType|LiveGoldBoxType} lottery_info
      */
     #exec_live_lottery({lottery_info}) {
-
+        // TODO:创建页面
 
     }
 
@@ -457,7 +774,7 @@ class BiliLiveLotPage extends BiliOtherPage {
      */
     async main({lottery_info}) {
         try {
-            if (!this.#is_need_join({lottery_info: lottery_info})) {
+            if (!await this.#is_need_join({lottery_info: lottery_info})) {
                 console.log(this.bili_dynamic_page.log_format(`跳过抽奖：【${JSON.stringify(lottery_info)}】`))
                 return;
             }

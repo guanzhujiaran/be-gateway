@@ -73,5 +73,21 @@ class DynamicLotteryGlobalVar extends BaseGlobalVar {
     }
 }
 
+class LiveLotteryGlobalVar extends BaseGlobalVar {
+    live_info = {
+        csrf: undefined,
+        uid: undefined,
+        ALLFollowingList: []
+    }
+    anchor = {
+        joined_anchor_id_list: [],
+        join_risk_mark: false
+    }
 
-module.exports = {DynamicLotteryGlobalVar, BaseGlobalVar};
+
+    constructor() {
+        super();
+    }
+}
+
+module.exports = {DynamicLotteryGlobalVar, BaseGlobalVar, LiveLotteryGlobalVar};

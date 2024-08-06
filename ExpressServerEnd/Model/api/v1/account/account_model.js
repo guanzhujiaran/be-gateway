@@ -181,7 +181,8 @@ class BiliLotterySetting {
         redpack_switch: true,
         anchor_unignore_words: [],
         /**@type {number} 红包最低参加的金瓜子价值（1元=1000金瓜子） */
-        redpack_limit_price: 50e3
+        redpack_limit_price: 50e3,
+        risk_sleeptime_s: 60 * 60
     }
 
     constructor(account_name) {

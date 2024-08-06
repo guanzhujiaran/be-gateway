@@ -165,6 +165,17 @@ class AccountLogService {
         return await AccountLogDao.add_common_log_by_account_id({account_id, contents, ts, func_name, module_name})
     }
 
+    static async add_live_lot_log({account_id, lot_id, type, is_succ, feedback_info}) {
+        return await AccountLogDao.add_live_lot_log(
+            {
+                account_id: account_id,
+                lot_id: lot_id,
+                type: type,
+                is_succ: is_succ,
+                feedback_info: feedback_info
+            }
+        )
+    }
 
 }
 

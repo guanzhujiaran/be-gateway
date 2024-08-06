@@ -281,6 +281,24 @@ class AccountLogDao {
         })
     }
 
+    /**
+     *
+     * @param {number} account_id
+     * @param {number} lot_id
+     * @param {string} type
+     * @param {boolean} is_succ
+     * @param {string} feedback_info
+     * @return {Promise<void>}
+     */
+    static async add_live_lot_log({account_id, lot_id, type, is_succ, feedback_info}) {
+        return await TLiveLotteryLog.create({
+            live_lottery_account_id: account_id,
+            lot_id: lot_id,
+            type: type,
+            is_succ: is_succ,
+            feedback_info: feedback_info
+        })
+    }
 }
 
 module.exports = {AccountLogDao}
