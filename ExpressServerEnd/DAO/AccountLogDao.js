@@ -271,12 +271,23 @@ class AccountLogDao {
         );
     }
 
-    static async add_common_log_by_account_id({account_id, contents, ts, func_name, module_name}) {
+    /**
+     *
+     * @param {number}account_id
+     * @param {string}contents
+     * @param {number}ts
+     * @param {string}func_name
+     * @param {number}level
+     * @param {string}module_name
+     * @return {Promise<*>}
+     */
+    static async add_common_log_by_account_id({account_id, contents, ts, func_name,level, module_name}) {
         return await TCommonLog.create({
             common_log_account_id: account_id,
             contents: contents,
             ts: ts,
             func_name: func_name,
+            level:level,
             module_name: module_name
         })
     }

@@ -977,13 +977,15 @@ const utils = {
             return await utils.BAPI.ajax(pg, url, "post", new URLSearchParams(data).toString(), headers);
         },
         gold_box: {
-            join: async ({pg,}) => {
-            let url = "https://api.live.bilibili.com/xlive/lottery-interface/v2/Box/draw"
+            draw: async ({pg, aid, number}) => {
+                let url = "https://api.live.bilibili.com/xlive/lottery-interface/v2/Box/draw"
                 let data = {
-                aid:aid,
-                    number:number
-                }
+                    aid: aid,
+                    number: number
+                };
+                return await utils.BAPI.ajax(pg, url, "post", data)
             }
+
         },
         gift: {
             bag_list: async (pg, room_id) => {
@@ -1030,13 +1032,13 @@ const utils = {
     },
 
     MYAPI: {
-        base_url: "http://127.0.0.1:23333/",
+        base_url: "http://127.0.0.1:23333",
         /**
          * API发送请求
          * @param {String} url
          * @param {String} method
-         * @param {JSON} data
-         * @returns {Promise<JSON>}
+         * @param {Object} data
+         * @returns {Promise<*>}
          */
         ajax: async (url, method, data) => {
             let params;
@@ -1075,9 +1077,18 @@ const utils = {
          * @returns {Promise<number[]>}
          */
         get_unlot_following: async (following_list) => {
-            let url = utils.MYAPI.base_url + "v1/post/RmFollowingList";
+            let url = utils.MYAPI.base_url + "/v1/post/RmFollowingList";
             return await utils.MYAPI.ajax(url, "post", following_list);
         },
+        /**
+         *
+         * @param {boolean}get_all
+         * @return {Promise<LiveAnchorType[]|LiveRedPackType[]|LiveGoldBoxType[]>}
+         */
+        get_live_lottery: async ({get_all} = {get_all: false}) => {
+            let url = utils.MYAPI.base_url + "/v1/get/live_lots";
+            return await utils.MYAPI.ajax(url, "get", {get_all: get_all});
+        }
     }
 }
 const pptr_op = {

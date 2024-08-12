@@ -7,6 +7,7 @@ const {BiliOtherPage} = require("@/ExpressServerEnd/BiliPPTR/pages/base_other_pa
 const {GLOBAL_CONFIG} = require("@/ExpressServerEnd/BiliPPTR/config/global_config");
 const {live_lottery_setting} = require("@/ExpressServerEnd/BiliPPTR/models/pages/live_anchor_redpack_module");
 const fs = require("fs");
+const {AccountService} = require("@/ExpressServerEnd/Service/account_module/account_service");
 
 class BiliLiveLotPage extends BiliOtherPage {
     basic_op = {
@@ -267,7 +268,86 @@ class BiliLiveLotPage extends BiliOtherPage {
      * @param {LiveGoldBoxType}lottery_info
      */
     async #join_goldbox_lot({pg, lottery_info}) {
-        return await utils.BAPI.
+        let is_succ = false;
+        let response;
+        const goto_live_page = async () => {
+            await pg.emulate({
+                userAgent: this.global_var.redpack.emulate_info.ua,
+                viewport: {
+                    width: 600,
+                    height: 1024,
+                    deviceScaleFactor: 1,
+                    isMobile: true,
+                    hasTouch: true,
+                    isLandscape: false,
+                },
+            });
+            await pg.goto(`https://live.bilibili.com/p/html/live-room-treasurebox/index.html?aid=${lottery_info.aid}#/`);
+        }
+        const before_anchor_lot = async () => {
+            this.global_var.goldbox.joined_redpacket_lot_id_list.push(lottery_info.aid * 100 + lottery_info.num);//实物抽奖特征id：aid*100+number
+            if (this.global_var.goldbox.joined_redpacket_lot_id_list.length > 200) {
+                this.global_var.goldbox.joined_redpacket_lot_id_list = this.global_var.goldbox.joined_redpacket_lot_id_list.slice(-50);
+            }
+        }
+        const exec_anchor_lot = async () => {
+            response = await utils.BAPI.gold_box.draw({pg: pg, aid: lottery_info.aid, number: lottery_info.num});
+        }
+        const after_anchor_lot = async () => {
+            switch (response.code) {
+                case 0: {
+                    is_succ = true;
+                    console.log(this.bili_dynamic_page.log_format(`【实物宝箱抽奖】成功参加抽奖：【${lottery_info.title}】(aid=${lottery_info.aid},number=${lottery_info.number})！`))
+                    break;
+                }
+                case -403 || 403 || -3: {
+                    let feedback = `【实物宝箱抽奖】(aid=${lottery_info.aid},number=${lottery_info.number})${response.msg}`
+                    console.error(this.bili_dynamic_page.log_format(feedback))
+                    throw Error(feedback)
+                }
+                default : {
+                    let feedback = `【实物宝箱抽奖】未知响应code(aid=${lottery_info.aid},number=${lottery_info.number})${response.msg}`
+                    console.error(this.bili_dynamic_page.log_format(feedback))
+                    throw Error(feedback)
+                }
+            }
+
+        }
+
+        await this.executeWithRetry([
+            new ExcTaskParams({
+                func: before_anchor_lot,
+                params: [],
+                err: "天选抽奖准备失败",
+                pg: pg,
+                reload_when_err: false
+            }),
+            new ExcTaskParams({func: goto_live_page, params: [], err: "前往页面失败", pg: pg, reload_when_err: false}),
+            new ExcTaskParams({
+                func: exec_anchor_lot,
+                params: [],
+                err: "天选抽奖执行失败",
+                pg: pg,
+                reload_when_err: true
+            }),
+            new ExcTaskParams({
+                func: after_anchor_lot,
+                params: [],
+                err: "天选抽奖后处理失败",
+                pg: pg,
+                reload_when_err: false
+            })
+        ], 3, this.#live_lot_error_log_gen({lottery_info: lottery_info}))
+
+        if (is_succ) {
+            await AccountLogService.add_live_lot_log({
+                account_id: this.bili_dynamic_page.account_id,
+                lot_id: lottery_info.aid * 100 + lottery_info.num,
+                type: lottery_info.type,
+                is_succ: true,
+                feedback_info: null,
+            })
+        }
     }
 
     /**
@@ -278,9 +358,20 @@ class BiliLiveLotPage extends BiliOtherPage {
      */
     async #join_redpacket_lot({pg, lottery_info}) {
         let resp_data;
+        let is_succ = false;
+        const before_redpack_lot = async () => {
+            this.global_var.redpack.joined_redpacket_lot_id_list.push(lottery_info.lot_id);
+            if (
+                this.global_var.redpack.joined_redpacket_lot_id_list.length > 200
+            ) {
+                this.global_var.redpack.joined_redpacket_lot_id_list =
+                    this.global_var.redpack.joined_redpacket_lot_id_list.slice(
+                        -50
+                    );
+            }
+        }
         const goto_live_page = async () => {
             await pg.emulate({
-                name: this.global_var.redpack.emulate_info.name,
                 userAgent: this.global_var.redpack.emulate_info.ua,
                 viewport: {
                     width: 600,
@@ -293,18 +384,8 @@ class BiliLiveLotPage extends BiliOtherPage {
             });
             await pg.goto(`https://live.bilibili.com/${lottery_info.room_id}`);
         }
-        const before_anchor_lot = async () => {
-            this.global_var.redpack.joined_redpacket_lot_id_list.push(lottery_info.lot_id);
-            if (
-                this.global_var.redpack.joined_redpacket_lot_id_list.length > 200
-            ) {
-                this.global_var.redpack.joined_redpacket_lot_id_list =
-                    this.global_var.redpack.joined_redpacket_lot_id_list.slice(
-                        -50
-                    );
-            }
-        }
-        const exec_anchor_lot = async () => {
+
+        const exec_redpack_lot = async () => {
             resp_data = await pg.evaluate(
                 //红包抽奖和天选抽奖的js里面数据获取依赖wss的消息，所以要查看https://s1.hdslb.com/bfs/static/blive/blfe-live-room/static/js/app.268978a8c4d7b424e697.js 里面如何绕过前端不显示红包抽奖的界面
                 async (roomid, anchor_uid, csrf_token, lot_id) => {
@@ -351,7 +432,7 @@ class BiliLiveLotPage extends BiliOtherPage {
                 lottery_info.lot_id
             );
         }
-        const after_anchor_lot = async () => {
+        const after_redpack_lot = async () => {
             switch (resp_data.code) {
                 case 0: {
                     console.log(
@@ -414,6 +495,7 @@ class BiliLiveLotPage extends BiliOtherPage {
                             }
                         }
                     );
+                    is_succ = true
                     break;
                 }
                 case 1009109: {// 每日上限
@@ -470,33 +552,32 @@ class BiliLiveLotPage extends BiliOtherPage {
                 }
             }
         }
-
-
-        if (await this.executeWithRetry([
-                new ExcTaskParams({func: goto_live_page, params: [], err: "前往页面失败", pg: pg, reload_when_err: false}),
+        await this.executeWithRetry([
                 new ExcTaskParams({
-                    func: before_anchor_lot,
+                    func: before_redpack_lot,
                     params: [],
                     err: "红包抽奖准备失败",
                     pg: pg,
                     reload_when_err: false
                 }),
+                new ExcTaskParams({func: goto_live_page, params: [], err: "前往页面失败", pg: pg, reload_when_err: false}),
                 new ExcTaskParams({
-                    func: exec_anchor_lot,
+                    func: exec_redpack_lot,
                     params: [],
                     err: "红包抽奖执行失败",
                     pg: pg,
                     reload_when_err: true
                 }),
                 new ExcTaskParams({
-                    func: after_anchor_lot,
+                    func: after_redpack_lot,
                     params: [],
                     err: "红包抽奖后处理失败",
                     pg: pg,
                     reload_when_err: false
                 })
             ], 3, this.#live_lot_error_log_gen({lottery_info: lottery_info})
-        )) {
+        )
+        if (is_succ) {
             await AccountLogService.add_live_lot_log({
                 account_id: this.bili_dynamic_page.account_id,
                 lot_id: lottery_info.lot_id,
@@ -531,13 +612,9 @@ class BiliLiveLotPage extends BiliOtherPage {
      * @returns
      */
     async #join_anchor_lot({pg, lottery_info}) {
-
+        let is_succ = false;
         let unusual_mark = false;
         let anchor_join_resp;
-        const goto_live_page = async () => {
-            await pg.goto(`https://live.bilibili.com/${lottery_info.room_id}`);
-            await this.basic_op.remove_live_player(pg);
-        }
         const before_anchor_lot = async () => {
             if (this.CONFIG.live_info.ALLFollowingList.indexOf(lottery_info.anchor_uid) === -1 && lottery_info.require_type !== 0) {
                 await utils.BAPI.IsUserFollow(pg, lottery_info.anchor_uid).then(
@@ -557,6 +634,11 @@ class BiliLiveLotPage extends BiliOtherPage {
                 this.global_var.anchor.joined_anchor_id_list = this.global_var.anchor.joined_anchor_id_list.slice(-50);
             }
         }
+        const goto_live_page = async () => {
+            await pg.goto(`https://live.bilibili.com/${lottery_info.room_id}`);
+            await this.basic_op.remove_live_player(pg);
+        }
+
         const exec_anchor_lot = async () => {
             await pg.waitForSelector(BiliElementMap.live_page.rightArrow_btn, {
                 timeout: 10e3,
@@ -590,6 +672,7 @@ class BiliLiveLotPage extends BiliOtherPage {
                 throw Error(`金瓜子余额不足！`);
             }
             if (anchor_join_resp.code === 0) {
+                is_succ = true;
                 console.log(this.bili_dynamic_page.log_format(`尝试点赞3次直播间`));
                 await this.polymer_op.increase_ContributionRank(
                     pg,
@@ -678,32 +761,31 @@ class BiliLiveLotPage extends BiliOtherPage {
                 );
             }
         }
-
-        if (await this.executeWithRetry([
-                new ExcTaskParams({func: goto_live_page, params: [], err: "前往页面失败", pg: pg, reload_when_err: false}),
-                new ExcTaskParams({
-                    func: before_anchor_lot,
-                    params: [],
-                    err: "天选抽奖准备失败",
-                    pg: pg,
-                    reload_when_err: false
-                }),
-                new ExcTaskParams({
-                    func: exec_anchor_lot,
-                    params: [],
-                    err: "天选抽奖执行失败",
-                    pg: pg,
-                    reload_when_err: true
-                }),
-                new ExcTaskParams({
-                    func: after_anchor_lot,
-                    params: [],
-                    err: "天选抽奖后处理失败",
-                    pg: pg,
-                    reload_when_err: false
-                })
-            ], 3, this.#live_lot_error_log_gen({lottery_info: lottery_info})
-        )) {
+        await this.executeWithRetry([
+            new ExcTaskParams({
+                func: before_anchor_lot,
+                params: [],
+                err: "天选抽奖准备失败",
+                pg: pg,
+                reload_when_err: false
+            }),
+            new ExcTaskParams({func: goto_live_page, params: [], err: "前往页面失败", pg: pg, reload_when_err: false}),
+            new ExcTaskParams({
+                func: exec_anchor_lot,
+                params: [],
+                err: "天选抽奖执行失败",
+                pg: pg,
+                reload_when_err: true
+            }),
+            new ExcTaskParams({
+                func: after_anchor_lot,
+                params: [],
+                err: "天选抽奖后处理失败",
+                pg: pg,
+                reload_when_err: false
+            })
+        ], 3, this.#live_lot_error_log_gen({lottery_info: lottery_info}))
+        if (is_succ) {
             await AccountLogService.add_live_lot_log({
                 account_id: this.bili_dynamic_page.account_id,
                 lot_id: lottery_info.lot_id,
@@ -780,7 +862,7 @@ class BiliLiveLotPage extends BiliOtherPage {
             if (lottery_info.join_start_time * 1e3 > utils.Common.dateNow()) {
                 return false; //未开始
             }
-            if (this.global_var.goldbox.joined_goldbox_id_list.includes(lottery_info.aid * 100 + lottery_info.num){
+            if (this.global_var.goldbox.joined_goldbox_id_list.includes(lottery_info.aid * 100 + lottery_info.num)) {
                 return false
             }//实物抽奖特征id：aid*100+number
             return true;
@@ -833,12 +915,33 @@ class BiliLiveLotPage extends BiliOtherPage {
         if (!this.global_var.live_info.csrf) {
             this.global_var.live_info.csrf = await pptr_op.get_bili_cjt(pg);
         } //获取csrf
-        if (lottery_info.type === "anchor") await this.#join_anchor_lot({pg: pg, lottery_info: lottery_info});
-        if (lottery_info.type === "popularity_red_pocket") await this.#join_redpacket_lot({
-            pg: pg,
-            lottery_info: lottery_info
-        });
-        if (lottery_info.type === "gold_box") await this.#join_goldbox_lot({pg: pg, lottery_info: lottery_info});
+        if (!this.global_var.live_info.uid) {
+            this.global_var.live_info.uid = await pptr_op.get_uid(pg);
+        }
+        switch (lottery_info.type) {
+            case "anchor":
+                await this.#join_anchor_lot({pg: pg, lottery_info: lottery_info});
+                break;
+            case "popularity_red_pocket":
+                await this.#join_redpacket_lot({pg: pg, lottery_info: lottery_info});
+                break;
+            case "gold_box":
+                await this.#join_goldbox_lot({pg: pg, lottery_info: lottery_info});
+                break;
+            default: {
+                await AccountLogService.add_common_log_by_account_id({
+                    account_id: this.bili_dynamic_page.account_id,
+                    contents: "执行直播抽奖任务出错！未知抽奖类型！",
+                    ts: parseInt(utils.Common.dateNow_s()),
+                    func_name: "exec_live_lottery",
+                    level: 4,
+                    module_name: "BiliLiveLotPage"
+                })
+                console.error(this.bili_dynamic_page.log_format(`未知直播抽奖类型！！！${JSON.stringify(lottery_info)}`));
+                break;
+            }
+        }
+
     }
 
     /**

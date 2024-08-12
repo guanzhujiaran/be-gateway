@@ -5,6 +5,7 @@ const {DynamicLotteryGlobalVar} = require("@/ExpressServerEnd/BiliPPTR/utils/glo
 const {BiliDailyTaskPage} = require("@/ExpressServerEnd/BiliPPTR/pages/daily_tasks_page");
 const {BiliUnfollowPage} = require("@/ExpressServerEnd/BiliPPTR/pages/unfollow_page");
 const {utils} = require("@/ExpressServerEnd/BiliPPTR/utils/utils");
+const {BiliLiveLotPage} = require("@/ExpressServerEnd/BiliPPTR/pages/live_anchor_redpack_page");
 
 
 /**
@@ -25,6 +26,10 @@ class BiliLotteryOpus {
      * @type {BiliUnfollowPage}
      */
     #BiliUnfollowPage
+    /**
+     * @type {BiliLiveLotPage}
+     */
+    #BiliLiveLotPage
     #account_id;
     #user_id;
     user_name;
@@ -109,6 +114,20 @@ class BiliLotteryOpus {
             {bili_dynamic_page: await this.GetBiliDynamicPage()}
         )
         return this.#BiliUnfollowPage
+    }
+
+    /**
+     *
+     * @return {Promise<BiliLiveLotPage>}
+     * @constructor
+     */
+    async GetBiliLiveLotPage() {
+        if (this.#BiliLiveLotPage) return this.#BiliLiveLotPage;
+        await this.#prepare_account_info();
+        this.#BiliLiveLotPage = new BiliLiveLotPage(
+            {bili_dynamic_page: await this.GetBiliDynamicPage()}
+        )
+        return this.#BiliLiveLotPage
     }
 
     SetBiliLotterySetting(lottery_setting) {
