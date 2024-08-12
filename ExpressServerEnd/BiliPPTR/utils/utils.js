@@ -976,6 +976,15 @@ const utils = {
             };
             return await utils.BAPI.ajax(pg, url, "post", new URLSearchParams(data).toString(), headers);
         },
+        gold_box: {
+            join: async ({pg,}) => {
+            let url = "https://api.live.bilibili.com/xlive/lottery-interface/v2/Box/draw"
+                let data = {
+                aid:aid,
+                    number:number
+                }
+            }
+        },
         gift: {
             bag_list: async (pg, room_id) => {
                 let url =

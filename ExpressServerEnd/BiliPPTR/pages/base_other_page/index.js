@@ -20,9 +20,10 @@ class BiliOtherPage {
      * 这个方法可以重写也可以不重写
      * @param {ExcTaskParams[]} tasks
      * @param {number} maxRetries
+     * @param args
      * @return {Promise<boolean>}
      */
-    async executeWithRetry(tasks, maxRetries = 3) {
+    async executeWithRetry(tasks, maxRetries = 3,...args) {
         for (let i = 0; i < tasks.length; i++) {
             const {func, params, err, pg, reload_when_err} = tasks[i];
             let retries = 0;
@@ -52,6 +53,7 @@ class BiliOtherPage {
             }
             if (!success) {
                 console.error(`Failed to execute function ${func.name} after ${maxRetries} retries.`);
+                return false
             }
         }
         return true

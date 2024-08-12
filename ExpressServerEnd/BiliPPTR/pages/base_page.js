@@ -611,13 +611,15 @@ class BasePage {
                         }
 
                     } else {
-                        console.error('Max retries reached. Moving to the next task.');
+                        console.error('Max retries reached. jump out of the flow!');
                     }
                 }
             }
 
             if (!success) {
                 console.error(`Failed to execute function ${func.name} after ${maxRetries} retries.`);
+                return false
+
             }
         }
     }

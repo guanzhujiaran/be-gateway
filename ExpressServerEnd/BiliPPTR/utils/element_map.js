@@ -198,7 +198,8 @@ const BiliElementMap = {
         follow_up: `关注up主`,
         daily_task: `每日任务`,
         useless: `无用`,
-        unfollow: `取关`
+        unfollow: `取关`,
+        live_lottery: `直播抽奖`,
     }
 }
 Object.freeze(BiliElementMap)

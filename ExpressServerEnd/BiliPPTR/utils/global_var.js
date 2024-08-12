@@ -77,11 +77,24 @@ class LiveLotteryGlobalVar extends BaseGlobalVar {
     live_info = {
         csrf: undefined,
         uid: undefined,
-        ALLFollowingList: []
+        ALLFollowingList: [],
+        init_ms: 0,
     }
     anchor = {
         joined_anchor_id_list: [],
         join_risk_mark: false
+    }
+    redpack = {
+        joined_redpacket_lot_id_list: [],
+        join_risk_mark: false,
+        max_joined_switch: false,
+        emulate_info: {
+            name: "RedMi K30 Pro",
+            ua: "Mozilla/5.0 BiliDroid/7.63.0 (bbcallen@gmail.com) os/android model/Redmi K30 Pro mobi_app/android build/7630200 channel/360 innerVer/7630200 osVer/11 network/2",
+        },
+    }
+    goldbox = {
+        joined_goldbox_id_list: []
     }
 
 

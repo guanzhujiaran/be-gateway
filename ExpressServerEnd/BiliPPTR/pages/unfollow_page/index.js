@@ -52,6 +52,7 @@ class BiliUnfollowPage extends BiliOtherPage {
             }
             if (!success) {
                 console.error(`Failed to execute function ${func.name} after ${maxRetries} retries.`);
+                return false
             }
         }
         return true

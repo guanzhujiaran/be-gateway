@@ -50,7 +50,8 @@ class BiliDailyTaskPage extends BiliOtherPage {
                 }
             }
             if (!success) {
-                console.error(`Failed to execute function ${func.name} after ${maxRetries} retries.`);
+                console.error(`Failed to execute function ${func.name} after ${maxRetries} retries.jump out of the flow!`);
+                return false
             }
         }
         return true
