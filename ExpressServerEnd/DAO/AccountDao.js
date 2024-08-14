@@ -14,7 +14,10 @@ const {UserDao} = require("@/ExpressServerEnd/DAO/UserDao");
 
 const {Op} = require("sequelize");
 
+
+
 class AccountDao {
+
     constructor() {
     }
 
@@ -35,23 +38,7 @@ class AccountDao {
             uid: uid,
         })).toJSON()
     };
-    /**
-     * @typedef {Object} AccountInfo
-     * @property {number} level - 账户等级
-     * @property {string} vip - 账户会员信息
-     * @property {string|null} face - 账户头像，如果有的话
-     * @property {string} uname - 账户名
-     * @property {string} uid - 账户b站uid
-     * @property {Object} settings - 账户的设置
-     */
 
-    /**
-     * @typedef {Object} UserAccount
-     * @property {string} account_name - 账户名
-     * @property {number} account_id - 账户ID
-     * @property {number} uid - 用户ID
-     * @property {AccountInfo?} info - 用户信息
-     */
 
     /**
      *
@@ -83,7 +70,7 @@ class AccountDao {
                     attributes: ["level", "vip", "face", "uname", "uid"],
                 },
             ],
-            order:[['account_id','desc']]
+            order: [['account_id', 'desc']]
         });
         return all_accounts.map((el) => el.toJSON());
     };
@@ -175,11 +162,11 @@ class AccountDao {
                     attributes: ["level", "vip", "face", "uname"],
                 },
                 {
-                    model:TUserInfo,
+                    model: TUserInfo,
                     attributes: [],
-                    as:'uid_TUserInfo',
-                    where:{
-                        user_name:user_name
+                    as: 'uid_TUserInfo',
+                    where: {
+                        user_name: user_name
                     }
                 }
             ],
@@ -188,39 +175,39 @@ class AccountDao {
     }
 
     static async save_account_detail_info_by_account_id(
-        {account_id,uname,vip,level,face,uid,nav_json}
-    ){
+        {account_id, uname, vip, level, face, uid, nav_json}
+    ) {
         let account_detail_info = await TAccountDetailInfo.findOne({
-            where:{
-                account_info_id:account_id
+            where: {
+                account_info_id: account_id
             }
         })
-        if (!account_detail_info){
+        if (!account_detail_info) {
             return await TAccountDetailInfo.create(
                 {
-                    account_info_id:account_id,
-                    uname:uname,
-                    vip:vip,
-                    level:level,
-                    face:face,
-                    uid:uid,
-                    nav_json:nav_json
+                    account_info_id: account_id,
+                    uname: uname,
+                    vip: vip,
+                    level: level,
+                    face: face,
+                    uid: uid,
+                    nav_json: nav_json
                 }
             )
         }
         await account_detail_info.update({
-                    uname:uname,
-                    vip:vip,
-                    level:level,
-                    face:face,
-                    uid:uid,
-                    nav_json:nav_json
+            uname: uname,
+            vip: vip,
+            level: level,
+            face: face,
+            uid: uid,
+            nav_json: nav_json
         });
         return await account_detail_info.save();
 
     }
-    
-    
+
+
     /**
      * 获取账号设置信息，如果不存在，则返回一个默认的设置
      * @param account_name {string}
@@ -239,8 +226,8 @@ class AccountDao {
                     as: "info",
                 },
             ],
-            attributes:{
-                exclude:['account_id']
+            attributes: {
+                exclude: ['account_id']
             }
         })
         return account_detail_info?.toJSON()
@@ -302,6 +289,7 @@ class AccountDao {
         }
         return true
     }
+
     //#endregion
 
     /**
@@ -310,58 +298,60 @@ class AccountDao {
      * @param limit
      * @return {Promise<*[number]>}
      */
-    static async get_reserve_lottery_log_sids_by_account_id(account_id, limit=100){
+    static async get_reserve_lottery_log_sids_by_account_id(account_id, limit = 100) {
         let reserve_log = await TAccountInfo_ReserveLog.findAll(
             {
-                where:{
-                    accountinfo_id:account_id,
+                where: {
+                    accountinfo_id: account_id,
                 },
-                attributes:['reserveinfo_sid'],
-                order:[["reserveinfo_sid","desc"]],
-                limit:limit
+                attributes: ['reserveinfo_sid'],
+                order: [["reserveinfo_sid", "desc"]],
+                limit: limit
             }
         )
-        return reserve_log.map(el=>el.reserveinfo_sid)
+        return reserve_log.map(el => el.reserveinfo_sid)
     }
-    static async get_reserve_lottery_log_sids_by_username_account_name(username,account_name, limit=100){
+
+    static async get_reserve_lottery_log_sids_by_username_account_name(username, account_name, limit = 100) {
         let reserve_log = await TAccountInfo_ReserveLog.findAll(
             {
-                attributes:['reserveinfo_sid'],
-                order:[["reserveinfo_sid","desc"]],
-                limit:limit,
-                include:{
-                    model:TAccountInfo,
-                    where:{
-                        account_name:account_name
+                attributes: ['reserveinfo_sid'],
+                order: [["reserveinfo_sid", "desc"]],
+                limit: limit,
+                include: {
+                    model: TAccountInfo,
+                    where: {
+                        account_name: account_name
                     },
-                    as:"accountinfo",
-                    include:{
-                        model:TUserInfo,
-                        where:{
-                            user_name:username
+                    as: "accountinfo",
+                    include: {
+                        model: TUserInfo,
+                        where: {
+                            user_name: username
                         },
-                        as:"uid_TUserInfo"
+                        as: "uid_TUserInfo"
                     }
                 }
             }
         )
-        return reserve_log.map(el=>el.reserveinfo_sid)
+        return reserve_log.map(el => el.reserveinfo_sid)
     }
 
-    static async get_reserve_lottery_infos(){
-        let reserve_lottery_infos =  await TReserveLotteryInfo.findAll({
-            where:{
-                available:true,
-                etime: {[Op.gt]:Math.ceil(Date.now()/1e3)}
+    static async get_reserve_lottery_infos() {
+        let reserve_lottery_infos = await TReserveLotteryInfo.findAll({
+            where: {
+                available: true,
+                etime: {[Op.gt]: Math.ceil(Date.now() / 1e3)}
             },
-            attributes:{
-                exclude:['pk']
+            attributes: {
+                exclude: ['pk']
             }
         })
-        return reserve_lottery_infos.map(el=>el.toJSON())
+        return reserve_lottery_infos.map(el => el.toJSON())
     }
-    static async upsert_reserve_lottery_infos(reserve_lottery_infos){
-        return await reserve_lottery_infos.map(async el=>await TReserveLotteryInfo.upsert(el))
+
+    static async upsert_reserve_lottery_infos(reserve_lottery_infos) {
+        return await reserve_lottery_infos.map(async el => await TReserveLotteryInfo.upsert(el))
     }
 
     //region 获取dashboard上需要的信息

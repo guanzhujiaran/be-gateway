@@ -390,6 +390,13 @@ class BiliDailyTaskPage extends BiliOtherPage {
             console.log(this.bili_dynamic_page.log_format(`每日任务执行完成！`))
         } catch (e) {
             console.error(this.bili_dynamic_page.log_format(`执行每日任务出错！\n${e}`))
+            await AccountLogService.add_common_log_by_account_id({
+                account_id: this.bili_dynamic_page.account_id,
+                contents: e.message,
+                func_name: "exec_daily_task",
+                level: 4,
+                module_name: "BiliDailyTaskPage"
+            })
         } finally {
             this.bili_dynamic_page.global_var.FLAG.执行其他任务中标志 = false;
         }

@@ -6,7 +6,7 @@ const {AccountDao} = require("@/ExpressServerEnd/DAO/AccountDao");
 const yaml = require('js-yaml');
 const fs = require("fs");
 const config = require('@/ExpressServerEnd/config/index');
-
+const {t} = require("@/ExpressServerEnd/Tool/Utl");
 
 
 class AccountService {
@@ -121,6 +121,7 @@ class AccountService {
     static async get_lottery_setting_by_account_name_and_uid(account_name, uid) {
         let acc_model = new AccountModel(uid);
         let ret_model = await acc_model.get_lottery_setting_by_account_name_and_uid(account_name);
+        let origin_lottery_setting = this.generate_default_lottery_setting(account_name);
         if (!ret_model) return new base_api_model({
             code: 40017,
             data: ret_model,
@@ -128,11 +129,12 @@ class AccountService {
         })
         if (!ret_model.info) {
             ret_model.info = {}
-            ret_model.info.settings = this.generate_default_lottery_setting(account_name);
+            ret_model.info.settings = origin_lottery_setting;
         }
-        if (!ret_model.info.settings){
-            ret_model.info.settings = this.generate_default_lottery_setting(account_name);
+        if (!ret_model.info.settings) {
+            ret_model.info.settings = origin_lottery_setting;
         }
+        t.deepMergeIfMissing(ret_model.info.settings.lottery_setting, origin_lottery_setting);
         return new base_api_model({
             data: ret_model
         })
@@ -156,13 +158,13 @@ class AccountService {
     }
 
     static async save_account_detail_info_by_account_id(
-        {account_id, uname, vip, level, face, uid,nav_json}
+        {account_id, uname, vip, level, face, uid, nav_json}
     ) {
         try {
-             await AccountDao.save_account_detail_info_by_account_id(arguments[0])
+            await AccountDao.save_account_detail_info_by_account_id(arguments[0])
             return new base_api_model({
-            data: '保存账号详情成功！'
-        })
+                data: '保存账号详情成功！'
+            })
         } catch (e) {
             return new base_api_model({
                 code: 40019,

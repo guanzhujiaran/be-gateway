@@ -190,14 +190,19 @@ class BiliLotterySetting {
     }
 }
 
-exports.BiliLotterySetting = BiliLotterySetting;
 
-exports.AccountLotterySettingModel = class AccountLotterySettingModel {
+class AccountLotterySettingModel {
+    /**
+     * @type{BiliLotterySetting}
+     */
+    lottery_setting;
+
     constructor(account_name) {
         this.lottery_setting = new BiliLotterySetting(account_name);
     }
 }
-exports.AccountModel = class AccountModel {
+
+class AccountModel {
 
     account_name = ""
     account_id = 0
@@ -212,7 +217,7 @@ exports.AccountModel = class AccountModel {
 
     /**
      * 获取用户所有账号信息
-     * @return {Promise<Array<UserAccount>>}
+     * @return {Promise<Array<import("@/ExpressServerEnd/Model/jsdoc").UserAccount>>}
      */
     async get_all_account_info_by_uid() {
         return await AccountDao.get_all_account_info_by_uid(this.uid)
@@ -253,4 +258,10 @@ exports.AccountModel = class AccountModel {
     async save_lottery_setting_by_account_name_and_uid(account_name, settings) {
         return await AccountDao.save_lottery_setting_by_account_name_and_uid(account_name, this.uid, settings)
     }
+}
+
+module.exports = {
+    BiliLotterySetting,
+    AccountLotterySettingModel,
+    AccountModel
 }

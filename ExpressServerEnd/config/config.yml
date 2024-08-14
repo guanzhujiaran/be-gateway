@@ -1,5 +1,5 @@
 common_config:
-  salt :
-    password_salt: "田所浩二"
+    salt :
+        password_salt: "田所浩二"
 cron_config:
-	daily_task: "0 4 * * *" # 每日任务执行时间
+    daily_task: "0 4 * * *" # 每日任务执行时间

@@ -11,6 +11,7 @@ const {AccountDao} = require("@/ExpressServerEnd/DAO/AccountDao");
 const {UserDao} = require("@/ExpressServerEnd/DAO/UserDao");
 const {AccountService} = require("@/ExpressServerEnd/Service/account_module/account_service");
 const {resolve} = require('path')
+
 class BasePage {
 
     /**
@@ -353,51 +354,59 @@ class BasePage {
         });
     };
 
+
     /**
      * 检查是否登录了账号
      * @param {boolean} need_check_login
      * @return {Promise<boolean>}
      */
     async check_login(need_check_login = false) {
-        if (!need_check_login) {
-            return true;
-        }
-        try {
-            await this.global_var.current_page.goto(
-                BiliElementMap.url_path.space.message,
-                {
-                    waitUntil: "domcontentloaded",
-                }
-            );
-            await sleep(3e3);
-            await this.global_var.current_page.goto("about:blank");
-        } catch (e) {
-            await sleep(3e3);
-            console.error(e)
-        }
 
-        if (this.global_var.user_info.uname) {
-            console.log(this.log_format(`账号初始化完成`));
-            let uname = this.global_var.user_info.user_nav.data.uname
-            let vip = this.global_var.user_info.user_nav.data.vip_label.text
-            let level = this.global_var.user_info.user_nav.data.level_info.current_level
-            let face = this.global_var.user_info.user_nav.data.face
-            let uid = this.global_var.user_info.user_nav.data.mid
-            await AccountService.save_account_detail_info_by_account_id(
-                {
-                    account_id: this.account_id,
-                    uname: uname,
-                    vip: vip,
-                    level: level,
-                    face: face,
-                    uid: uid,
-                    nav_json: this.global_var.user_info.user_nav
+        for (let retry_time = 0; retry_time < 3; retry_time++) {
+            if (!need_check_login) {
+                return true;
+            }
+            try {
+                await this.global_var.current_page.goto(
+                    BiliElementMap.url_path.space.message,
+                    {
+                        waitUntil: "domcontentloaded",
+                    }
+                );
+                await sleep(3e3);
+                await this.global_var.current_page.goto("about:blank");
+            } catch (e) {
+                await sleep(3e3);
+                console.error(e)
+                if (e.message.includes("net::")) {
+                    console.error(this.log_format(`检查登录失败，网络出错！${e}`));
                 }
-            )
-            return true;
-        } else {
-            return false;
+                throw (e);
+            }
+            if (this.global_var.user_info.uname) {
+                console.log(this.log_format(`账号初始化完成`));
+                let uname = this.global_var.user_info.user_nav.data.uname
+                let vip = this.global_var.user_info.user_nav.data.vip_label.text
+                let level = this.global_var.user_info.user_nav.data.level_info.current_level
+                let face = this.global_var.user_info.user_nav.data.face
+                let uid = this.global_var.user_info.user_nav.data.mid
+                await AccountService.save_account_detail_info_by_account_id(
+                    {
+                        account_id: this.account_id,
+                        uname: uname,
+                        vip: vip,
+                        level: level,
+                        face: face,
+                        uid: uid,
+                        nav_json: this.global_var.user_info.user_nav
+                    }
+                )
+                return true;
+            } else {
+                return false;
+            }
         }
+        return false;
     };
 
     async create_new_pg(usage = BiliElementMap.browser_usage.lottery) {

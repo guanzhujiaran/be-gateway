@@ -159,21 +159,22 @@ class TaskManager extends BaseTasks {
         live_lottery_worker.run()
         //TODO 增加每日0点执行的任务和后台常驻的任务 设置一个worker，设置一个开始时间和超时时间，设置一个并发限制，因为内存有限
         // 每日任务功能 √
-        // 直播任务功能
+        // 直播任务功能 √
+        // 直播每日送礼任务
         //
         event_bus.on(EVENT_NAME_MAP.ALL_LIVE_LOT, async () => {
                 while (1) {
-                    let lottery_infos = await utils.MYAPI.get_live_lottery({get_all: true});
+                    let lottery_infos = await utils.MYAPI.get_live_lottery({get_all: false});
                     lottery_infos.map(async lottery_info => {
                         for (let [user_name, account_infos] of Object.entries(this.user_account_hash_map)) {
                             for (let [account_name, opus] of Object.entries(account_infos)) {
                                 let BiliDynamicPage = await opus.GetBiliDynamicPage()
-                                await this.live_lottery_queue.add(
-                                    EVENT_NAME_MAP.ALL_LIVE_LOT, {
+                                await this.add_user_account_live_lot_task({
                                         uid: BiliDynamicPage.user_id,
                                         account_name: account_name,
                                         lottery_info: lottery_info
-                                    })
+                                    }
+                                )
                             }
                         }
                     })
@@ -187,7 +188,6 @@ class TaskManager extends BaseTasks {
                 //n^2的复杂度？进行轮询
                 let lotting_users = []
                 let none_lotting_users = []
-
                 for (let [user_name, account_infos] of Object.entries(this.user_account_hash_map)) {
                     let lotting_accounts = [];
                     let none_lotting_accounts = []
@@ -201,8 +201,9 @@ class TaskManager extends BaseTasks {
                         }
                     }
                     none_lotting_users.push({
-                        user_name: none_lotting_accounts
-                    })
+                            user_name: none_lotting_accounts
+                        }
+                    )
                     lotting_users.push({user_name: lotting_accounts})
                 }
                 console.debug(`抽奖中的账号：${JSON.stringify(lotting_users, undefined, '\t')}\n空闲中的账号：${JSON.stringify(none_lotting_users, undefined, '\t')}`)
@@ -220,12 +221,12 @@ class TaskManager extends BaseTasks {
      * @return {Promise<*>}
      */
     async #get_bili_opus_by_uid_account_name({uid, account_name}) {
-        let opus = this.user_account_hash_map[uid] && this.user_account_hash_map[uid][account_name]
+        let opus = this.user_account_hash_map[uid] && this.user_account_hash_map[uid][account_name];
         if (opus) {
-            return opus
+            return opus;
         }
         await this.add_user_account_dynamic_lottery_task(uid, account_name);
-        return this.user_account_hash_map[uid][account_name]
+        return this.user_account_hash_map[uid][account_name];
     }
 
     /**
@@ -297,8 +298,10 @@ class TaskManager extends BaseTasks {
     }
 
     async add_user_account_live_lot_task({uid, account_name, lottery_info}) {
-        await this.live_lottery_queue.add(EVENT_NAME_MAP.ALL_LIVE_LOT, {
-            uid: uid
+        await this.live_lottery_queue.add(this.QueueName.live_lottery_queue, {
+            uid: uid,
+            account_name: account_name,
+            lottery_info: lottery_info
         })
     }
 
