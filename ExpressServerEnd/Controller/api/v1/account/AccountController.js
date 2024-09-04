@@ -7,6 +7,7 @@ const router = express.Router();
 const cookParser = require("cookie-parser");
 const {AccountService} = require("@/ExpressServerEnd/Service/account_module/account_service");
 const {task_manager} = require("@/ExpressServerEnd/Service/background_task_module/task_manager_service");
+const {base_api_model} = require("@/ExpressServerEnd/Model/base_model/base_model");
 router.use(cookParser());
 
 //region 获取所有账号列表
@@ -112,7 +113,7 @@ router.get(
 //region 获取账号设置
 router.get(
     "/get_account_setting",
-        query("account_name").notEmpty().withMessage("账号名称不能为空")
+    query("account_name").notEmpty().withMessage("账号名称不能为空")
     ,
     async (req, resp, next) => {
         try {
@@ -122,12 +123,23 @@ router.get(
             }
             let uid = req.auth.uid;
             let account_name = req.query.account_name;
-
-            let result = await AccountService.get_lottery_setting_by_account_name_and_uid(account_name,uid);
+            let result;
+            let service_resp = await AccountService.get_lottery_setting_by_account_name_and_uid(account_name, uid);
+            if (!service_resp) {
+                result = new base_api_model({
+                    code: 40017,
+                    data: service_resp,
+                    msg: "该账号不存在！"
+                })
+            } else {
+                result = new base_api_model({
+                    data: service_resp
+                })
+            }
             /**
              * @type {UserAccount}
              */
-            let result_json = result.toJSON()
+            let result_json = result?.toJSON()
             return resp.json(result_json)
         } catch (e) {
             next(e);
@@ -138,8 +150,8 @@ router.get(
 //region 保存账号设置
 router.post(
     "/save_account_setting",
-        body("account_name").notEmpty(),
-        body('settings').notEmpty(),
+    body("account_name").notEmpty(),
+    body('settings').notEmpty(),
     async (req, resp, next) => {
         try {
             var errors = validationResult(req);
@@ -149,7 +161,7 @@ router.post(
             let uid = req.auth.uid;
             let account_name = req.body.account_name;
             let settings = req.body.settings
-            let result = await AccountService.save_lottery_setting_by_account_name_and_uid(account_name,uid,settings);
+            let result = await AccountService.save_lottery_setting_by_account_name_and_uid(account_name, uid, settings);
             /**
              * @type {UserAccount}
              */
@@ -165,7 +177,7 @@ router.post(
 //region 保存账号设置
 router.get(
     "/get_account_running_status",
-        query("account_name").notEmpty(),
+    query("account_name").notEmpty(),
     async (req, resp, next) => {
         try {
             var errors = validationResult(req);
@@ -174,7 +186,7 @@ router.get(
             }
             let uid = req.auth.uid;
             let account_name = req.query.account_name;
-            let result = await task_manager.get_account_running_status(uid,account_name)
+            let result = await task_manager.get_account_running_status(uid, account_name)
             /**
              * @type {UserAccount}
              */
@@ -186,7 +198,6 @@ router.get(
     }
 );
 //endregion
-
 
 
 module.exports = router;

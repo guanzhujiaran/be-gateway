@@ -79,6 +79,7 @@ class TaskManager extends BaseTasks {
                     await BP.main(this.#bili_lottery_data.data);
                     let BU = await opus.GetBiliUnfollowPage();
                     await BU.main();
+                    await this.add_user_account_unfollow_task({uid: uid, account_name: account_name});
                     if (job.data.isRemoved !== true) {
                         await this.#restart_lot_by_bili_dynamic_page_instance(BP);
                     }

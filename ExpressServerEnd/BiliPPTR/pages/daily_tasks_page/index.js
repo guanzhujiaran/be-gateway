@@ -21,7 +21,7 @@ class BiliDailyTaskPage extends BiliOtherPage {
      * @param {number} maxRetries
      * @return {Promise<boolean>}
      */
-    async executeWithRetry(tasks, maxRetries = 3) {
+    async #executeWithRetry(tasks, maxRetries = 3) {
         for (let i = 0; i < tasks.length; i++) {
             const {func, params, err, pg, reload_when_err} = tasks[i];
             let retries = 0;
@@ -176,7 +176,7 @@ class BiliDailyTaskPage extends BiliOtherPage {
                 }
             }
 
-            if (await this.executeWithRetry(op_arr)) {
+            if (await this.#executeWithRetry(op_arr)) {
                 await AccountLogService.update_sanlian_ts({
                     account_id: this.bili_dynamic_page.account_id,
                     sanlian_ts: Math.ceil(Date.now() / 1000)
@@ -339,7 +339,7 @@ class BiliDailyTaskPage extends BiliOtherPage {
             }
         }
 
-        if ((await this.executeWithRetry(op_arr) && user_nav.data.wallet.bcoin_balance !== 0) || (has_bcoin_get && user_nav.data.wallet.bcoin_balance === 0))
+        if ((await this.#executeWithRetry(op_arr) && user_nav.data.wallet.bcoin_balance !== 0) || (has_bcoin_get && user_nav.data.wallet.bcoin_balance === 0))
             await AccountLogService.update_charge_ts({
                 account_id: this.bili_dynamic_page.account_id,
                 charge_ts: Math.ceil(Date.now() / 1e3)
@@ -348,6 +348,7 @@ class BiliDailyTaskPage extends BiliOtherPage {
 
 
     async #exec_daily_task() {
+        await this.bili_dynamic_page.setting_op.refresh_lottery_setting();
         let log_info = await AccountLogService.get_log_daily_task_info(this.bili_dynamic_page.account_id);
         let sanlian_flag = (typeof log_info.sanlian_ts === "number") && !utils.Common.isToday(log_info.sanlian_ts * 1e3);
         let get_bcoin_flag = (typeof log_info.bcoin_ts === "number") && !utils.Common.isThisMonth(log_info.bcoin_ts * 1e3);
@@ -358,13 +359,13 @@ class BiliDailyTaskPage extends BiliOtherPage {
             return
         }
         try {
-            if (!await this.check_login(this.global_var.current_page)) throw Error(`登录失败！`);
+            if (!await this.bili_dynamic_page.check_login(this.global_var.current_page)) throw Error(`登录失败！`);
             await this.get_user_nav(this.global_var.current_page);
             if (sanlian_flag) {
                 await this.sanlian(); //执行三连
             }
             if (get_bcoin_flag) {
-                get_bcoin_flag = !await this.get_BCoin(); //执行领取b币
+                get_bcoin_flag = !await this.   get_BCoin(); //执行领取b币
             }
             if (charge_flag) {
                 await this.charge_BCoin(undefined, !get_bcoin_flag); //执行充电
@@ -389,10 +390,11 @@ class BiliDailyTaskPage extends BiliOtherPage {
             await this.#exec_daily_task();
             console.log(this.bili_dynamic_page.log_format(`每日任务执行完成！`))
         } catch (e) {
-            console.error(this.bili_dynamic_page.log_format(`执行每日任务出错！\n${e}`))
+            console.error(this.bili_dynamic_page.log_format(`执行每日任务出错！\n${e.stack}`))
             await AccountLogService.add_common_log_by_account_id({
                 account_id: this.bili_dynamic_page.account_id,
-                contents: e.message,
+                contents: `每日任务执行失败\n${e.stack}`,
+                ts: parseInt(utils.Common.dateNow_s()),
                 func_name: "exec_daily_task",
                 level: 4,
                 module_name: "BiliDailyTaskPage"

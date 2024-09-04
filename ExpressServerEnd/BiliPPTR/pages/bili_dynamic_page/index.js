@@ -6,7 +6,7 @@ const {pptr_op, utils, sleep} = require("@/ExpressServerEnd/BiliPPTR/utils/utils
 const {GLOBAL_CONFIG} = require('@/ExpressServerEnd/BiliPPTR/config/global_config')
 const {BiliElementMap} = require("@/ExpressServerEnd/BiliPPTR/utils/element_map");
 const {AccountDao} = require("@/ExpressServerEnd/DAO/AccountDao");
-const BasePage = require("@/ExpressServerEnd/BiliPPTR/pages/base_page");
+const BasePage = require("@/ExpressServerEnd/BiliPPTR/pages/bili_dynamic_page/base_page");
 const BasicOp = require("@/ExpressServerEnd/BiliPPTR/pages/bili_dynamic_page/Op/basic_op");
 const {manual_op_fail_model} = require("@/ExpressServerEnd/BiliPPTR/models/pages/bili_dynamic_page_model");
 const {AccountLogService} = require("@/ExpressServerEnd/Service/account_log_module/account_log_service");
@@ -213,8 +213,7 @@ class BiliDynamicPage extends BasePage {
                             follow_pg
                         );
                         await Promise.all([
-                            follow_pg.waitForSelector(BiliElementMap.opus_dynamic.interact.follow_btn).then((el) => el.click())
-                            ,
+                            await follow_pg.waitForSelector(BiliElementMap.opus_dynamic.interact.follow_btn).then((el) => el.click()),
                             (global_var.response.relation_modify_response =
                                 await follow_pg
                                     .waitForResponse(
@@ -309,6 +308,9 @@ class BiliDynamicPage extends BasePage {
          * }>} 转发了返回true，没转发返回false
          */
         do_dynamic_lottery: async (dynamic_info, statistic_data) => {
+            while (this.global_var.FLAG.执行其他任务中标志) {
+                await sleep(10e3)
+            }
             let global_var = this.global_var;
             let lottery_setting = this.lottery_setting
             let record_data = new manual_op_fail_model(
@@ -614,7 +616,7 @@ class BiliDynamicPage extends BasePage {
             } catch (e) {
                 console.error(
                     this.log_format(
-                        `do_lottery函数执行失败\t${dynamic_info.dynamicUrl}\n${e}`
+                        `do_lottery函数执行失败\t${dynamic_info.dynamicUrl}\n${e.stack}`
                     )
                 );
                 if (e.toString().includes(`Requesting main frame too early`) ||
@@ -823,7 +825,7 @@ class BiliDynamicPage extends BasePage {
                         }
                         try {
                             btn_subscribe_btn_cancel =
-                                await reserve_card.$(
+                                await reserve_card.waitForSelector(
                                     `.btn-subscribe.btn-cancel`
                                 );
                         } catch (e) {
@@ -831,7 +833,7 @@ class BiliDynamicPage extends BasePage {
                         if (!btn_subscribe_btn_cancel && reserve_card) {
                             let reserve_btn; //点击参与部分
                             try {
-                                reserve_btn = await reserve_card.$(
+                                reserve_btn = await reserve_card.waitForSelector(
                                     `.btn-subscribe`
                                 );
                             } catch {
@@ -891,6 +893,9 @@ class BiliDynamicPage extends BasePage {
              * @return {Promise<*|undefined>}
              */
             dynamic_lottery: async (dynamic_info_args) => {
+                while (this.global_var.FLAG.执行其他任务中标志) {
+                    await sleep(10e3)
+                }
                 let lottery_setting = this.lottery_setting;
                 let global_var = this.global_var;
                 let dynamic_info = dynamic_info_args[0]
@@ -1244,13 +1249,7 @@ class BiliDynamicPage extends BasePage {
                 } finally {
                     global_var.fresh_global_response()
                     if (need_fresh_lottery_setting) {
-                        let lottery_setting_resp = await AccountService.get_lottery_setting_by_account_name_and_uid(this.account_name, this.user_id)
-                        if (lottery_setting_resp.data.info.settings.lottery_setting) {
-                            this.lottery_setting = new Proxy(lottery_setting_resp.data.info.settings.lottery_setting, {});
-                        } else {
-                            console.error(this.log_format(`获取${this.account_name}的抽奖设置失败！使用默认配置`));
-                            this.lottery_setting = new BiliLotterySetting(this.account_name);
-                        }
+                        await this.setting_op.refresh_lottery_setting();
                     }
                 }
 
@@ -1260,11 +1259,11 @@ class BiliDynamicPage extends BasePage {
                 let fail_set = new Set()
 
                 statistic_data.lottery_manual_record.map(el => {
-                    manual_statistic_data_md.concat(`${el.dynamic_info.dynamicUrl} | ${el.dynamic_info.dynContent} | ${el.dynamic_info.authorName} | ${el.err_msg.replaceAll('\n', '\t')}`)
+                    manual_statistic_data_md = manual_statistic_data_md.concat(`${el.dynamic_info.dynamicUrl} | ${el.dynamic_info.dynContent} | ${el.dynamic_info.authorName} | ${el.err_msg.replaceAll('\n', '\t')}`)
                     manual_set.add(el.dynamic_info.dynId)
                 })
                 statistic_data.lottery_fail_record.map(el => {
-                    fail_statistic_data_md.concat(`${el.dynamic_info.dynamicUrl} | ${el.dynamic_info.dynContent} | ${el.dynamic_info.authorName} | ${el.err_msg.replaceAll('\n', '\t')}`)
+                    fail_statistic_data_md = fail_statistic_data_md.concat(`${el.dynamic_info.dynamicUrl} | ${el.dynamic_info.dynContent} | ${el.dynamic_info.authorName} | ${el.err_msg.replaceAll('\n', '\t')}`)
                     fail_set.add(el.dynamic_info.dynId)
                 })
                 console.log(
@@ -1426,6 +1425,9 @@ class BiliDynamicPage extends BasePage {
             tasks.push(new MyTask(this.prevent_filter_op.prevent_filter_init, []));//测试过了，没啥问题，还差一个断网测试
             for (let task of tasks) {
                 console.log(this.log_format(`当前运行任务；${task.func.name}`))
+                while (this.global_var.FLAG.执行其他任务中标志) {
+                    await sleep(10e3)
+                }
                 await task.run.call({
                     func: task.func,
                     args: task.args,
@@ -1437,7 +1439,15 @@ class BiliDynamicPage extends BasePage {
             }
         } catch (e) {
             await this.task_end();
-            throw Error(e)
+            await AccountLogService.add_common_log_by_account_id({
+                account_id: this.account_id,
+                contents: `抽奖任务执行失败\n${e.stack}`,
+                ts: parseInt(utils.Common.dateNow_s()),
+                func_name: `exec_dynamic_lottery`,
+                level: 4,
+                module_name: `BiliDynamicPage`
+            })
+            console.error(this.log_format(`抽奖任务执行失败\n${e.stack}`))
         }
         await this.task_end();
 

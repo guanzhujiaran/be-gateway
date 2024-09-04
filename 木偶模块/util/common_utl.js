@@ -185,10 +185,10 @@ const pptr_op = {
                         }),
                     });
                 }
-                if (new URL(req.url()).origin.includes(".geetest.com")) {
-                    // 放行极验的请求
-                    return req.continue();
-                }
+                // if (new URL(req.url()).origin.includes(".geetest.com")) {
+                //     // 放行极验的请求
+                //     return req.continue();
+                // }
                 // if (
                 // 	req.resourceType() == "image" ||
                 // 	req.resourceType() == "media"
@@ -284,7 +284,7 @@ const utl = {
      */
     get_lottery_setting: async (account_name, uid) => {
         let lottery_setting_resp = await AccountService.get_lottery_setting_by_account_name_and_uid(account_name, uid);
-        return lottery_setting_resp.data.info.settings.lottery_setting;
+        return lottery_setting_resp.info.settings.lottery_setting;
     },
     /**
      * 检查是否在时间段内，加上一点随机数[doge]

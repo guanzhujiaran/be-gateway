@@ -4,6 +4,8 @@ const {GLOBAL_CONFIG} = require("@/ExpressServerEnd/BiliPPTR/config/global_confi
 class BiliLotterySetting {
 
     CONFIG = {
+        Login_Phone: "",
+        Login_Pwd: "",
         /**
          * @type {string} 就是account_name，不允许变更！
          */
@@ -183,6 +185,10 @@ class BiliLotterySetting {
         /**@type {number} 红包最低参加的金瓜子价值（1元=1000金瓜子） */
         redpack_limit_price: 50e3,
         risk_sleeptime_s: 60 * 60
+    }
+    notify_setting_module = {
+        pushme_key: "",
+        push_plus_key: ""
     }
 
     constructor(account_name) {

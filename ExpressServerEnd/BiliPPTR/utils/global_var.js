@@ -47,6 +47,7 @@ class DynamicLotteryGlobalVar extends BaseGlobalVar {
         抽奖暂停标志: false, //抽奖暂停标志
         初始化浏览器中标志: false,
         执行其他任务中标志: false,//是否在执行其他任务（对于当前页面而言）
+        检查登录状态中标志: false
     }
     recorded_data = "" //抽奖反馈信息
     user_info = {

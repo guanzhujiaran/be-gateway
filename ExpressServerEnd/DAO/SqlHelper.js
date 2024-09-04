@@ -50,4 +50,5 @@ module.exports = {
     TLotteryLogInfo,
     TReserveLotteryInfo,
     TUserInfo,
+    sequelize
 };

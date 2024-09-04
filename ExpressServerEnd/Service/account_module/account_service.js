@@ -112,21 +112,15 @@ class AccountService {
      * 通过账号名称和uid获取抽奖设置
      * @param account_name
      * @param uid
-     * @return {Promise<{
-     *     code:number,data:{
-     *
-     *     }
-     * }>}
+     * @return {Promise<import("@ExpressServerEnd/Model/account_model").UserAccount | null>}
      */
     static async get_lottery_setting_by_account_name_and_uid(account_name, uid) {
         let acc_model = new AccountModel(uid);
         let ret_model = await acc_model.get_lottery_setting_by_account_name_and_uid(account_name);
         let origin_lottery_setting = this.generate_default_lottery_setting(account_name);
-        if (!ret_model) return new base_api_model({
-            code: 40017,
-            data: ret_model,
-            msg: "该账号不存在！"
-        })
+        if (!ret_model) {
+            return ret_model
+        }
         if (!ret_model.info) {
             ret_model.info = {}
             ret_model.info.settings = origin_lottery_setting;
@@ -134,10 +128,8 @@ class AccountService {
         if (!ret_model.info.settings) {
             ret_model.info.settings = origin_lottery_setting;
         }
-        t.deepMergeIfMissing(ret_model.info.settings.lottery_setting, origin_lottery_setting);
-        return new base_api_model({
-            data: ret_model
-        })
+        t.deepMergeIfMissing(ret_model.info.settings.lottery_setting, origin_lottery_setting.lottery_setting);
+        return ret_model
 
     }
 

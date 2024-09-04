@@ -65,7 +65,7 @@ class BiliLotteryOpus {
         }
         if (this.#BiliLotterySetting === undefined) {
             let lottery_setting_resp = await AccountService.get_lottery_setting_by_account_name_and_uid(this.account_name, this.#user_id)
-            this.#BiliLotterySetting = new Proxy(lottery_setting_resp.data.info.settings.lottery_setting, {});
+            this.#BiliLotterySetting = new Proxy(lottery_setting_resp.info.settings.lottery_setting, {});
         }
     }
 

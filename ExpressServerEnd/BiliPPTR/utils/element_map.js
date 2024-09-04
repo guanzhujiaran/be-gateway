@@ -33,11 +33,11 @@ const BiliElementMap = {
             /**
              * opus动态评论富文本框
              */
-            reply_box_text_area: `.reply-box-textarea`,
-            reply_send_btn: `.send-text`,
-            reply_user_icon: `.user-name`,
-            comment_thumb_btn: `.reply-like`,
-            comment_thumb_btn_is_active: `.svg-icon.liked.use-color.like-icon.liked`,
+            reply_box_text_area: `.reply-box-textarea,>>>textarea[id='input']`,
+            reply_send_btn: `.send-text,>>>#pub>button`,
+            reply_user_icon: `.user-name,>>>#user-name > a`,
+            comment_thumb_btn: `.reply-like,>>>#like`,
+            comment_thumb_btn_is_active: `.svg-icon.liked.use-color.like-icon.liked,>>>bili-icon[icon='BDC/hand_thumbsup_fill/1']`,
             t_dynamic_publish_btn: `.bili-dyn-publishing__action.launcher`,
             t_dynamic_publish_confirm_btn: `.bili-dyn-specification-popup__btn.bili-button.primary.bili-button--medium`,
             dynamic_error_pic: `.error-container`,
@@ -71,7 +71,6 @@ const BiliElementMap = {
             video_card: `.bili-video-card.is-rcmd>div.bili-video-card__wrap.__scale-wrap>a[href]`,
             video_fresh_btn: `.primary-btn`,
             huanyihuan_caozuo_btn: `.bilifont.bili-icon_caozuo_huanyihuan`,
-
         }
     },
     live_page: {
@@ -91,11 +90,18 @@ const BiliElementMap = {
         live_player: `#live-player-ctnr`, //直播播放器！
     },
     url_path: {
+        main: {
+            main_site: `https://www.bilibili.com/`
+        },
         user: {
             nav: `x/web-interface/nav`,
             relation_modify: `x/relation/modify`,
             msg_unread: `msgfeed/unread`,
+            msg_whisper: `https://message.bilibili.com/?spm_id_from=333.1007.0.0#/whisper`,
+            msg_session_svr_get_session:`https://api.vc.bilibili.com/session_svr/v1/session_svr/get_sessions`,
+            msg_session_svr_fetch_session_msgs:`https://api.vc.bilibili.com/svr_sync/v1/svr_sync/fetch_session_msgs`,
             home: `https://account.bilibili.com/account/home`,
+            login: `https://passport.bilibili.com/pc/passport/login`
         },
         opus_dynamic: {
             opus_link: `www.bilibili.com/opus`,

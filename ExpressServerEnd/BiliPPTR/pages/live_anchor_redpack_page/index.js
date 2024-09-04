@@ -265,7 +265,7 @@ class BiliLiveLotPage extends BiliOtherPage {
     /**
      *
      * @param {Page}pg
-     * @param {LiveGoldBoxType}lottery_info
+     * @param {LiveGoldBoxType} lottery_info
      */
     async #join_goldbox_lot({pg, lottery_info}) {
         let is_succ = false;
@@ -314,7 +314,7 @@ class BiliLiveLotPage extends BiliOtherPage {
 
         }
 
-        await this.executeWithRetry([
+        await this.#executeWithRetry([
             new ExcTaskParams({
                 func: before_anchor_lot,
                 params: [],
@@ -552,7 +552,7 @@ class BiliLiveLotPage extends BiliOtherPage {
                 }
             }
         }
-        await this.executeWithRetry([
+        await this.#executeWithRetry([
                 new ExcTaskParams({
                     func: before_redpack_lot,
                     params: [],
@@ -761,7 +761,7 @@ class BiliLiveLotPage extends BiliOtherPage {
                 );
             }
         }
-        await this.executeWithRetry([
+        await this.#executeWithRetry([
             new ExcTaskParams({
                 func: before_anchor_lot,
                 params: [],
@@ -804,7 +804,7 @@ class BiliLiveLotPage extends BiliOtherPage {
      * @param {Error} [err_do.err]
      * @return {Promise<boolean>}
      */
-    async executeWithRetry(tasks, maxRetries = 3, err_do) {
+    async #executeWithRetry(tasks, maxRetries = 3, err_do) {
         for (let i = 0; i < tasks.length; i++) {
             let {func, params, err, pg, reload_when_err} = tasks[i];
             pg = pg ? pg : this.global_var.current_page;
@@ -845,7 +845,7 @@ class BiliLiveLotPage extends BiliOtherPage {
 
     /**
      *
-     * @param {LiveAnchorType|LiveRedPackType|LiveGoldBoxType} lottery_info
+     * @param {LiveAnchorType|LiveRedPackType|{goldbox:LiveGoldBoxType[]}} lottery_info
      */
     async #is_need_join({lottery_info}) {
         if (!utils.Common.isToday(this.global_var.live_info.init_ms)) {
@@ -853,19 +853,27 @@ class BiliLiveLotPage extends BiliOtherPage {
             this.global_var.live_info.init_ms = new Date();
         }
         if ((lottery_info.end_time && (utils.Common.dateNow_s() - lottery_info.end_time) < 30) ||
-            (lottery_info.join_end_time && (utils.Common.dateNow_s() - lottery_info.join_end_time) < 30)
+            (!lottery_info.goldbox)
         ) {
             console.log(this.bili_dynamic_page.log_format(`当前抽奖剩余时间小于30s，跳过`))
             return false
         }
-        if (lottery_info.type === "gold_box") {
-            if (lottery_info.join_start_time * 1e3 > utils.Common.dateNow()) {
-                return false; //未开始
+        if (lottery_info.goldbox && lottery_info.goldbox.length > 0) {
+            if (lottery_info.goldbox[lottery_info.goldbox.length - 1].join_end_time >= utils.Common.dateNow()) {
+                return false //已经全部结束
             }
-            if (this.global_var.goldbox.joined_goldbox_id_list.includes(lottery_info.aid * 100 + lottery_info.num)) {
-                return false
-            }//实物抽奖特征id：aid*100+number
-            return true;
+            for (let i = 0; i <= lottery_info.goldbox.length; i++) {
+                if (lottery_info.goldbox[i].join_start_time * 1e3 > utils.Common.dateNow()) {
+                    return false; //未开始
+                }
+                if (this.global_var.goldbox.joined_goldbox_id_list.includes(lottery_info.goldbox[i].aid * 100 + lottery_info.goldbox[i].num)) {
+                    lottery_info.goldbox[i] = null;
+                }//实物抽奖特征id：aid*100+number
+                else {
+                    return true;
+                }
+            }
+            return false; // 已经全部参加！
         }
         if (lottery_info.type === "anchor") {
             if (!this.bili_dynamic_page.lottery_setting.live_lottery_module.anchor_switch) return false;
@@ -906,12 +914,13 @@ class BiliLiveLotPage extends BiliOtherPage {
 
     /**
      *
-     * @param {LiveAnchorType|LiveRedPackType|LiveGoldBoxType} lottery_info
+     * @param {LiveAnchorType|LiveRedPackType|{goldbox:LiveGoldBoxType[]},type:"gold_box"} lottery_info
      */
     async #exec_live_lottery({lottery_info}) {
-        // TODO:创建页面
+        await this.bili_dynamic_page.setting_op.refresh_lottery_setting();
         let pg = await this.bili_dynamic_page.create_new_pg(BiliElementMap.browser_usage.live_lottery)
         await pptr_op.check_page_is_front(pg);
+        if (!await this.bili_dynamic_page.check_login(pg)) throw Error(`登录失败！`);
         if (!this.global_var.live_info.csrf) {
             this.global_var.live_info.csrf = await pptr_op.get_bili_cjt(pg);
         } //获取csrf
@@ -926,7 +935,7 @@ class BiliLiveLotPage extends BiliOtherPage {
                 await this.#join_redpacket_lot({pg: pg, lottery_info: lottery_info});
                 break;
             case "gold_box":
-                await this.#join_goldbox_lot({pg: pg, lottery_info: lottery_info});
+                await this.#join_goldbox_lot({pg: pg, lottery_info: lottery_info[0]});
                 break;
             default: {
                 await AccountLogService.add_common_log_by_account_id({
@@ -946,7 +955,7 @@ class BiliLiveLotPage extends BiliOtherPage {
 
     /**
      *
-     * @param {LiveAnchorType|LiveRedPackType|LiveGoldBoxType} lottery_info
+     * @param {LiveAnchorType|LiveRedPackType|{goldbox:LiveGoldBoxType[]}} lottery_info
      * @return {Promise<void>}
      */
     async main({lottery_info}) {
@@ -956,10 +965,22 @@ class BiliLiveLotPage extends BiliOtherPage {
                 return;
             }
             console.log(this.bili_dynamic_page.log_format(`执行直播抽奖任务:【${JSON.stringify(lottery_info)}】`))
-            if (lottery_info.type !== "gold_box") this.bili_dynamic_page.global_var.FLAG.执行其他任务中标志 = true;
+            if (lottery_info.goldbox && lottery_info.goldbox.length > 0) {
+                this.bili_dynamic_page.global_var.FLAG.执行其他任务中标志 = true;
+                lottery_info.type = "gold_box";
+                lottery_info.goldbox = lottery_info.goldbox.filter(el => el);
+            }
             await this.#exec_live_lottery({lottery_info: lottery_info});
             console.log(this.bili_dynamic_page.log_format(`直播抽奖任务执行完成！`))
         } catch (e) {
+            await AccountLogService.add_common_log_by_account_id({
+                account_id: this.bili_dynamic_page.account_id,
+                contents: `直播抽奖执行失败\n${e.stack}`,
+                ts: parseInt(utils.Common.dateNow_s()),
+                func_name: "exec_live_lottery",
+                level: 4,
+                module_name: "BiliLiveLotPage"
+            })
             console.error(this.bili_dynamic_page.log_format(`执行直播抽奖任务出错！\n${e}`))
         } finally {
             this.bili_dynamic_page.global_var.FLAG.执行其他任务中标志 = false;

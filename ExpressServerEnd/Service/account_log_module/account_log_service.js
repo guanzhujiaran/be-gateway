@@ -163,15 +163,16 @@ class AccountLogService {
      * 添加账号的一般日志，程序运行时产生的意外异常
      * @param {number}account_id
      * @param {string}contents
-     * @param {number}ts
+     * @param {number}ts 时间戳（秒级）
      * @param {string}func_name
      * @param {number}level
      * @param {string}module_name
      * @return {Promise<*>}
      */
-    static async add_common_log_by_account_id({account_id, contents, ts, func_name,level, module_name}) {
-        if (!ts) ts = Math.ceil(Date.now() / 1e3);
-        if (!func_name) func_name = '未指定';
+    static async add_common_log_by_account_id({account_id, contents, ts, func_name, level, module_name} = {
+        ts: Math.ceil(Date.now() / 1e3),
+        func_name: '未指定'
+    }) {
         return await AccountLogDao.add_common_log_by_account_id(arguments[0])
     }
 

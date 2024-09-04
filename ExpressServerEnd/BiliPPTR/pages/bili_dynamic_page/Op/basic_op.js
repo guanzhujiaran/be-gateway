@@ -1,6 +1,6 @@
 const {pptr_op, utils, sleep} = require("@/ExpressServerEnd/BiliPPTR/utils/utils");
 const {BiliElementMap} = require("@/ExpressServerEnd/BiliPPTR/utils/element_map");
-const BasePage = require("@/ExpressServerEnd/BiliPPTR/pages/base_page");
+const BasePage = require("@/ExpressServerEnd/BiliPPTR/pages/bili_dynamic_page/base_page");
 const {GLOBAL_CONFIG} = require("@/ExpressServerEnd/BiliPPTR/config/global_config");
 const axios = require("axios");
 
@@ -34,7 +34,6 @@ class BasicOp extends BasePage {
             }
         },
         global_pg_goto: async (url) => {
-            if (this.page_url.includes(url)) return true;
             let break_time = 0;
             while (1) {
                 break_time++;
@@ -473,6 +472,9 @@ class BasicOp extends BasePage {
             my_comment_thumb = all_comment_thumb_btn[comment_user_index];
 
             if (my_comment_thumb) {
+                await this.global_var.current_page.evaluate(()=>{
+                   this.scrollTo(0,300)
+                })
                 await my_comment_thumb.click();
             } else {
                 console.error(this.log_format(`${BiliElementMap.log_record.opus_dynamic.comment_thumb_fail}\t获取评论框元素失败评论点赞失败`));

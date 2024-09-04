@@ -22,7 +22,7 @@ class BiliUnfollowPage extends BiliOtherPage {
      * @param {number} maxRetries
      * @return {Promise<boolean>}
      */
-    async executeWithRetry(tasks, maxRetries = 3) {
+    async #executeWithRetry(tasks, maxRetries = 3) {
         for (let i = 0; i < tasks.length; i++) {
             let {func, params, err, pg, reload_when_err} = tasks[i];
             pg = pg ? pg : this.global_var.current_page;
@@ -45,7 +45,7 @@ class BiliUnfollowPage extends BiliOtherPage {
                         console.error('Max retries reached. Break the tasks.');
                         throw error;
                     }
-                    if (pg.isClosed()) {
+                    if (pg?.isClosed()) {
                         this.global_var.current_page = await this.bili_dynamic_page.create_new_pg(BiliElementMap.browser_usage.daily_task)
                     }
                 }
@@ -131,9 +131,10 @@ class BiliUnfollowPage extends BiliOtherPage {
     }
 
     async #exec_unfollow() {
+        await this.bili_dynamic_page.setting_op.refresh_lottery_setting();
         this.global_var.current_page = await this.bili_dynamic_page.create_new_pg(BiliElementMap.browser_usage.unfollow);
+        if (!await this.bili_dynamic_page.check_login(this.global_var.current_page)) throw new Error(`登录失败！`);
         try {
-            if (!await this.check_login(this.global_var.current_page)) throw Error(`登录失败！`);
             let pg = this.global_var.current_page;
             await this.get_user_nav(this.global_var.current_page);
             let uid = this.bili_dynamic_page.global_var.user_info.uid;
@@ -165,7 +166,7 @@ class BiliUnfollowPage extends BiliOtherPage {
                     }))
                 }
             }
-            await this.executeWithRetry(op_arr)
+            await this.#executeWithRetry(op_arr)
 
         } catch (e) {
             console.error(this.bili_dynamic_page.log_format(`取关出错！${e}`))
@@ -182,7 +183,8 @@ class BiliUnfollowPage extends BiliOtherPage {
             console.log(this.bili_dynamic_page.log_format(`执行取关任务！`))
             this.bili_dynamic_page.global_var.FLAG.执行其他任务中标志 = true;
             this.bili_dynamic_page.global_var.FLAG.抽奖中标志 = true;
-            await this.executeWithRetry([new ExcTaskParams({
+            await this.bili_dynamic_page.setting_op.refresh_lottery_setting();
+            await this.#executeWithRetry([new ExcTaskParams({
                 func: this.#exec_unfollow,
                 params: [],
                 err: `执行单个取关失败`,
@@ -190,6 +192,14 @@ class BiliUnfollowPage extends BiliOtherPage {
             })])
             console.log(this.bili_dynamic_page.log_format(`取关任务执行完成！`))
         } catch (e) {
+            await AccountLogService.add_common_log_by_account_id({
+                account_id: this.bili_dynamic_page.account_id,
+                contents: `取关任务执行失败\n${e.stack}`,
+                ts: parseInt(utils.Common.dateNow_s()),
+                func_name: "exec_unfollow",
+                level: 4,
+                module_name: "BiliUnfollowPage"
+            })
             console.error(this.bili_dynamic_page.log_format(`执行取关任务出错！\n${e}`))
         } finally {
             this.bili_dynamic_page.global_var.FLAG.执行其他任务中标志 = false;

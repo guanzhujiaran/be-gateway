@@ -10,7 +10,8 @@ const {AccountLogService} = require("@/ExpressServerEnd/Service/account_log_modu
 const {AccountDao} = require("@/ExpressServerEnd/DAO/AccountDao");
 const {UserDao} = require("@/ExpressServerEnd/DAO/UserDao");
 const {AccountService} = require("@/ExpressServerEnd/Service/account_module/account_service");
-const {resolve} = require('path')
+const {resolve, join} = require('path')
+const {BiliLotterySetting} = require("@/ExpressServerEnd/Model/api/v1/account/account_model");
 
 class BasePage {
 
@@ -36,6 +37,37 @@ class BasePage {
          * @type {BiliLotterySetting}
          */
         this.lottery_setting = lottery_setting;
+    }
+
+
+    setting_op = {
+        /**
+         * 刷新当前实例的抽奖设置
+         * @return {Promise<void>}
+         */
+        refresh_lottery_setting: async () => {
+            try {
+                let lottery_setting_resp = await AccountService.get_lottery_setting_by_account_name_and_uid(this.account_name, this.user_id)
+                if (lottery_setting_resp.info.settings.lottery_setting) {
+                    this.lottery_setting = new Proxy(lottery_setting_resp.info.settings.lottery_setting, {});
+                } else {
+                    console.error(this.log_format(`获取${this.account_name}的抽奖设置失败！使用默认配置`));
+                    this.lottery_setting = new BiliLotterySetting(this.account_name);
+                }
+            } catch (e) {
+                await AccountLogService.add_common_log_by_account_id({
+                    account_id: this.account_id,
+                    contents: `获取抽奖设置出错！\n${e.stack}`,
+                    ts: parseInt(utils.Common.dateNow_s()),
+                    func_name: `refresh_lottery_setting`,
+                    level: 3,
+                    module_name: `BiliDynamicPage`
+                })
+                console.error(this.log_format(`获取${this.account_name}的抽奖设置出错！\n${e.stack}使用默认配置`));
+                this.lottery_setting = new BiliLotterySetting(this.account_name);
+            }
+
+        }
     }
 
     #manual_reply_err_set = new Set(utils.Common.extractStringsFromObject(BiliElementMap.log_record.opus_dynamic.err))
@@ -347,67 +379,161 @@ class BasePage {
                     }
                 }
             } catch (e) {
-                console.error(e)
                 console.error(this.log_format(`${url}\t${response.request().method()}\n${resp_text}\n监听api响应失败\n${e.stack}`)
                 );
             }
         });
     };
 
+    /**
+     *
+     * @param {Page}pg
+     * @return {Promise<boolean>}
+     */
+    async try_login_by_phone_password(pg) {
+        if (!this.lottery_setting.CONFIG.Login_Phone || !this.lottery_setting.CONFIG.Login_Pwd) return false;
+        if (!pg.url().includes(BiliElementMap.url_path.user.login)) {
+            await pg.goto(BiliElementMap.url_path.user.login, {waitUntil: "networkidle0"});
+            await sleep(10e3);
+        }
+        let url = pg.url()
+        if (url === BiliElementMap.url_path.main.main_site) return true;
+        await pg.waitForSelector(`#app-main > div > div.login__main > div.main__right > div.login-pwd > div.tab__form > div:nth-child(1) > input[type=text]`)
+            .then(async el => await el.type(String(this.lottery_setting.CONFIG.Login_Phone), {delay: utils.Common.getRandomFloat(10, 200)}));
+        await pg.waitForSelector(`#app-main > div > div.login__main > div.main__right > div.login-pwd > div.tab__form > div:nth-child(3) > input[type=password]`)
+            .then(async el => await el.type(String(this.lottery_setting.CONFIG.Login_Pwd), {delay: utils.Common.getRandomFloat(10, 200)}));
+        await pg.waitForSelector(`#app-main > div > div.login__main > div.main__right > div.login-pwd > div.btn_wp > div.btn_primary`)
+            .then(async el => {
+                await el.click();
+            });
+        await pg.waitForSelector(`.geetest_panel.geetest_wind[style*='block'] .geetest_item_wrap`);
+        await sleep(1e3);
+        const backgroundImageUrl = await pg.evaluate(() => {
+            let element = document.querySelector(`.geetest_panel.geetest_wind[style*='block'] .geetest_item_wrap`);
+            if (element) {
+                const style = window.getComputedStyle(element);
+                const backgroundImage = style.getPropertyValue('background-image');
+                const urlMatch = backgroundImage.match(/url\((['"])(.*?)\1\)/);
+                if (urlMatch) {
+                    return urlMatch[2]; // 返回匹配到的 URL
+                }
+            }
+            return null; // 没有找到背景图片 URL
+        });
+        let login_resp;
+        if (backgroundImageUrl) {
+            console.log(this.log_format(`检测到登录验证码！`))
+            let captcha_result = await utils.MYAPI.get_text_select_pos(backgroundImageUrl)
+            if (captcha_result.code !== 0) {
+                throw new Error(`验证码识别失败！${JSON.stringify(captcha_result)}`);
+            }
+            for (let pos of captcha_result.data.target_position) {
+                await pg.waitForSelector(`.geetest_panel.geetest_wind[style*='block'] .geetest_item_wrap`)
+                    .then(async el => await el.click({
+                            offset: {
+                                x: pos[0],
+                                y: pos[1]
+                            }
+                        })
+                    )
+                await sleep(utils.Common.getRandomFloat(0.1, 0.5) * 1e3);
+            }
+            await sleep(1e3);
+            await Promise.all([
+                login_resp = await pg.waitForResponse(resp => resp.url().includes('passport.bilibili.com/x/passport-login/web/login')),
+                await pg.waitForSelector(`.geetest_panel.geetest_wind[style*='block'] .geetest_commit_tip`)
+                    .then(async el => await el.click())
+            ]);
+            if (login_resp && login_resp.code === 0) {
+                return true
+            } else {
+                console.error(this.log_format(`登录响应出错！${JSON.stringify(login_resp)}`));
+                return false
+            }
+        } else {
+            console.error(this.log_format(`未检测到登录验证码！`));
+            return false
+        }
+
+    }
 
     /**
      * 检查是否登录了账号
+     * @param {Page} pg
      * @param {boolean} need_check_login
      * @return {Promise<boolean>}
      */
-    async check_login(need_check_login = false) {
-
-        for (let retry_time = 0; retry_time < 3; retry_time++) {
+    async check_login(pg, need_check_login = false) {
+        try {
             if (!need_check_login) {
                 return true;
             }
-            try {
-                await this.global_var.current_page.goto(
-                    BiliElementMap.url_path.space.message,
-                    {
-                        waitUntil: "domcontentloaded",
+            while (this.global_var.FLAG.检查登录状态中标志) {
+                await sleep(1e3);
+            }
+            this.global_var.FLAG.检查登录状态中标志 = true;
+            for (let retry_time = 0; retry_time < 3; retry_time++)
+                try {
+                    try {
+                        await pg.goto(
+                            BiliElementMap.url_path.space.message,
+                            {
+                                waitUntil: "domcontentloaded",
+                            }
+                        );
+                        await sleep(3e3);
+                        await pg.goto("about:blank");
+                    } catch (e) {
+                        await sleep(3e3);
+                        console.error(e)
+                        if (e.message.includes("net::")) {
+                            console.error(this.log_format(`检查登录失败，网络出错，休眠2小时！${e}`));
+                            await sleep(2 * 60 * 60 * 1000)
+                        }
+                        throw (e);
                     }
-                );
-                await sleep(3e3);
-                await this.global_var.current_page.goto("about:blank");
-            } catch (e) {
-                await sleep(3e3);
-                console.error(e)
-                if (e.message.includes("net::")) {
-                    console.error(this.log_format(`检查登录失败，网络出错！${e}`));
+                    if (this.global_var.user_info.uname) {
+                        console.log(this.log_format(`账号初始化完成`));
+                        let uname = this.global_var.user_info.user_nav.data.uname
+                        let vip = this.global_var.user_info.user_nav.data.vip_label.text
+                        let level = this.global_var.user_info.user_nav.data.level_info.current_level
+                        let face = this.global_var.user_info.user_nav.data.face
+                        let uid = this.global_var.user_info.user_nav.data.mid
+                        await AccountService.save_account_detail_info_by_account_id(
+                            {
+                                account_id: this.account_id,
+                                uname: uname,
+                                vip: vip,
+                                level: level,
+                                face: face,
+                                uid: uid,
+                                nav_json: this.global_var.user_info.user_nav
+                            }
+                        )
+                        return true;
+                    } else {
+                        await this.try_login_by_phone_password(pg)
+                        await sleep(10e3);
+                    }
+                } catch (e) {
+                    console.error(this.log_format(`检查登录失败！${e.stack}`));
+                    await AccountLogService.add_common_log_by_account_id(
+                        {
+                            account_id: this.account_id,
+                            contents: `检查登录失败！\n${e.stack}`,
+                            ts: parseInt(utils.Common.dateNow_s()),
+                            func_name: `check_login`,
+                            level: 3,
+                            module_name: `BasePage`
+                        }
+                    )
+                    await sleep(10e3);
                 }
-                throw (e);
-            }
-            if (this.global_var.user_info.uname) {
-                console.log(this.log_format(`账号初始化完成`));
-                let uname = this.global_var.user_info.user_nav.data.uname
-                let vip = this.global_var.user_info.user_nav.data.vip_label.text
-                let level = this.global_var.user_info.user_nav.data.level_info.current_level
-                let face = this.global_var.user_info.user_nav.data.face
-                let uid = this.global_var.user_info.user_nav.data.mid
-                await AccountService.save_account_detail_info_by_account_id(
-                    {
-                        account_id: this.account_id,
-                        uname: uname,
-                        vip: vip,
-                        level: level,
-                        face: face,
-                        uid: uid,
-                        nav_json: this.global_var.user_info.user_nav
-                    }
-                )
-                return true;
-            } else {
-                return false;
-            }
+        } catch {
+        } finally {
+            this.global_var.FLAG.检查登录状态中标志 = false;
         }
-        return false;
-    };
+    }
 
     async create_new_pg(usage = BiliElementMap.browser_usage.lottery) {
         if (
@@ -552,7 +678,7 @@ class BasePage {
                 }
             }
             if (!this.global_var.user_info.uname || need_check_login) {
-                return await this.check_login(true);
+                return await this.check_login(this.global_var.current_page, true);
             }
         } catch (e) {
             console.error(this.log_format(`浏览器启动失败！\n${e}`))
@@ -589,14 +715,13 @@ class BasePage {
      * }tasks
      * @param {manual_op_fail_model}record_data
      * @param maxRetries
-     * @return {Promise<void>}
+     * @return {Promise<boolean>}
      */
     async executeWithRetry(tasks, record_data, maxRetries = 3) {
         for (let i = 0; i < tasks.length; i++) {
             const {func, params, err, pg, reload_when_err} = tasks[i];
             let retries = 0;
             let success = false;
-
             while (!success && retries < maxRetries) {
                 try {
                     while (this.global_var.FLAG.执行其他任务中标志) {
