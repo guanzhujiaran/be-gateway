@@ -179,6 +179,7 @@ class DO_Lottery {
 	 * @param {boolean} lotFlag - true代表正在抽奖中，false代表抽完了
 	 */
 	_setLotFlag = (lotFlag) => {
+		console.log(`账号${this.global_var.user_info.uname}设置抽奖标志为：${lotFlag}`)
 		this.lotFlag = lotFlag;
 	};
 
@@ -322,7 +323,7 @@ class DO_Lottery {
 									}`
 								);
 							} catch (e) {
-								console.warn(
+								console.error(
 									`${
 										global_var.user_info.uname
 									}\t抓取转发动态response失败：\n${e}\n${await response.text()}`
@@ -554,8 +555,8 @@ class DO_Lottery {
 		}
 		if (
 			!this.global_page ||
-			(await this.global_page.browser().pages()).length == 0 ||
-			!this.global_page.browser().isConnected()
+			(await (await this.global_page.browser()).pages()).length == 0 ||
+			!this.global_page.browser().connected
 		) {
 			//浏览器未打开状态
 			let cookieStr;
@@ -589,7 +590,7 @@ class DO_Lottery {
 				"--ignore-certifcate-errors-spki-list",
 				"--window-size=1920,1080",
 				"--disable-accelerated-2d-canvas",
-				"--no-sandbox",
+				// "--no-sandbox",
 				"--disable-setuid-sandbox",
 				`--profile-directory=${lottery_setting.CONFIG.ProfileDir}`
 			);
@@ -602,8 +603,8 @@ class DO_Lottery {
 							headless: false, //false为显示浏览器界面
 							defaultViewport: {
 								//分辨率
-								width: 1920,
-								height: 1080,
+								width: 1920 +Math.ceil(400*(Math.random()-0.5)),
+								height: 1080+Math.ceil(400*(Math.random()-0.5)),
 							},
 							args: __args,
 							userDataDir:
@@ -618,7 +619,7 @@ class DO_Lottery {
 							],
 							ignoreHTTPSErrors: true,
 						});
-						let page = await browser.newPage();
+						let page = (await browser.pages())[0];
 						await pptr_op.hook_teck_logdata(page);
 						global_var.page = page;
 						this._setGlobalPage(global_var.page);
@@ -629,8 +630,8 @@ class DO_Lottery {
 								"C:/Users/Acer/AppData/Local/Google/Chrome SxS/Application/chrome.exe", //浏览器路径
 							headless: false, //false为显示浏览器界面
 							defaultViewport: {
-								width: 1920,
-								height: 1080,
+								width: 1920+Math.ceil(400*(Math.random()-0.5)),
+								height: 1080+Math.ceil(400*(Math.random()-0.5)),
 							},
 							args: __args,
 							ignoreDefaultArgs: [
@@ -641,7 +642,7 @@ class DO_Lottery {
 							],
 							ignoreHTTPSErrors: true,
 						});
-						let page = await browser.newPage();
+						let page = (await browser.pages())[0];
 						await pptr_op.hook_teck_logdata(page);
 						global_var.page = page;
 						this._setGlobalPage(global_var.page);
@@ -700,7 +701,7 @@ class DO_Lottery {
 		this.lottery_setting = lottery_setting;
 		///////////////////////////////////////////////////////////////
 		try {
-			(async () => {
+			const __ = async () => {
 				//#region 抽预约抽奖
 				/**
 			 * {
@@ -939,7 +940,7 @@ class DO_Lottery {
 				 * @param {*} opus_dynamic
 				 * @returns {Promise<boolean>}
 				 */
-				let do_lottery = async (goto_url, opus_dynamic = false) => {
+				const do_lottery = async (goto_url, opus_dynamic = false) => {
 					try {
 						console.log(
 							`${
@@ -1329,13 +1330,11 @@ class DO_Lottery {
 											await Promise.all([
 												follow_pg
 													.waitForSelector(
-														".h-f-btn.h-follow"
+														`.h-f-btn.h-follow, .h-f-btn.h-follow-oldfan, .space-follow-btn`
 													)
 													.then((el) => el.click())
-													.catch(() => {
-														{
-															status: "fail";
-														}
+													.catch((e) => {
+														console.error(`点击关注失败！${e.stack}`)
 													}),
 												(global_var.response.relation_modify_response =
 													await follow_pg
@@ -1354,8 +1353,8 @@ class DO_Lottery {
 																return await response.json();
 															}
 														)
-														.catch(() => {
-															status: "fail";
+														.catch((e) => {
+															console.error(`点击关注失败！${e.stack}`)
 														})),
 											]).catch((e) => {
 												console.error(
@@ -1465,6 +1464,9 @@ class DO_Lottery {
 													);
 												}
 											}
+											else{
+												console.log(`关注成功！`)
+											}
 											await sleep(5e3);
 											if (!follow_pg.isClosed()) {
 												await follow_pg.close();
@@ -1479,7 +1481,7 @@ class DO_Lottery {
 											if (
 												(
 													await follow_pg.$$(
-														`.h-f-icon`
+														`.h-f-icon, .space-follow-btn.gray`
 													)
 												).length > 0
 											) {
@@ -1774,6 +1776,7 @@ class DO_Lottery {
 						e.message.includes(
 							`Requesting main frame too early!`
 						) && (await global_var.page.close());
+						
 						await pptr_op.check_bili_login(global_var.page);
 						if (
 							e
@@ -1802,7 +1805,7 @@ class DO_Lottery {
 				 * @param {string} task_name --执行的任务名称
 				 * @returns {Promise<string[]>} 参与成功的抽奖动态id
 				 */
-				let lottery_loop = async (
+				const lottery_loop = async (
 					all_dynamic_id_list,
 					task_name = ""
 				) => {
@@ -1891,398 +1894,439 @@ class DO_Lottery {
 								MYAPI.BiliAPI.draw_dynamic_id(
 									all_dynamic_id_list[i]
 								);
-							let is_lot_error=false;
-							let loop_lot_retry_time=0
-							do
-							{try {
-								if (
-									lottery_setting.prevent_module
-										.share_video_while_repost_chance != 0 &&
-									repost_counter >
-										lottery_setting.prevent_module
-											.share_video_while_repost_sepnum *
-											3
-								) {
-									if (
-										Math.random() <
-										lottery_setting.prevent_module
-											.share_video_while_repost_chance
-									) {
-										console.log(
-											`${global_var.user_info.uname}\t触发间隔分享视频`
-										);
-										await my_operator.prevent_filter_module.share_video(
-											1,
-											1,
-											1
-										);
-										repost_counter = 0;
-									}
-								}
-								let init_time_hour =
-									global_var.TIME.Init_Time.getHours();
-								if (
-									!(init_time_hour < 19
-										? init_time_hour >= 18
-										: false || init_time_hour < 12
-										? init_time_hour >= 11
-										: false)
-								) {
-									//如果初始化的时间不在吃饭时间内，则判断
-									if (
-										new Date().getHours() < 19
-											? new Date().getHours() >= 18
-											: false ||
-											  new Date().getHours() < 12
-											? new Date().getHours() >= 11
-											: false
-									) {
-										if (!global_var.FLAG.吃饭休息标志) {
-											console.log(
-												`${global_var.user_info.uname}\t模拟吃饭休息时间休息20分钟`
-											);
-											await sleep(20 * 60 * 1e3);
-											global_var.FLAG.吃饭休息标志 = true;
-										}
-									}
-								}
-								if (
-									longsleepflag[1] >
-									Math.round(
-										every_n_times_sleep_longtime *
-											(1 - 0.5 * Math.random())
-									)
-								) {
-									longsleepflag[0] = true;
-								}
-								if (global_var.fengkong_flag == true) {
-									console.log(
-										`${global_var.user_info.uname} 出了点问题，停个15分钟再抽`,
-										new Date().toLocaleString()
-									);
-									await sleep(15 * 60e3);
-									global_var.fengkong_flag = false;
-								}
-								if (global_var.Pause) {
-									while (1) {
-										if (!global_var.Pause) {
-											break;
-										}
-										await sleep(1e3);
-									}
-								}
-								if (
-									lottery_setting.CONFIG
-										.Only_Comment_Lottery_Switch
-								) {
-									if (
-										all_dynamic_id_list[i].includes(
-											"tab=1"
-										) ||
-										all_dynamic_id_list[i].includes("tab=2")
-									) {
-										console.log(
-											`${global_var.user_info.uname}  ${all_dynamic_id_list[i]}  只参与评论动态`
-										);
-										continue;
-									}
-								}
-
+							let is_lot_error = false;
+							let loop_lot_retry_time = 0;
+							do {
 								try {
-									let d = new Date();
-									console.log(
-										`${
-											global_var.user_info.uname
-										}\t当前任务【${task_name}】进度：  【${
-											i + 1
-										}/${all_dynamic_id_list.length}】\t\t${
-											all_dynamic_id_list[i]
-										} ${d.toLocaleTimeString()}`
-									);
-									if (global_var.page.isClosed()) {
-										//每次抽奖循环时检测页面是否关闭，如果关闭则重新打开浏览器页面！
-										await this.account_init(); //重新设置global_var.page
+									if (
+										lottery_setting.prevent_module
+											.share_video_while_repost_chance !=
+											0 &&
+										repost_counter >
+											lottery_setting.prevent_module
+												.share_video_while_repost_sepnum *
+												3
+									) {
+										if (
+											Math.random() <
+											lottery_setting.prevent_module
+												.share_video_while_repost_chance
+										) {
+											console.log(
+												`${global_var.user_info.uname}\t触发间隔分享视频`
+											);
+											await my_operator.prevent_filter_module.share_video(
+												1,
+												1,
+												1
+											);
+											repost_counter = 0;
+										}
 									}
-									lottery_setting.FLAG.do_lottery_flag = true;
-									global_var.response.global_dynamic_data =
-										undefined; //全局的动态数据
-									global_var.response.create_dyn_response =
-										undefined; //创建或转发动态的响应
-									global_var.response.comment_dyn_response =
-										undefined; //自己评论动态的响应
-									global_var.response.relation_modify_response =
-										undefined; //关注响应
-									global_var.response.dynamic_thumb_response =
-										undefined; //点赞动态响应
-									global_var.response.space_reservation =
-										undefined; //空间预约响应
-									global_var.recorded_data = "";
-									global_var.pageurl = all_dynamic_id_list[i];
-									await utl.check_page_is_front(
-										global_var.page
-									);
-									//#region 前往页面
-									if (opus_dynamic) {
-										let break_time = 0;
-										while (break_time <= 3) {
-											break_time++;
-											try {
-												await global_var.page.goto(
-													`https://www.bilibili.com/opus/${MYAPI.BiliAPI.draw_dynamic_id(
-														all_dynamic_id_list[i]
-													)}`
+									let init_time_hour =
+										global_var.TIME.Init_Time.getHours();
+									if (
+										!(init_time_hour < 19
+											? init_time_hour >= 18
+											: false || init_time_hour < 12
+											? init_time_hour >= 11
+											: false)
+									) {
+										//如果初始化的时间不在吃饭时间内，则判断
+										if (
+											new Date().getHours() < 19
+												? new Date().getHours() >= 18
+												: false ||
+												  new Date().getHours() < 12
+												? new Date().getHours() >= 11
+												: false
+										) {
+											if (!global_var.FLAG.吃饭休息标志) {
+												console.log(
+													`${global_var.user_info.uname}\t模拟吃饭休息时间休息20分钟`
 												);
-												break;
-											} catch (e) {
-												console.error(
-													`${
-														global_var.user_info
-															.uname
-													}\t前往页面失败！https://www.bilibili.com/opus/${MYAPI.BiliAPI.draw_dynamic_id(
-														all_dynamic_id_list[i]
-													)}\t${e}\n${e.stack}` +
-														(break_time < 3
-															? `\n重试第${break_time}次！`
-															: `\n彻底失败！`)
-												);
-												await global_var.page
-													.browser()
-													.close();
-												await sleep(10e3);
-												await this.account_init(false);
+												await sleep(20 * 60 * 1e3);
+												global_var.FLAG.吃饭休息标志 = true;
 											}
 										}
-									} else {
-										await global_var.page.goto(
-											all_dynamic_id_list[i]
-										);
 									}
-									//#endregion
-									await sleep(5e3);
-									await pptr_op.check_bili_login(
-										global_var.page
-									);
-									let 抽奖反馈 = await do_lottery(
-										all_dynamic_id_list[i],
-										opus_dynamic
-									);
 									if (
-										抽奖反馈 &&
-										(all_dynamic_id_list[i].includes(
-											"tab=2"
-										) ||
+										longsleepflag[1] >
+										Math.round(
+											every_n_times_sleep_longtime *
+												(1 - 0.5 * Math.random())
+										)
+									) {
+										longsleepflag[0] = true;
+									}
+									if (global_var.fengkong_flag == true) {
+										console.log(
+											`${global_var.user_info.uname} 出了点问题，停个15分钟再抽`,
+											new Date().toLocaleString()
+										);
+										await sleep(15 * 60e3);
+										global_var.fengkong_flag = false;
+									}
+									if (global_var.Pause) {
+										while (1) {
+											if (!global_var.Pause) {
+												break;
+											}
+											await sleep(1e3);
+										}
+									}
+									if (
+										lottery_setting.CONFIG
+											.Only_Comment_Lottery_Switch
+									) {
+										if (
 											all_dynamic_id_list[i].includes(
 												"tab=1"
-											))
-									) {
-										repost_counter++;
-									}
-									let record = global_var.recorded_data;
-									console.log(
-										`${global_var.user_info.uname}\t${all_dynamic_id_list[i]}\t转评反馈：\n${record}\n==============================\n`
-									);
-									lottery_record.push(record);
-									//遇到点过赞的动态不休眠
-									if (record.includes("点过赞的动态")) {
-										console.log(
-											`${global_var.user_info.uname}\t${all_dynamic_id_list[i]}\t点过赞的动态不休眠`
-										);
-									} else {
-										let st =
-											utl.random_choice(
-												lottery_setting.lottery_sep_time
-											) *
-											(1 + Math.random() * 4);
-										if (
-											(i +
-												utl.random_choice([
-													1, 2, 3, 4, 5, 6, 7,
-												])) %
-												every_n_times_sleep_longtime ==
-												0 &&
-											longsleepflag[0]
-										) {
-											//每隔多少次休眠
-											st =
-												utl.random_choice(
-													utl.generater_step_Array(
-														1 * 60e3,
-														3 * 60e3,
-														1e3
-													)
-												) *
-												(1 + Math.random() * 4); //长间隔休眠时间，休息间隔拉长，模拟真人
-											longsleepflag[0] = false;
-											longsleepflag[1] = 0;
-										}
-										longsleepflag[1] += 1;
-										console.log(
-											`${global_var.user_info.uname}\t${
-												all_dynamic_id_list[i]
-											}\t休眠 ${
-												st / 1000
-											}秒\t${new Date().toLocaleTimeString()}`
-										);
-										await sleep(st); // 单个抽奖结束后等待时间
-									}
-									try {
-										if (
-											/https:\/\/t.bilibili.com\/(.\d+)/gim.exec(
-												record
-											) ||
-											/https:\/\/www.bilibili.com\/opus\/(.\d+)/gim.exec(
-												record
-											)
-										) {
-											//如果动态id获取为空
-											//啥都不干，因为可能是404的动态
-										} else if (
-											all_dynamic_id_list[i].includes(
-												/https:\/\/t.bilibili.com\/(.\d+)/gim
-													.exec(record)
-													.slice(1)[0]
 											) ||
 											all_dynamic_id_list[i].includes(
-												/https:\/\/www.bilibili.com\/opus\/(.\d+)/gim
-													.exec(record)
-													.slice(1)[0]
+												"tab=2"
 											)
 										) {
-											//如果不为空，判断是否包含对应动态id
-											//包含，啥都不干
-										} else {
-											//不包含，添加进去
-											manual_op.push(
-												all_dynamic_id_list[i]
-											);
 											console.log(
-												`${global_var.user_info.uname}\t${all_dynamic_id_list[i]}\t添加入人工回复队列`
-											);
-											manual_op_failed_record.push(
-												record
+												`${global_var.user_info.uname}  ${all_dynamic_id_list[i]}  只参与评论动态`
 											);
 											continue;
 										}
+									}
+
+									try {
+										let d = new Date();
+										console.log(
+											`${
+												global_var.user_info.uname
+											}\t当前任务【${task_name}】进度：  【${
+												i + 1
+											}/${
+												all_dynamic_id_list.length
+											}】\t\t${
+												all_dynamic_id_list[i]
+											} ${d.toLocaleTimeString()}`
+										);
+										if (global_var.page.isClosed()) {
+											//每次抽奖循环时检测页面是否关闭，如果关闭则重新打开浏览器页面！
+											await this.account_init(); //重新设置global_var.page
+										}
+										lottery_setting.FLAG.do_lottery_flag = true;
+										global_var.response.global_dynamic_data =
+											undefined; //全局的动态数据
+										global_var.response.create_dyn_response =
+											undefined; //创建或转发动态的响应
+										global_var.response.comment_dyn_response =
+											undefined; //自己评论动态的响应
+										global_var.response.relation_modify_response =
+											undefined; //关注响应
+										global_var.response.dynamic_thumb_response =
+											undefined; //点赞动态响应
+										global_var.response.space_reservation =
+											undefined; //空间预约响应
+										global_var.recorded_data = "";
+										global_var.pageurl =
+											all_dynamic_id_list[i];
+										await utl.check_page_is_front(
+											global_var.page
+										);
+										//#region 前往页面
+										if (opus_dynamic) {
+											let break_time = 0;
+											while (break_time <= 3) {
+												break_time++;
+												try {
+													await global_var.page.goto(
+														`https://www.bilibili.com/opus/${MYAPI.BiliAPI.draw_dynamic_id(
+															all_dynamic_id_list[
+																i
+															]
+														)}`
+													);
+													break;
+												} catch (e) {
+													console.error(
+														`${
+															global_var.user_info
+																.uname
+														}\t前往页面失败！https://www.bilibili.com/opus/${MYAPI.BiliAPI.draw_dynamic_id(
+															all_dynamic_id_list[
+																i
+															]
+														)}\t${e}\n${e.stack}` +
+															(break_time < 3
+																? `\n重试第${break_time}次！`
+																: `\n彻底失败！`)
+													);
+													await global_var.page.close();
+													await global_var.page
+														.browser()
+														.close();
+													await sleep(10e3);
+													await this.account_init(
+														false
+													);
+												}
+											}
+										} else {
+											await global_var.page.goto(
+												all_dynamic_id_list[i]
+											);
+										}
+										//#endregion
+										await sleep(5e3);
+										await pptr_op.check_bili_login(
+											global_var.page
+										);
+										let 抽奖反馈 = await do_lottery( // 这个函数还有点问题，现在出现了有时候重复执行的问题
+											all_dynamic_id_list[i],
+											opus_dynamic
+										);
 										if (
-											!record.includes("404动态") &&
-											!record.includes("无需评论动态") &&
-											!record.includes("点过赞的动态") &&
-											!record.includes(
-												"过期的官方抽奖"
-											) &&
-											!record.includes(
-												"发生未知错误，不可避免"
-											) &&
-											(record.includes("undefined") ||
-												record.includes(
-													`评论被阿瓦隆吞掉了`
-												) ||
-												record.includes(`转发失败`) ||
-												record.includes(
-													`动态评论失败`
-												) ||
-												record.includes(
-													`回复内容出错`
-												) ||
-												record.includes(`评论失败`) ||
-												record.includes(
-													`评论获取失败`
-												) ||
-												record.includes(
-													`话题获取失败`
-												) ||
-												record.includes(
-													`回复内容为空`
-												) ||
-												record.includes(`关注失败`) ||
-												record.includes(
-													"动态点赞失败"
-												) ||
-												record.includes(
-													`未获取到动态信息`
+											抽奖反馈 &&
+											(all_dynamic_id_list[i].includes(
+												"tab=2"
+											) ||
+												all_dynamic_id_list[i].includes(
+													"tab=1"
 												))
 										) {
+											repost_counter++;
+										}
+										let record = global_var.recorded_data;
+										console.log(
+											`${global_var.user_info.uname}\t${all_dynamic_id_list[i]}\t转评反馈：\n${record}\n==============================\n`
+										);
+										lottery_record.push(record);
+										//遇到点过赞的动态不休眠
+										if (record.includes("点过赞的动态")) {
+											console.log(
+												`${global_var.user_info.uname}\t${all_dynamic_id_list[i]}\t点过赞的动态不休眠`
+											);
+										} else {
+											let st =
+												utl.random_choice(
+													lottery_setting.lottery_sep_time
+												) *
+												(1 + Math.random() * 4);
+											if (
+												(i +
+													utl.random_choice([
+														1, 2, 3, 4, 5, 6, 7,
+													])) %
+													every_n_times_sleep_longtime ==
+													0 &&
+												longsleepflag[0]
+											) {
+												//每隔多少次休眠
+												st =
+													utl.random_choice(
+														utl.generater_step_Array(
+															1 * 60e3,
+															3 * 60e3,
+															1e3
+														)
+													) *
+													(1 + Math.random() * 4); //长间隔休眠时间，休息间隔拉长，模拟真人
+												longsleepflag[0] = false;
+												longsleepflag[1] = 0;
+											}
+											longsleepflag[1] += 1;
+											console.log(
+												`${
+													global_var.user_info.uname
+												}\t${
+													all_dynamic_id_list[i]
+												}\t休眠 ${
+													st / 1000
+												}秒\t${new Date().toLocaleTimeString()}`
+											);
+											await sleep(st); // 单个抽奖结束后等待时间
+										}
+										is_lot_error = false;
+										try {
+											if (
+												/https:\/\/t.bilibili.com\/(.\d+)/gim.exec(
+													record
+												) ||
+												/https:\/\/www.bilibili.com\/opus\/(.\d+)/gim.exec(
+													record
+												)
+											) {
+												//如果动态id获取为空
+												//啥都不干，因为可能是404的动态
+											} else if (
+												all_dynamic_id_list[i].includes(
+													/https:\/\/t.bilibili.com\/(.\d+)/gim
+														.exec(record)
+														?.slice(1)[0]
+												) ||
+												all_dynamic_id_list[i].includes(
+													/https:\/\/www.bilibili.com\/opus\/(.\d+)/gim
+														.exec(record)
+														?.slice(1)[0]
+												)
+											) {
+												//如果不为空，判断是否包含对应动态id
+												//包含，啥都不干
+											} else {
+												//不包含，添加进去
+												manual_op.push(
+													all_dynamic_id_list[i]
+												);
+												console.log(
+													`${global_var.user_info.uname}\t${all_dynamic_id_list[i]}\t添加入人工回复队列`
+												);
+												manual_op_failed_record.push(
+													record
+												);
+												continue;
+											}
+											if (
+												!record.includes("404动态") &&
+												!record.includes(
+													"无需评论动态"
+												) &&
+												!record.includes(
+													"点过赞的动态"
+												) &&
+												!record.includes(
+													"过期的官方抽奖"
+												) &&
+												!record.includes(
+													"发生未知错误，不可避免"
+												) &&
+												(record.includes("undefined") ||
+													record.includes(
+														`评论被阿瓦隆吞掉了`
+													) ||
+													record.includes(
+														`转发失败`
+													) ||
+													record.includes(
+														`动态评论失败`
+													) ||
+													record.includes(
+														`回复内容出错`
+													) ||
+													record.includes(
+														`评论失败`
+													) ||
+													record.includes(
+														`评论获取失败`
+													) ||
+													record.includes(
+														`话题获取失败`
+													) ||
+													record.includes(
+														`回复内容为空`
+													) ||
+													record.includes(
+														`关注失败`
+													) ||
+													record.includes(
+														"动态点赞失败"
+													) ||
+													record.includes(
+														`未获取到动态信息`
+													))
+											) {
+												manual_op.push(
+													all_dynamic_id_list[i]
+												);
+												// console.log(`${global_var.user_info.uname}\t${all_dynamic_id_list[i]}\t添加入人工回复队列`)
+												manual_op_failed_record.push(
+													record
+												);
+											} else {
+												lottery_success.push(
+													all_dynamic_id_list[i]
+												);
+											}
+										} catch (e) {
+											//提取动态id失败
+											console.warn(e);
+											console.error(
+												`${global_var.user_info.uname}\t${all_dynamic_id_list[i]}\t${record}\t提取动态id失败`
+											);
 											manual_op.push(
 												all_dynamic_id_list[i]
 											);
-											// console.log(`${global_var.user_info.uname}\t${all_dynamic_id_list[i]}\t添加入人工回复队列`)
+											console.warn(
+												`${global_var.user_info.uname}\t${all_dynamic_id_list[i]}\t${record}\t添加入人工回复队列`
+											);
+											manual_op_failed_record.push(
+												record
+											);
+											await utl.my_throw(`${e}`);
+											if (!global_var.user_info.uname) {
+												throw (
+													(e,
+													"提取动态id失败,record出错")
+												);
+											}
+											throw e;
+										}
+									} catch (e) {
+										manual_op.push(all_dynamic_id_list[i]);
+										let record = global_var.recorded_data;
+										if (record) {
 											manual_op_failed_record.push(
 												record
 											);
 										} else {
-											lottery_success.push(
-												all_dynamic_id_list[i]
+											manual_op_failed_record.push(
+												JSON.stringify(e)
 											);
 										}
-									} catch (e) {
-										//提取动态id失败
-										console.warn(e);
-										console.warn(
-											`${global_var.user_info.uname}\t${all_dynamic_id_list[i]}\t${record}\t提取动态id失败`
+										await utl.my_throw(
+											`lottery_loop执行单条任务失败，原因：${e}`
 										);
-										manual_op.push(all_dynamic_id_list[i]);
-										console.warn(
-											`${global_var.user_info.uname}\t${all_dynamic_id_list[i]}\t${record}\t添加入人工回复队列`
+										console.error(
+											`lottery_loop执行单条任务失败，原因：${e}\n${global_var.user_info.uname}\t${all_dynamic_id_list[i]}\n${e}\n${e.stack}`
 										);
-										manual_op_failed_record.push(record);
-										await utl.my_throw(`${e}`);
+										await sleep(10e3);
 										if (!global_var.user_info.uname) {
-											throw (
-												(e, "提取动态id失败,record出错")
-											);
+											//没登录或者浏览器页面关了
+											break;
 										}
-										throw e;
+										if(e.message?.includes('Protocol error: Connection closed. Most likely the page has been closed.')){
+											await global_var.page.close();
+											await global_var.page.browser().close()
+										}
+										if (global_var.page.isClosed()) {
+											await this.account_init();
+										}
 									}
+
+									is_lot_error = false;
 								} catch (e) {
-									manual_op.push(all_dynamic_id_list[i]);
-									let record = global_var.recorded_data;
-									if (record) {
+									is_lot_error = true;
+									if (loop_lot_retry_time > 3) {
+										manual_op.push(all_dynamic_id_list[i]);
+										let record = await utl.my_throw(`${e}`);
 										manual_op_failed_record.push(record);
-									} else {
-										manual_op_failed_record.push(
-											JSON.stringify(e)
-										);
 									}
-									await utl.my_throw(
-										`lottery_loop执行单条任务失败，原因：${e}`
-									);
 									console.error(
-										`lottery_loop执行单条任务失败，原因：${e}\n${global_var.user_info.uname}\t${all_dynamic_id_list[i]}\n${e}\n${e.stack}`
+										`单个lottery_loop执行失败，进入下一个循环！${global_var.user_info.uname}\t${all_dynamic_id_list[i]}\n${e}\n${e.stack}`
 									);
-									await sleep(10e3);
 									if (!global_var.user_info.uname) {
 										//没登录或者浏览器页面关了
 										break;
 									}
-									if (global_var.page.isClosed()) {
-										await this.account_init();
+									if(e.message?.includes('Protocol error: Connection closed. Most likely the page has been closed.')){
+										await global_var.page.close();
+										await global_var.page.browser().close()
 									}
+									if (global_var.page.isClosed()) {
+										//浏览器页面关闭则重新开启
+										await this.account_init(false);
+										await sleep(10e3);
+									}
+								} finally {
+									loop_lot_retry_time++;
 								}
-							
-								is_lot_error=false;
-							} catch (e) {
-								is_lot_error=true;
-								if(loop_lot_retry_time>3){
-									manual_op.push(all_dynamic_id_list[i]);
-									let record = await utl.my_throw(`${e}`);
-									manual_op_failed_record.push(record);
-								}
-								console.error(
-									`单个lottery_loop执行失败，进入下一个循环！${global_var.user_info.uname}\t${all_dynamic_id_list[i]}\n${e}\n${e.stack}`
-								);
-								if (!global_var.user_info.uname) {
-									//没登录或者浏览器页面关了
-									break;
-								}
-								if (global_var.page.isClosed()) {
-									//浏览器页面关闭则重新开启
-									await this.account_init(false);
-									await sleep(10e3);
-								}
-							}finally{
-								loop_lot_retry_time++
-							}} while (loop_lot_retry_time<=3 && is_lot_error)
-
+							} while (loop_lot_retry_time <= 3 && is_lot_error);
 						}
 					} catch (e) {
 						console.error(
@@ -2359,6 +2403,9 @@ class DO_Lottery {
 							`${global_var.user_info.uname}\t失败原因:`,
 							manual_op_failed_record
 						);
+						lottery_record = undefined; //记录抽奖评论信息
+						manual_op = undefined; //需要人工操作的动态
+						manual_op_failed_record = undefined; //返回的失败的record
 						return lottery_success;
 					}
 				};
@@ -3002,7 +3049,7 @@ class DO_Lottery {
 				 *
 				 * @returns {Promise<boolean>} login_status
 				 */
-				let Init = async () => {
+				const Init = async () => {
 					//await sleep(3600e3)
 					let login_status = false;
 					try {
@@ -3070,7 +3117,6 @@ class DO_Lottery {
 				//#region 动态抽奖任务完成之后
 				this._setGlobalPage(global_var.page);
 				await sleep(60e3);
-				this._setLotFlag(false);
 				if (!browser_mode && global_var.user_info.uid) {
 					if (global_var.response.msgfeed_unread) {
 						if (
@@ -3086,7 +3132,13 @@ class DO_Lottery {
 							if (global_var.page.isClosed()) {
 							} //页面关了全都不管
 							else {
-								await global_var.page.goto(`about:blank`);
+								await global_var.page
+									.goto(`about:blank`)
+									.catch((e) => {
+										console.error(
+											`前往页面失败！${e.stack}`
+										);
+									});
 							}
 							return;
 						}
@@ -3129,7 +3181,8 @@ class DO_Lottery {
 					}
 				}
 				//#endregion
-			})();
+			};
+			await __();
 		} catch (e) {
 			console.error(
 				`${global_var.user_info.uname}\t执行launch_lottery抽奖失败！\n${e.stack}`

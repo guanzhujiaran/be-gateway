@@ -2,7 +2,7 @@
  * @Author: 星瞳 1944637830@qq.com
  * @Date: 2023-11-08 13:34:47
  * @LastEditors: 星瞳 1944637830@qq.com
- * @LastEditTime: 2024-05-30 15:13:12
+ * @LastEditTime: 2024-07-08 14:41:09
  * @FilePath: \tampermonkey\木偶模块\util\common_utl.js
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -125,14 +125,15 @@ const pptr_op = {
 							.includes(
 								"data.bilibili.com/log/web?content_type"
 							) ||
-						req.url().includes("cm.bilibili.com/cm/api/fees/pc") ||
-						req.url().includes(`data.bilibili.com/v2/log/web`)
+						req.url().includes("cm.bilibili.com/cm/api/fees/pc")
+						// req.url().includes(`data.bilibili.com/v2/log/web`)
+						
 					) {
 						//如果是浏览器要发起检测到作弊的请求，就拦截下来，不让它发出去！
 						return req.respond({
 							status: 200,
 							contentType: "text/plain; charset=utf-8",
-							body: "ok",
+							body: "我拦截了",
 						});
 						//console.log(`成功拦截科技识别请求：${interceptedRequest.url()}`);
 					}
@@ -267,7 +268,7 @@ const pptr_op = {
 					content: msg,
 					template: "txt",
 				});
-				if (resp.code != 200) {
+				if (resp?.data?.code != 200) {
 					console.error(
 						`推送${(title, msg)}失败！原因：${JSON.stringify(
 							resp.data

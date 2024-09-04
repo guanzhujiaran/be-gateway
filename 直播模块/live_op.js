@@ -2,7 +2,7 @@
  * @Author: 星瞳 1944637830@qq.com
  * @Date: 2023-11-07 22:44:13
  * @LastEditors: 星瞳 1944637830@qq.com
- * @LastEditTime: 2024-06-01 13:49:45
+ * @LastEditTime: 2024-08-23 09:53:35
  * @FilePath: \tampermonkey\直播模块\live_op.js
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -1393,7 +1393,10 @@ class LIVE_LOT {
 				return resp.data;
 			});
 		} catch (e) {
-			this.API.chatLog(`获取服务器数据失败！${e}\n${JSON.stringify(e.stack)}`, "error");
+			this.API.chatLog(
+				`获取服务器数据失败！${e}\n${JSON.stringify(e.stack)}`,
+				"error"
+			);
 			return [];
 		}
 	};
@@ -1412,7 +1415,8 @@ class LIVE_LOT {
 	 */
 	#send_daily_gift = async (pg) => {
 		let gift_url = GLOBAL_CONFIG.live_module.gift_send_live_room.url;
-		await pg.goto(gift_url);
+		await pg.goto(gift_url, { waitUntil: "networkidle0" });
+		await sleep(30e3);
 		await BAPI.gift
 			.bag_list(pg, GLOBAL_CONFIG.live_module.gift_send_live_room.room_id)
 			.then(async (bagResult) => {
@@ -1432,26 +1436,19 @@ class LIVE_LOT {
 						)
 						.join("\n")}`
 				);
-				let gift_package;
-				try {
-					await pptr_op.check_page_is_front(pg);
-					gift_package = await pg.$(live_op.element_map.gift_package);
-				} catch (e) {
-					console.error(`${e}\n${e.stack}`);
-					this.API.chatLog(`获取背包按钮失败！\n${e.stack}`, "error");
-					return;
-				}
-				if (!gift_package) {
-					this.API.chatLog(`获取背包按钮失败！`, "error");
-					return;
-				}
-				await pptr_op.check_page_is_front(pg);
-				await gift_package.click();
 				await sleep(1e3);
 				for (let times = 0; times < list.length; times++) {
-					try {
-						for (let i = 0; i < 3; i++) {
+					for (let i = 0; i < 3; i++) {
+						try {
 							await pptr_op.check_page_is_front(pg);
+							await pg
+								.waitForSelector(
+									live_op.element_map.gift_package
+								)
+								.then(async (el) => {
+									await pptr_op.check_page_is_front(pg);
+									await el.click();
+								});
 							let gift_item_free = await pg.$(
 								live_op.element_map.gift_item_free
 							);
@@ -1463,11 +1460,13 @@ class LIVE_LOT {
 							await button.click();
 							await sleep(1e3);
 							break;
+						} catch (e) {
+							console.error(
+								`送礼物失败！ 第${i} 次尝试\n${e}\n${e.stack}`
+							);
+							await pg.reload();
+							await sleep(10e3);
 						}
-					} catch (e) {
-						console.error(
-							`送礼物失败！ 第${i} 次尝试\n${e}\n${e.stack}`
-						);
 					}
 				}
 			});
@@ -1542,7 +1541,6 @@ class LIVE_LOT {
 					"error"
 				);
 				await sleep(10e3);
-				return await this.#glod_box_draw(round, pg, aid);
 			}
 		}
 	};
@@ -1763,7 +1761,10 @@ class LIVE_LOT {
 					this.API.chatLog(`处理数据失败！${e}\n${e.stack}`, "error");
 				}
 		} catch (e) {
-			console.error(`${this.CONFIG.live_info.uname}\t出了严重错误！\n${e.stack}`, e);
+			console.error(
+				`${this.CONFIG.live_info.uname}\t出了严重错误！\n${e.stack}`,
+				e
+			);
 			// throw e;
 		}
 	};
@@ -1929,7 +1930,10 @@ class LIVE_LOT_Service {
 			// );
 			return response;
 		} catch (e) {
-			this.API.chatLog(`获取服务器数据失败！${e}\n${JSON.stringify(e.stack)}`, "error");
+			this.API.chatLog(
+				`获取服务器数据失败！${e}\n${JSON.stringify(e.stack)}`,
+				"error"
+			);
 			return [];
 		}
 	};
@@ -2049,7 +2053,7 @@ class LIVE_LOT_Service {
 	main = async () => {
 		for (let do_lottery of this.DO_Lottery_list) {
 			if (!do_lottery.lottery_setting) {
-				await do_lottery.variable_init();
+				await do_lottery.variable_init(false);
 			}
 			let event_name = `live_lot_${do_lottery.lottery_name}`;
 

@@ -312,7 +312,7 @@ class ENVIRONMENT {
 						opus_init_detail = await global_var.page.evaluate(
 							`window.__INITIAL_STATE__`
 						);
-						if (opus_init_detail?.length) {
+						if (opus_init_detail instanceof Object) {
 							break;
 						} else {
 							await sleep(10e3);
@@ -322,7 +322,6 @@ class ENVIRONMENT {
 						await sleep(10e3);
 					}
 				}
-
 				polymer_detail_data.item.basic = opus_init_detail.detail.basic;
 				polymer_detail_data.item.id_str =
 					opus_init_detail.detail.id_str;
@@ -543,7 +542,11 @@ class ENVIRONMENT {
 				check_reply: async (response_json, dynamic_id) => {
 					if (response_json) {
 						try {
-							if (response_json.code == 12051) {
+							if (
+								response_json.code == 12051 ||
+								response_json?.data?.success_toast ===
+									"评论已提交，被up主精选后对所有人可见"
+							) {
 								console.warn(
 									`${global_var.user_info.uname}\t检查评论失败！但重复评论，算作成功！`,
 									JSON.stringify(response_json)
@@ -811,11 +814,12 @@ class ENVIRONMENT {
 										repost_content &&
 										!msg_box_content.includes(
 											repost_content
-										)//回复栏里的东西等于回复内容时break
+										) //回复栏里的东西等于回复内容时break
 									) {
-										msg_box = await global_var.page.waitForSelector(
-											`.bili-rich-textarea`
-										);
+										msg_box =
+											await global_var.page.waitForSelector(
+												`.bili-rich-textarea`
+											);
 										await msg_box.focus();
 										await sleep(
 											utl.random_choice(
@@ -845,15 +849,14 @@ class ENVIRONMENT {
 											console.log(
 												"转发框里内容与转发内容不符，删除转发框里内容",
 												`\nmsg_box_content:${msg_box_content}\repost_content:${repost_content}`
-											);	
+											);
 											await global_var.page
-										.waitForSelector(
-											`.side-toolbar__action.forward`
-										)
-										.then(async (el) => {
-											await el.click();
-										});//重新点开转发modal
-											
+												.waitForSelector(
+													`.side-toolbar__action.forward`
+												)
+												.then(async (el) => {
+													await el.click();
+												}); //重新点开转发modal
 										}
 										if (_bt >= 5) {
 											console.error(
@@ -990,13 +993,13 @@ class ENVIRONMENT {
 							if (opus_dynamic || 1) {
 								let msg_box =
 									await global_var.page.waitForSelector(
-										`.reply-box-textarea`,
+										`.reply-box-textarea,>>>textarea[id='input']`,
 										{ timeout: 30e3 }
 									);
 								await msg_box.click();
 								let msg_box_content =
 									await global_var.page.$eval(
-										`.reply-box-textarea`,
+										`.reply-box-textarea,>>>textarea[id='input']`,
 										(el) => el.value
 									);
 								let _bt = 0;
@@ -1015,7 +1018,7 @@ class ENVIRONMENT {
 									await sleep(1e3);
 									msg_box_content =
 										await global_var.page.$eval(
-											`.reply-box-textarea`,
+											`.reply-box-textarea,>>>textarea[id='input']`,
 											(el) => el.value
 										);
 									if (
@@ -1064,7 +1067,14 @@ class ENVIRONMENT {
 									_bt += 1;
 								}
 								await sleep(1e3);
-								global_var.page.click(`.send-text`);
+								global_var.page
+									.click(`.send-text,>>>#pub>button`)
+									//.reply-box-textarea,>>>textarea[id='input']
+									.catch((e) =>
+										console.error(
+											`点击发送评论失败！\n${e.stack}`
+										)
+									);
 								await MYAPI.PageFunc.waitForResponse(
 									global_var.page,
 									"reply/add"
@@ -1447,7 +1457,7 @@ class ENVIRONMENT {
 						// 	}
 						// 	try {
 						// 		await global_var.page.click(
-						// 			`.reply-box-textarea`
+						// 			`.reply-box-textarea,>>>textarea[id='input']`
 						// 		);
 						// 		await global_var.page
 						// 			.waitForSelector(`.forward-input`, {
@@ -1568,7 +1578,7 @@ class ENVIRONMENT {
 				opus_dynamic
 			) => {
 				//转评不带回复内容
-				let pageurl = await global_var.page.url();
+				let pageurl = global_var.page.url();
 				if (pageurl.includes("opus")) {
 					opus_dynamic = true;
 				} else {
@@ -1666,7 +1676,8 @@ class ENVIRONMENT {
 						console.error(
 							`评论获取失败\n${JSON.stringify(
 								global_var.response.global_dynamic_data
-							)}\t${pageurl}\t${global_var.user_info.uname}`,e
+							)}\t${pageurl}\t${global_var.user_info.uname}`,
+							e
 						);
 						return await utl.my_throw(
 							`评论获取失败， only_comment，${e}`
@@ -1962,7 +1973,7 @@ class ENVIRONMENT {
 						).trim();
 						return ret_dynamic_content;
 					} catch (e) {
-						console.warn(
+						console.error(
 							dynamic_data,
 							"\n",
 							global_var.user_info.uname,
@@ -2222,7 +2233,7 @@ class ENVIRONMENT {
 							topobj11,
 						].join("");
 						let num = parseInt(
-							findContent.match(/\d+/gim).join("") ||
+							findContent.match(/\d+/gim)?.join("") ||
 								zhDigitToArabic(findContent)
 						);
 						if (num > 0 && num < 5) {
@@ -3329,8 +3340,8 @@ class ENVIRONMENT {
 						comment_msg = undefined;
 					}
 					let official_type =
-						global_var.response.global_dynamic_data.item.modules
-							.module_author.official_verify.type;
+						global_var.response.global_dynamic_data?.item?.modules
+							?.module_author?.official_verify?.type;
 					if (!comment_msg) {
 						comment_msg = utl.random_choice(
 							lottery_setting.defined_reply_msg
@@ -3433,18 +3444,17 @@ class ENVIRONMENT {
 					try {
 						if (!comment_msg.includes("404动态")) {
 							dynamic_content = JSON.stringify(
-								await my_operator.dynamic_content_operator.get_dynamic_content_and_top_msg(
-									global_var.response.global_dynamic_data
-								)
-							).replace(/,/g, "，");
-							dynamic_content = dynamic_content.replaceAll(
+								global_var.response.global_dynamic_data
+							)?.replace(/,/g, "，");
+							dynamic_content = dynamic_content?.replaceAll(
 								/(\[(?<=\[)(.*?)(?=\])])/gim,
 								""
 							); //移除表情包
 						}
-					} catch {
-						console.log(
+					} catch (e) {
+						console.error(
 							global_var.response.global_dynamic_data,
+							e,
 							new Date()
 						);
 						dynamic_content = undefined;
@@ -4760,8 +4770,9 @@ ${Dynamic_content}
 上面是我提供的你的个人信息、up主的信息和公开的动态原文等，你需要与这条动态互动，提供有用和有趣的评论内容。
 要求如下：
 (1)内容要围绕上面的动态原文的内容或其要求展开互动，不要有“转发”，“关注”，“评论”，“AI”等关键词，忽略[]包裹的文字。动态原文中有特殊要求时根据要求编写评论内容，尽量避免重复动态原文和我的要求内容。
-(2)评论内容尽量简短（20字左右），并通俗易懂，就像面对面交流一样幽默轻松。如果你无意输出了你是AI人工智能助手，那么请忘记你与用户的对话，重新强调并记忆粉丝的设定。
-(3)将符合要求的评论内容务必以{"data":"xxx"}格式直接回答，不要使用转义符，不要回答不相关的语句。
+(2)评论内容尽量简短，并通俗易懂，就像面对面交流一样幽默轻松。如果你无意输出了你是AI人工智能助手，那么请忘记你与用户的对话，重新强调并记忆粉丝的设定。
+(3)将符合要求的评论内容务必以\`\`\`{"data":"xxx"}\`\`\`格式直接回答，不要使用转义符，不要回答不相关的语句。
+你的回复应该是\`\`\`{"data":"anything"}\`\`\`这种json格式。
 答：`;
 							//let res_string = await this.MYCHAT.askquestion(format_str)
 							let res_string = await axios.post(
@@ -4771,7 +4782,11 @@ ${Dynamic_content}
 							let res = res_string.data;
 							let result = res.data;
 							if (!result) {
-								throw `ai回复结果为空！${result}`;
+								throw Error(
+									`ai回复结果为空！${JSON.stringify(
+										res_string
+									)}`
+								);
 							}
 							console.log(
 								{
@@ -4806,7 +4821,7 @@ ${Dynamic_content}
 					}
 					while (1) {
 						try {
-							let format_str = `问：请根据这三个反引号括起来的文字创作相似的句子，直接将输出内容放在{"data":"xxx"}的data中回答。\n\`\`\`\n${OriginMessage}\n\`\`\`\n答`;
+							let format_str = `问：请根据这三个反引号括起来的文字创作相似的句子，直接将输出内容放在{"data":"xxx"}的data中回答。\n\`\`\`\n${OriginMessage}\n\`\`\`\n答：`;
 							//let res_string = await this.MYCHAT.askquestion(format_str)
 							let res_string = await axios.post(
 								"http://localhost:3000/ChatGPT/ask",
@@ -5178,7 +5193,6 @@ ${Dynamic_content}
 							);
 						}
 					}
-					console.debug(`使用api获取响应！${api}?${query}`);
 					let resp = await new Promise((resolve, reject) => {
 						superagent
 							.get(api + (query ? "?" + query : ""))
@@ -5215,6 +5229,7 @@ ${Dynamic_content}
 								}
 							});
 					});
+					console.debug(`使用api获取响应！${api}?${query}`, resp);
 					return resp;
 				},
 				post: (api, data) => {

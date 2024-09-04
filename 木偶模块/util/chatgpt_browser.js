@@ -12,7 +12,7 @@ async function launchBrowser(userProfile) {
 			// `--start-stack-profiler`,
 			//`--load-extension=${ext1}`,
 			"--disable-notifications=true",
-			"--no-sandbox",
+			// "--no-sandbox",
 			"-–ignore-certificate-errors",
 			"--disable-session-crashed-bubble",
 			"--disable-web-security",

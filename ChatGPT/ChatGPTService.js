@@ -2,7 +2,7 @@
  * @Author: 星瞳 1944637830@qq.com
  * @Date: 2023-08-18 17:24:27
  * @LastEditors: 星瞳 1944637830@qq.com
- * @LastEditTime: 2024-06-13 12:12:42
+ * @LastEditTime: 2024-06-20 11:29:39
  * @FilePath: \tampermonkey\ChatGPT\ChatGPTService.js
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -53,7 +53,7 @@ app.post("/ChatGPT/ask", async (req, res) => {
 					console.error(`非法输入的请求喵！${req.body}`);
 				}
 				let resp = await axios.post(
-					"http://127.0.0.1:3090/api/v1/ChatGpt3_5/ReplySingle",
+					"http://127.0.0.1:23333/api/v1/ChatGpt3_5/ReplySingle",
 					{
 						question: inputText,
 						ts: Math.ceil(Date.now() / 1000),
@@ -62,6 +62,7 @@ app.post("/ChatGPT/ask", async (req, res) => {
 				if (resp.data.code) {
 					throw Error(resp.msg);
 				}
+				console.debug(`请求：${inputText}\n获取到响应：${JSON.stringify(resp.data)}`)
 				// let processedText = await my_chat.askquestion(inputText);
 				let  processedText = resp.data.data.answer
 				processedText = processedText
@@ -70,7 +71,9 @@ app.post("/ChatGPT/ask", async (req, res) => {
 								.replace("jsonCopy code", "")
 								.replace("data{", "{")
 								.replaceAll("json1", "")
-								.replaceAll(`Json\n1`, "")
+								.replaceAll("Json\n1", "")
+								.replaceAll("```json\n","")
+								.replaceAll("\n```","")
 								.replaceAll("\n2", "")
 								.replaceAll("\n4", "")
 								.replaceAll("\n5", "")

@@ -22,7 +22,7 @@
 		args: [
 			`--start-stack-profiler`,
 			"--disable-notifications=true",
-			"--no-sandbox",
+			// "--no-sandbox",
 			"--disable-infobars",
 			"--disable-session-crashed-bubble",
 			"--disable-setuid-sandbox",
@@ -36,14 +36,13 @@
 			`--profile-directory=Default`,
 			"--disable-features=IsolateOrigins,site-per-process",
 			`--start-maximized`,
-			"--proxy-server=http://127.0.0.1:24010",
+			"--proxy-server=http://127.0.0.1:24000",
 		],
-		userDataDir: "UserData\\" + `cookie14`,
+		userDataDir: "UserData\\" + `cookie1`,
 		ignoreDefaultArgs: ["--enable-automation", "--disable-extensions"],
 		ignoreHTTPSErrors: true,
 	});
 	global_var.browser = browser;
-
 	let page = await browser.newPage();
 	global_var.page = page;
 })();
