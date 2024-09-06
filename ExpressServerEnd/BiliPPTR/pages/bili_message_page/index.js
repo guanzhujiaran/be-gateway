@@ -57,8 +57,46 @@ class BiliMessagePage extends BiliOtherPage {
         return true
     }
 
+    async #handle_fetch_session_msgs(messages, user_cards) {
+        for (let message of messages) {
+            let content
+            switch (message.type) {
+                case 1:
+                    let msg_source = message.msg_source;
+                    content = JSON.parse(message.content).content
+                    switch (msg_source) {
+                        case 7:
+                            console.log(this.bili_dynamic_page.log_format(`获取到人工回复消息（type：${message.type}|source：${msg_source}）：【${String(content)}】`))
+                            // TODO 这里加一个存到数据库的方法
+                            break;
+                        case 8:
+                            console.log(this.bili_dynamic_page.log_format(`获取到自动回复消息（type：${message.type}|source：${msg_source}）：【${String(content)}】`))
+                            break;
+                        default:
+                            // TODO 这里加一个存到数据库的方法
+                            console.log(this.bili_dynamic_page.log_format(`获取到未知来源回复消息（type：${message.type}|source：${msg_source}）：【${String(content)}】`))
+                    }
+                    break;
+                case 18:
+                    content = JSON.parse(message.content).content
+                    console.log(this.bili_dynamic_page.log_format(`获取到系统消息（type：${message.type}|source：${message.msg_source}）：【${String(content)}】`))
+                    break;
+                case 13:
+                    content = JSON.parse(message.content).content
+                    console.log(this.bili_dynamic_page.log_format(`获取到广告消息（type：${message.type}|source：${message.msg_source}）：【${String(content)}】`));
+                    break;
+            }
+        }
+    }
+
+    /**
+     *
+     * @param {Page} pg
+     * @return {Promise<void>}
+     */
     async get_all_whisper_msg(pg) {
         let fetch_session_msg;
+        let user_cards_resp;
         await Promise.all([
             await pg.goto(BiliElementMap.url_path.user.msg_whisper),
             fetch_session_msg = await pg.waitForResponse(
@@ -66,29 +104,55 @@ class BiliMessagePage extends BiliOtherPage {
                     .includes(
                         BiliElementMap.url_path.user.msg_session_svr_fetch_session_msgs
                     )
+            ),
+            user_cards_resp = await pg.waitForResponse(resp => resp.url().includes(
+                    BiliElementMap.url_path.user.msg_user_cards
+                )
             )
         ]);
-        let messages = fetch_session_msg.data.messages
-        if (messages) {
-            for (let message of messages) {
-                let content
-                switch (message.type) {
-                    case 1:
-                        let msg_source = message.msg_source;
-                        if (msg_source)
-                        content = JSON.parse(message.content).content
-                        console.log(this.bili_dynamic_page.log_format(`获取到回复消息（type：1）：【${String(content)}】`))
-                        break;
-                    case 18:
-                        content = JSON.parse(message.content).content
-                        console.log(this.bili_dynamic_page.log_format(`获取到系统消息（type：18）：【${String(content)}】`))
-                        break;
-
-
+        let messages = fetch_session_msg?.data?.messages
+        let user_cards = user_cards_resp?.data
+        if (messages && user_cards) {
+            await this.#handle_fetch_session_msgs(messages, user_cards);
+        } else {
+            console.error(this.bili_dynamic_page.log_format(`获取单个私信消息失败！\n${JSON.stringify(fetch_session_msg)}\n${JSON.stringify(user_cards_resp)}`));
+            //TODO 加一个失败日志，存到数据库！
+        }
+        while (true) {
+            let notify_num = parseInt(await pg.waitForSelector(BiliElementMap.message_page.whisper_notify_total_number).then(async el => {
+                return await el.textContent();
+            }))
+            console.log(this.bili_dynamic_page.log_format(`当前剩余${notify_num}条新私信`))
+            if (notify_num === 0) break;
+            let all_notify_point = await pg.$$(BiliElementMap.message_page.whisper_notify)
+            for (let notify_point of all_notify_point) {
+                let parent = await notify_point.getProperty('parentNode');
+                await Promise.all([
+                    await parent.click(),
+                    fetch_session_msg = await pg.waitForResponse(
+                        resp => resp.url()
+                            .includes(
+                                BiliElementMap.url_path.user.msg_session_svr_fetch_session_msgs
+                            ))
+                ]);
+                let messages = fetch_session_msg?.data?.messages
+                if (messages) {
+                    await this.#handle_fetch_session_msgs(messages);
+                } else {
+                    console.error(this.bili_dynamic_page.log_format(`获取单个私信消息失败！`));
+                    //TODO 加一个失败日志，存到数据库！
                 }
             }
+            let left = await pg.waitForSelector(BiliElementMap.message_page.space_right_left)
+            await left.evaluate(() => {
+                this.scrollTo(0, 2000)
+            });
         }
 
+
+    }
+
+    async get_all_reply_msg(pg) {
 
     }
 

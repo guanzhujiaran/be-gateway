@@ -89,6 +89,11 @@ const BiliElementMap = {
         rightArrow_btn: ".pointer.arrow-box", //直播的功能展开箭头
         live_player: `#live-player-ctnr`, //直播播放器！
     },
+    message_page: {
+        whisper_notify_total_number: `a[href="#/whisper"]>.notify.notify-number`,
+        whisper_notify: `.space-right .notify.notify-number`,
+        space_right_left: `.left`,
+    },
     url_path: {
         main: {
             main_site: `https://www.bilibili.com/`
@@ -98,8 +103,9 @@ const BiliElementMap = {
             relation_modify: `x/relation/modify`,
             msg_unread: `msgfeed/unread`,
             msg_whisper: `https://message.bilibili.com/?spm_id_from=333.1007.0.0#/whisper`,
-            msg_session_svr_get_session:`https://api.vc.bilibili.com/session_svr/v1/session_svr/get_sessions`,
-            msg_session_svr_fetch_session_msgs:`https://api.vc.bilibili.com/svr_sync/v1/svr_sync/fetch_session_msgs`,
+            msg_session_svr_get_session: `https://api.vc.bilibili.com/session_svr/v1/session_svr/get_sessions`,
+            msg_session_svr_fetch_session_msgs: `https://api.vc.bilibili.com/svr_sync/v1/svr_sync/fetch_session_msgs`,
+            msg_user_cards: `https://api.bilibili.com/x/polymer/pc-electron/v1/user/cards`,
             home: `https://account.bilibili.com/account/home`,
             login: `https://passport.bilibili.com/pc/passport/login`
         },
