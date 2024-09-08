@@ -1,63 +1,63 @@
 {
-	"name": "tampermonkey",
-	"version": "1.0.0",
-	"description": "<!--\r  * @Author: 星瞳 1944637830@qq.com\r  * @Date: 2023-11-02 01:07:29\r  * @LastEditors: 星瞳 1944637830@qq.com\r  * @LastEditTime: 2024-01-10 14:18:56\r  * @FilePath: \\tampermonkey\\README.md\r  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE\r -->",
-	"main": "index.js",
-	"scripts": {
-		"test": "echo \"Error: no test specified\" && exit 1",
-		"dev": "node-dev ./ExpressServerEnd/ServerRun.js"
-	},
-	"_moduleAliases": {
-		"@/": "K:/BiliPPTRVerDEV/"
-	},
-	"author": "",
-	"license": "ISC",
-	"dependencies": {
-		"@bull-board/express": "^5.21.3",
-		"axios": "^1.7.3",
-		"bull": "^4.16.0",
-		"bullmq": "^5.12.3",
-		"cookie-parser": "^1.4.6",
-		"cors": "^2.8.5",
-		"dotenv": "^16.4.5",
-		"express": "^4.19.2",
-		"express-jwt": "^8.4.1",
-		"express-validator": "^7.2.0",
-		"extract-stealth-evasions": "^2.7.3",
-		"fs": "^0.0.2",
-		"ioredis": "^5.4.1",
-		"jquery": "^3.7.1",
-		"js-yaml": "^4.1.0",
-		"jsdom": "^24.1.1",
-		"jsonwebtoken": "^9.0.2",
-		"md5": "^2.3.0",
-		"natural": "^8.0.1",
-		"npm": "^10.8.2",
-		"pg": "^8.12.0",
-		"pg-hstore": "^2.3.4",
-		"puppeteer-core": "^23.0.2",
-		"puppeteer-extra": "^3.3.6",
-		"puppeteer-extra-plugin-adblocker": "^2.13.6",
-		"puppeteer-extra-plugin-fingerprinter": "^1.1.9",
-		"puppeteer-extra-plugin-stealth": "^2.11.2",
-		"puppeteer-interceptor": "^2.2.0",
-		"puppeteer-real-browser": "^1.2.31",
-		"redis": "^4.7.0",
-		"sequelize": "^7.0.0-alpha.9",
-		"sqlite3": "^5.1.7",
-		"stack-trace": "^1.0.0-pre2",
-		"superagent": "^10.0.0",
-		"superagent-proxy": "^3.0.0",
-		"supervisor": "^0.12.0",
-		"synonyms": "^1.0.1",
-		"uuid": "^10.0.0"
-	},
-	"devDependencies": {
-		"longjohn": "^0.2.12",
-		"module-alias": "^2.2.3",
-		"node-dev": "^8.0.0"
-	},
-	"directories": {
-		"lib": "lib"
-	}
+    "name": "tampermonkey",
+    "version": "1.0.0",
+    "description": "<!--\r  * @Author: 星瞳 1944637830@qq.com\r  * @Date: 2023-11-02 01:07:29\r  * @LastEditors: 星瞳 1944637830@qq.com\r  * @LastEditTime: 2024-01-10 14:18:56\r  * @FilePath: \\tampermonkey\\README.md\r  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE\r -->",
+    "main": "index.js",
+    "scripts": {
+        "test": "node ./ExpressServerEnd/ServerDevTest.js",
+        "dev": "node-dev ./ExpressServerEnd/ServerRun.js"
+    },
+    "_moduleAliases": {
+        "@/": "K:/BiliPPTRVerDEV/"
+    },
+    "author": "",
+    "license": "ISC",
+    "dependencies": {
+        "@bull-board/express": "^5.21.3",
+        "axios": "^1.7.3",
+        "bull": "^4.16.0",
+        "bullmq": "^5.12.3",
+        "cookie-parser": "^1.4.6",
+        "cors": "^2.8.5",
+        "dotenv": "^16.4.5",
+        "express": "^4.19.2",
+        "express-jwt": "^8.4.1",
+        "express-validator": "^7.2.0",
+        "extract-stealth-evasions": "^2.7.3",
+        "fs": "^0.0.2",
+        "ioredis": "^5.4.1",
+        "jquery": "^3.7.1",
+        "js-yaml": "^4.1.0",
+        "jsdom": "^24.1.1",
+        "jsonwebtoken": "^9.0.2",
+        "md5": "^2.3.0",
+        "natural": "^8.0.1",
+        "npm": "^10.8.2",
+        "pg": "^8.12.0",
+        "pg-hstore": "^2.3.4",
+        "puppeteer-core": "^23.0.2",
+        "puppeteer-extra": "^3.3.6",
+        "puppeteer-extra-plugin-adblocker": "^2.13.6",
+        "puppeteer-extra-plugin-fingerprinter": "^1.1.9",
+        "puppeteer-extra-plugin-stealth": "^2.11.2",
+        "puppeteer-interceptor": "^2.2.0",
+        "puppeteer-real-browser": "^1.2.31",
+        "redis": "^4.7.0",
+        "sequelize": "^7.0.0-alpha.9",
+        "sqlite3": "^5.1.7",
+        "stack-trace": "^1.0.0-pre2",
+        "superagent": "^10.0.0",
+        "superagent-proxy": "^3.0.0",
+        "supervisor": "^0.12.0",
+        "synonyms": "^1.0.1",
+        "uuid": "^10.0.0"
+    },
+    "devDependencies": {
+        "longjohn": "^0.2.12",
+        "module-alias": "^2.2.3",
+        "node-dev": "^8.0.0"
+    },
+    "directories": {
+        "lib": "lib"
+    }
 }

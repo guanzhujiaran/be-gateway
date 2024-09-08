@@ -321,7 +321,9 @@ class BiliDynamicPage extends BasePage {
                 console.error(this.log_format(err_msg));
                 await pptr_op.my_send_notify.push_me(
                     err_msg,
-                    this.log_format(`${JSON.stringify(global_var.user_info, undefined, "\t")}`)
+                    this.log_format(`${JSON.stringify(global_var.user_info, undefined, "\t")}`),
+                    this.lottery_setting.notify_setting_module.pushme_key,
+                    this.lottery_setting.notify_setting_module.push_plus_key
                 );
                 throw Error(BiliElementMap.log_record.critical_error.account_logout);
             }
@@ -1417,7 +1419,12 @@ class BiliDynamicPage extends BasePage {
                 let err_msg = `${this.user_id} ${this.account_id}账号未登录`
                 console.error(err_msg)
                 this.global_var.FLAG.抽奖中标志 = false;
-                return await pptr_op.my_send_notify.push_me(err_msg, `${JSON.stringify(this.global_var.system, undefined, '\t')}`)
+                return await pptr_op.my_send_notify.push_me(
+                    err_msg,
+                    `${JSON.stringify(this.global_var.system, undefined, '\t')}`,
+                    this.lottery_setting.notify_setting_module.pushme_key,
+                    this.lottery_setting.notify_setting_module.push_plus_key
+                )
             }
             tasks.unshift(new MyTask(this.lottery_op.loop.reserve_lottery, [reserve_lottery]));//测试过了，没啥问题，还差一个断网测试
             tasks.unshift(new MyTask(this.lottery_op.loop.dynamic_lottery, [must_join_common_lottery, "必抽的大奖"]));//测试过了，没啥问题，还差一个断网测试
@@ -1434,7 +1441,12 @@ class BiliDynamicPage extends BasePage {
                     global_var: this.global_var
                 }).catch(async e => {
                     console.error(e)
-                    await pptr_op.my_send_notify.push_me(`${this.user_id} ${this.account_id}抽奖任务执行失败`, `${e.stack}`)
+                    await pptr_op.my_send_notify.push_me(
+                        `${this.user_id} ${this.account_id}抽奖任务执行失败`,
+                        `${e.stack}`,
+                        this.lottery_setting.notify_setting_module.pushme_key,
+                        this.lottery_setting.notify_setting_module.push_plus_key
+                    )
                 });
             }
         } catch (e) {

@@ -20,12 +20,17 @@ sequelize
         console.error(`数据库连接失败！${e}`);
     });
 const {
+    TAccountBiliAtMsg,
+    TAccountBiliReplyMsg,
+    TAccountBiliWhisperMsg,
     TAccountDetailInfo,
     TAccountInfo,
     TAccountInfo_DashBoardInfo,
     TAccountInfo_LotteryLog,
     TAccountInfo_ReserveLog,
     TAtariInfo,
+    TBiliUser,
+    TBiliUserDetail,
     TCommonLog,
     TDynamicInfo,
     TLiveLotteryLog,
@@ -37,12 +42,17 @@ const {
 
 
 module.exports = {
+    TAccountBiliAtMsg,
+    TAccountBiliReplyMsg,
+    TAccountBiliWhisperMsg,
     TAccountDetailInfo,
     TAccountInfo,
     TAccountInfo_DashBoardInfo,
     TAccountInfo_LotteryLog,
     TAccountInfo_ReserveLog,
     TAtariInfo,
+    TBiliUser,
+    TBiliUserDetail,
     TCommonLog,
     TDynamicInfo,
     TLiveLotteryLog,

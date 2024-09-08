@@ -1,9 +1,7 @@
 const {BiliElementMap} = require("@/ExpressServerEnd/BiliPPTR/utils/element_map");
-const {BaseGlobalVar} = require("@/ExpressServerEnd/BiliPPTR/utils/global_var");
-const {utils} = require("@/ExpressServerEnd/BiliPPTR/utils/utils");
+const {utils, pptr_op, sleep} = require("@/ExpressServerEnd/BiliPPTR/utils/utils");
 const {AccountLogService} = require("@/ExpressServerEnd/Service/account_log_module/account_log_service");
 const {ExcTaskParams} = require("@/ExpressServerEnd/BiliPPTR/models/pages/tasks_model");
-const {pptr_op, sleep} = require("@/木偶模块/util/common_utl");
 const {BiliOtherPage} = require("@/ExpressServerEnd/BiliPPTR/pages/base_other_page");
 const {GLOBAL_CONFIG} = require("@/ExpressServerEnd/BiliPPTR/config/global_config");
 
@@ -65,7 +63,7 @@ class BiliUnfollowPage extends BiliOtherPage {
      * @return {Promise<boolean>}
      */
     async check_follow_num(pg = this.global_var.current_page, limit_max_follow_num = GLOBAL_CONFIG.unfollow_module.max_follow_num) {
-        let nav_stat = await pptr_op.BAPI.web_interface_nav_stat(pg);
+        let nav_stat = await utils.BAPI.web_interface_nav_stat(pg);
         if (nav_stat.code) {
             console.error(this.bili_dynamic_page.log_format(`获取关注数失败！${JSON.stringify(nav_stat)}`));
             return false;
@@ -142,12 +140,12 @@ class BiliUnfollowPage extends BiliOtherPage {
 
             if (await this.check_follow_num()) {
 
-                let unfollow_uids = await pptr_op.BAPI.get_attention_list(pg, uid).then(
+                let unfollow_uids = await utils.BAPI.get_attention_list(pg, uid).then(
                     async (resp) => {
                         if (resp.code === 0) {
                             console.log(this.bili_dynamic_page.log_format(`全部关注数：【${resp.data.list.length}】个`));
                             console.log(this.bili_dynamic_page.log_format(`正在获取取关列表中！`));
-                            return await pptr_op.MYAPI.get_unlot_following(resp.data.list);
+                            return await utils.MYAPI.get_unlot_following(resp.data.list);
                         } else {
                             console.error(this.bili_dynamic_page.log_format(`获取关注列表失败！${resp}`));
                             return [];
@@ -185,7 +183,7 @@ class BiliUnfollowPage extends BiliOtherPage {
             this.bili_dynamic_page.global_var.FLAG.抽奖中标志 = true;
             await this.bili_dynamic_page.setting_op.refresh_lottery_setting();
             await this.#executeWithRetry([new ExcTaskParams({
-                func: this.#exec_unfollow,
+                func: this.#exec_unfollow.bind(this),
                 params: [],
                 err: `执行单个取关失败`,
                 reload_when_err: false

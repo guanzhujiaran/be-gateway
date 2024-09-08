@@ -32,6 +32,10 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.SMALLINT,
       allowNull: true,
       comment: "从小到大代表严重程度\n0为debug（估计用不上\n1为info\n2为warn\n3为error\n4为critical"
+    },
+    module_name: {
+      type: DataTypes.TEXT,
+      allowNull: true
     }
   }, {
     sequelize,

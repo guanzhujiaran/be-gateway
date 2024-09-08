@@ -4,6 +4,7 @@ const superagent = require("superagent");
 const {AccountService} = require("@/ExpressServerEnd/Service/account_module/account_service");
 const axios = require("axios");
 const path = require('path');
+const {BiliElementMap} = require("@/ExpressServerEnd/BiliPPTR/utils/element_map");
 
 function sleep(ms) {
     return new Promise(resolve => setTimeout(() => resolve(sleep), ms));
@@ -797,7 +798,7 @@ const utils = {
                 pg.url().includes("bilibili.com") &&
                 !url.includes("bilibili.com")
             ) {
-                await pg.goto(`https://live.bilibili.com/all`);
+                await pg.goto(BiliElementMap.url_path.live.all, {waitUntil: "networkidle0"});
             }
             await pptr_op.check_page_is_front(pg);
 
@@ -1377,12 +1378,16 @@ const pptr_op = {
          * pushme推送消息
          * @param {String} title 标题
          * @param {String} msg 内容
+         * @param pushme_key
+         * @param push_plus_key
+         * @param sys_msg
          */
-        push_me: async function (title, msg) {
+        push_me: async function (title, msg, pushme_key, push_plus_key, sys_msg = false) {
+            if (!pushme_key && !sys_msg) return
             return console.log(`pushme\t${arguments[0]}\t${arguments[1]}`)
             try {
                 let resp = await axios.post("https://push.i-i.me", {
-                    push_key: this.__push_key.pushme,
+                    push_key: sys_msg ? this.__push_key.pushme : pushme_key,
                     title: title,
                     content: msg,
                 });
@@ -1393,13 +1398,14 @@ const pptr_op = {
                 console.warn(
                     `消息${(title + msg)}推送失败！\n尝试使用push_plus再次推送！\n${e.msg}`
                 );
-                await this.push_plus(title, msg);
+                await this.push_plus(title, msg, sys_msg);
             }
         },
-        push_plus: async function (title, msg) {
+        push_plus: async function (title, msg, push_plus_key, sys_msg = false) {
+            if (!push_plus_key && !sys_msg) return
             try {
                 let resp = await axios.post("http://www.pushplus.plus/send", {
-                    token: this.__push_key.push_plus,
+                    token: sys_msg ? this.__push_key.push_plus : push_plus_key,
                     title: title,
                     content: msg,
                     template: "txt",

@@ -39,6 +39,7 @@ class BasePage {
         this.lottery_setting = lottery_setting;
     }
 
+    _has_try_login = false
 
     setting_op = {
         /**
@@ -90,8 +91,7 @@ class BasePage {
 
 
     log_format(msg) {
-
-        return `${this.log_name ?? ""}${this.page_url ?? ""}\n${msg}\n${this.now}`
+        return `${this.log_name ?? "未知账号名"}${this.page_url ?? "未知链接"}\n${msg}\n${this.now}`
     }
 
     /**
@@ -391,70 +391,97 @@ class BasePage {
      * @return {Promise<boolean>}
      */
     async try_login_by_phone_password(pg) {
-        if (!this.lottery_setting.CONFIG.Login_Phone || !this.lottery_setting.CONFIG.Login_Pwd) return false;
-        if (!pg.url().includes(BiliElementMap.url_path.user.login)) {
-            await pg.goto(BiliElementMap.url_path.user.login, {waitUntil: "networkidle0"});
-            await sleep(10e3);
-        }
-        let url = pg.url()
-        if (url === BiliElementMap.url_path.main.main_site) return true;
-        await pg.waitForSelector(`#app-main > div > div.login__main > div.main__right > div.login-pwd > div.tab__form > div:nth-child(1) > input[type=text]`)
-            .then(async el => await el.type(String(this.lottery_setting.CONFIG.Login_Phone), {delay: utils.Common.getRandomFloat(10, 200)}));
-        await pg.waitForSelector(`#app-main > div > div.login__main > div.main__right > div.login-pwd > div.tab__form > div:nth-child(3) > input[type=password]`)
-            .then(async el => await el.type(String(this.lottery_setting.CONFIG.Login_Pwd), {delay: utils.Common.getRandomFloat(10, 200)}));
-        await pg.waitForSelector(`#app-main > div > div.login__main > div.main__right > div.login-pwd > div.btn_wp > div.btn_primary`)
-            .then(async el => {
-                await el.click();
-            });
-        await pg.waitForSelector(`.geetest_panel.geetest_wind[style*='block'] .geetest_item_wrap`);
-        await sleep(1e3);
-        const backgroundImageUrl = await pg.evaluate(() => {
-            let element = document.querySelector(`.geetest_panel.geetest_wind[style*='block'] .geetest_item_wrap`);
-            if (element) {
-                const style = window.getComputedStyle(element);
-                const backgroundImage = style.getPropertyValue('background-image');
-                const urlMatch = backgroundImage.match(/url\((['"])(.*?)\1\)/);
-                if (urlMatch) {
-                    return urlMatch[2]; // 返回匹配到的 URL
-                }
+        try {
+            if (!this.lottery_setting.CONFIG.Login_Phone || !this.lottery_setting.CONFIG.Login_Pwd) return false;
+            if (!pg.url().includes(BiliElementMap.url_path.user.login)) {
+                await pg.goto(BiliElementMap.url_path.user.login, {waitUntil: "networkidle0"});
+                await sleep(10e3);
             }
-            return null; // 没有找到背景图片 URL
-        });
-        let login_resp;
-        if (backgroundImageUrl) {
-            console.log(this.log_format(`检测到登录验证码！`))
-            let captcha_result = await utils.MYAPI.get_text_select_pos(backgroundImageUrl)
-            if (captcha_result.code !== 0) {
-                throw new Error(`验证码识别失败！${JSON.stringify(captcha_result)}`);
-            }
-            for (let pos of captcha_result.data.target_position) {
-                await pg.waitForSelector(`.geetest_panel.geetest_wind[style*='block'] .geetest_item_wrap`)
-                    .then(async el => await el.click({
-                            offset: {
-                                x: pos[0],
-                                y: pos[1]
-                            }
-                        })
-                    )
-                await sleep(utils.Common.getRandomFloat(0.1, 0.5) * 1e3);
-            }
+            let url = pg.url()
+            if (url === BiliElementMap.url_path.main.main_site) return true;
+            await pg.waitForSelector(`#app-main > div > div.login__main > div.main__right > div.login-pwd > div.tab__form > div:nth-child(1) > input[type=text]`)
+                .then(async el => await el.type(String(this.lottery_setting.CONFIG.Login_Phone), {delay: utils.Common.getRandomFloat(10, 200)}));
+            await pg.waitForSelector(`#app-main > div > div.login__main > div.main__right > div.login-pwd > div.tab__form > div:nth-child(3) > input[type=password]`)
+                .then(async el => await el.type(String(this.lottery_setting.CONFIG.Login_Pwd), {delay: utils.Common.getRandomFloat(10, 200)}));
+            await pg.waitForSelector(`#app-main > div > div.login__main > div.main__right > div.login-pwd > div.btn_wp > div.btn_primary`)
+                .then(async el => {
+                    await el.click();
+                });
+            await pg.waitForSelector(`.geetest_panel.geetest_wind[style*='block'] .geetest_item_wrap`);
             await sleep(1e3);
-            await Promise.all([
-                login_resp = await pg.waitForResponse(resp => resp.url().includes('passport.bilibili.com/x/passport-login/web/login')),
-                await pg.waitForSelector(`.geetest_panel.geetest_wind[style*='block'] .geetest_commit_tip`)
-                    .then(async el => await el.click())
-            ]);
-            if (login_resp && login_resp.code === 0) {
-                return true
+            const backgroundImageUrl = await pg.evaluate(() => {
+                let element = document.querySelector(`.geetest_panel.geetest_wind[style*='block'] .geetest_item_wrap`);
+                if (element) {
+                    const style = window.getComputedStyle(element);
+                    const backgroundImage = style.getPropertyValue('background-image');
+                    const urlMatch = backgroundImage.match(/url\((['"])(.*?)\1\)/);
+                    if (urlMatch) {
+                        return urlMatch[2]; // 返回匹配到的 URL
+                    }
+                }
+                return null; // 没有找到背景图片 URL
+            });
+            let login_resp;
+            if (backgroundImageUrl) {
+                console.log(this.log_format(`检测到登录验证码！`))
+                let captcha_result = await utils.MYAPI.get_text_select_pos(backgroundImageUrl)
+                if (captcha_result.code !== 0) {
+                    throw new Error(`验证码识别失败！${JSON.stringify(captcha_result)}`);
+                }
+                for (let pos of captcha_result.data.target_position) {
+                    await pg.waitForSelector(`.geetest_panel.geetest_wind[style*='block'] .geetest_item_wrap`)
+                        .then(async el => await el.click({
+                                offset: {
+                                    x: pos[0],
+                                    y: pos[1]
+                                }
+                            })
+                        )
+                    await sleep(utils.Common.getRandomFloat(0.1, 0.5) * 1e3);
+                }
+                await sleep(1e3);
+                await Promise.all([
+                    login_resp = await pg.waitForResponse(resp => resp.url().includes('passport.bilibili.com/x/passport-login/web/login')),
+                    await pg.waitForSelector(`.geetest_panel.geetest_wind[style*='block'] .geetest_commit_tip`)
+                        .then(async el => await el.click())
+                ]);
+                if (login_resp && login_resp.code === 0) {
+                    return true
+                } else {
+                    console.error(this.log_format(`登录响应出错！${JSON.stringify(login_resp)}`));
+                    await AccountLogService.add_common_log_by_account_id({
+                        account_id: this.account_id,
+                        contents: `使用密码登录失败！登录响应出错！\n${JSON.stringify(login_resp)}`,
+                        func_name: `try_login_by_phone_password`,
+                        level: 4,
+                        module_name: `BasePage`
+                    })
+                    return false
+                }
             } else {
-                console.error(this.log_format(`登录响应出错！${JSON.stringify(login_resp)}`));
+                console.error(this.log_format(`未检测到登录验证码！`));
+                await AccountLogService.add_common_log_by_account_id({
+                    account_id: this.account_id,
+                    contents: `使用密码登录失败！未检测到登录验证码！`,
+                    func_name: `try_login_by_phone_password`,
+                    level: 4,
+                    module_name: `BasePage`
+                })
                 return false
             }
-        } else {
-            console.error(this.log_format(`未检测到登录验证码！`));
+        } catch (e) {
+            console.error(this.log_format(`登录失败！${e}`));
+            await AccountLogService.add_common_log_by_account_id({
+                account_id: this.account_id,
+                contents: `使用密码登录失败！${e}`,
+                func_name: `try_login_by_phone_password`,
+                level: 4,
+                module_name: `BasePage`
+            })
             return false
+        } finally {
+            this._has_try_login = true;
         }
-
     }
 
     /**
@@ -478,7 +505,7 @@ class BasePage {
                         await pg.goto(
                             BiliElementMap.url_path.space.message,
                             {
-                                waitUntil: "domcontentloaded",
+                                waitUntil: "networkidle2",
                             }
                         );
                         await sleep(3e3);
@@ -553,6 +580,9 @@ class BasePage {
                 await page.close();
             }
         }
+        if (!this._has_try_login) {
+            await this.check_login(new_pg, true)
+        }
         return new_pg
     }
 
@@ -626,7 +656,7 @@ class BasePage {
                                 deviceScaleFactor: 0,
                             },
                             args: __args,
-                            userDataDir: this.lottery_setting.CONFIG.PersistStore ? resolve(__dirname, `..`, `..`, `..`, `BrowserData`, this.uname, this.account_name) : undefined,
+                            userDataDir: this.lottery_setting.CONFIG.PersistStore ? resolve(__dirname, `..`, `..`, `..`, `..`, `BrowserData`, this.uname, this.account_name) : undefined,
                             ignoreDefaultArgs: [
                                 "--enable-automation",
                                 "--disable-extensions",

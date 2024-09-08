@@ -68,7 +68,7 @@ class TaskManager extends BaseTasks {
                         console.log(`获取抽奖数据中！`)
                         this.#bili_lottery_data.data = await utils.BiliAPI.BiliAPI.get_lottery_database()
                         console.log("添加抽奖数据至pg数据库！")
-                        if (!this.#bili_lottery_data.data) return await pptr_op.my_send_notify.push_me('抽奖数据库内容为空！', "")
+                        if (!this.#bili_lottery_data.data) return await pptr_op.my_send_notify.sys_push_me('抽奖数据库内容为空！', "")
                         await Promise.all(this.#bili_lottery_data.data.common_lottery.map(async el => await AccountLogDao.add_dynamic_info(el)))
                         await Promise.all(this.#bili_lottery_data.data.official_lottery.map(async el => await AccountLogDao.add_official_dynamic_info(el)))
                         await Promise.all(this.#bili_lottery_data.data.reserve_lottery.map(async el => await AccountLogDao.add_reserve_info(el)))
@@ -77,9 +77,10 @@ class TaskManager extends BaseTasks {
                     }
                     BP.latest_lottery_info = this.#bili_lottery_data.data;
                     await BP.main(this.#bili_lottery_data.data);
-                    let BU = await opus.GetBiliUnfollowPage();
-                    await BU.main();
+                    // let BU = await opus.GetBiliUnfollowPage();
+                    // await BU.main();
                     await this.add_user_account_unfollow_task({uid: uid, account_name: account_name});
+                    await this.add_read_account_msg({uid, account_name});
                     if (job.data.isRemoved !== true) {
                         await this.#restart_lot_by_bili_dynamic_page_instance(BP);
                     }
@@ -158,11 +159,30 @@ class TaskManager extends BaseTasks {
             }
         )
         live_lottery_worker.run()
-        //TODO 增加每日0点执行的任务和后台常驻的任务 设置一个worker，设置一个开始时间和超时时间，设置一个并发限制，因为内存有限
-        // 每日任务功能 √
-        // 直播任务功能 √
-        // 直播每日送礼任务
-        //
+
+        const read_msg_worker = new Worker(this.QueueName.read_msg_task_queue, async job => {
+                let {uid, account_name} = job.data
+                console.debug(`执行B站阅读消息任务${JSON.stringify(job)}`);
+                /**
+                 * @type {BiliLotteryOpus}
+                 */
+                let opus = await this.#get_bili_opus_by_uid_account_name({
+                    uid: uid,
+                    account_name: account_name
+                })
+                if (!opus) throw Error(`BiliLotteryOpus获取失败！`)
+                console.log(`【${uid} ${account_name}】Opus获取成功`)
+                return opus.GetBiliMsgPage().then(async BR => {
+                    await BR.main();
+                });
+            },
+            {
+                concurrency: 10,
+                connection: redis_manager.connection,
+                autorun: false
+            }
+        )
+        read_msg_worker.run();
         event_bus.on(EVENT_NAME_MAP.ALL_LIVE_LOT, async () => {
                 while (1) {
                     let lottery_infos = await utils.MYAPI.get_live_lottery({get_all: false});
@@ -238,7 +258,7 @@ class TaskManager extends BaseTasks {
     async #restart_lot_by_bili_dynamic_page_instance(BiliDynamicPage) {
         if (!BiliDynamicPage.global_var.FLAG.抽奖中标志) {
             // 抽奖结束或没在抽奖
-            let start_time = BiliDynamicPage.start_time;
+            let start_time = new Date(BiliDynamicPage.start_time);
             let now = new Date();
             let tomorrow = new Date(
                 start_time.getFullYear(),
@@ -294,6 +314,16 @@ class TaskManager extends BaseTasks {
                 repeat: {
                     cron: config.cron_config.daily_task
                 }
+            }
+        )
+    }
+
+    async add_read_account_msg({uid, account_name}) {
+        await this.read_msg_task_queue.add(EVENT_NAME_MAP.READ_MSG_TASK, {
+                uid: uid,
+                account_name: account_name
+            }, {
+                jobId: `${EVENT_NAME_MAP.READ_MSG_TASK}_${uid}_${account_name}`,
             }
         )
     }
@@ -534,5 +564,4 @@ class TaskManager extends BaseTasks {
 
 task_manager = new TaskManager()
 
-module
-    .exports = {task_manager}
+module.exports = {task_manager}
