@@ -179,7 +179,9 @@ class DO_Lottery {
 	 * @param {boolean} lotFlag - true代表正在抽奖中，false代表抽完了
 	 */
 	_setLotFlag = (lotFlag) => {
-		console.log(`账号${this.global_var.user_info.uname}设置抽奖标志为：${lotFlag}`)
+		console.log(
+			`账号${this.global_var.user_info.uname}设置抽奖标志为：${lotFlag}`
+		);
 		this.lotFlag = lotFlag;
 	};
 
@@ -603,8 +605,12 @@ class DO_Lottery {
 							headless: false, //false为显示浏览器界面
 							defaultViewport: {
 								//分辨率
-								width: 1920 +Math.ceil(400*(Math.random()-0.5)),
-								height: 1080+Math.ceil(400*(Math.random()-0.5)),
+								width:
+									1920 +
+									Math.ceil(400 * (Math.random() - 0.5)),
+								height:
+									1080 +
+									Math.ceil(400 * (Math.random() - 0.5)),
 							},
 							args: __args,
 							userDataDir:
@@ -630,8 +636,12 @@ class DO_Lottery {
 								"C:/Users/Acer/AppData/Local/Google/Chrome SxS/Application/chrome.exe", //浏览器路径
 							headless: false, //false为显示浏览器界面
 							defaultViewport: {
-								width: 1920+Math.ceil(400*(Math.random()-0.5)),
-								height: 1080+Math.ceil(400*(Math.random()-0.5)),
+								width:
+									1920 +
+									Math.ceil(400 * (Math.random() - 0.5)),
+								height:
+									1080 +
+									Math.ceil(400 * (Math.random() - 0.5)),
 							},
 							args: __args,
 							ignoreDefaultArgs: [
@@ -1334,7 +1344,9 @@ class DO_Lottery {
 													)
 													.then((el) => el.click())
 													.catch((e) => {
-														console.error(`点击关注失败！${e.stack}`)
+														console.error(
+															`点击关注失败！${e.stack}`
+														);
 													}),
 												(global_var.response.relation_modify_response =
 													await follow_pg
@@ -1354,7 +1366,9 @@ class DO_Lottery {
 															}
 														)
 														.catch((e) => {
-															console.error(`点击关注失败！${e.stack}`)
+															console.error(
+																`点击关注失败！${e.stack}`
+															);
 														})),
 											]).catch((e) => {
 												console.error(
@@ -1463,9 +1477,8 @@ class DO_Lottery {
 														`${goto_url}\t${global_var.user_info.uname}\t关注成功！\thttps://space.bilibili.com/${global_var.response.global_dynamic_data.item.modules.module_author.mid}`
 													);
 												}
-											}
-											else{
-												console.log(`关注成功！`)
+											} else {
+												console.log(`关注成功！`);
 											}
 											await sleep(5e3);
 											if (!follow_pg.isClosed()) {
@@ -1776,7 +1789,7 @@ class DO_Lottery {
 						e.message.includes(
 							`Requesting main frame too early!`
 						) && (await global_var.page.close());
-						
+
 						await pptr_op.check_bili_login(global_var.page);
 						if (
 							e
@@ -2078,7 +2091,8 @@ class DO_Lottery {
 										await pptr_op.check_bili_login(
 											global_var.page
 										);
-										let 抽奖反馈 = await do_lottery( // 这个函数还有点问题，现在出现了有时候重复执行的问题
+										let 抽奖反馈 = await do_lottery(
+											// 这个函数还有点问题，现在出现了有时候重复执行的问题
 											all_dynamic_id_list[i],
 											opus_dynamic
 										);
@@ -2290,9 +2304,15 @@ class DO_Lottery {
 											//没登录或者浏览器页面关了
 											break;
 										}
-										if(e.message?.includes('Protocol error: Connection closed. Most likely the page has been closed.')){
+										if (
+											e.message?.includes(
+												"Protocol error: Connection closed. Most likely the page has been closed."
+											)
+										) {
 											await global_var.page.close();
-											await global_var.page.browser().close()
+											await global_var.page
+												.browser()
+												.close();
 										}
 										if (global_var.page.isClosed()) {
 											await this.account_init();
@@ -2314,9 +2334,13 @@ class DO_Lottery {
 										//没登录或者浏览器页面关了
 										break;
 									}
-									if(e.message?.includes('Protocol error: Connection closed. Most likely the page has been closed.')){
+									if (
+										e.message?.includes(
+											"Protocol error: Connection closed. Most likely the page has been closed."
+										)
+									) {
 										await global_var.page.close();
-										await global_var.page.browser().close()
+										await global_var.page.browser().close();
 									}
 									if (global_var.page.isClosed()) {
 										//浏览器页面关闭则重新开启
@@ -3188,6 +3212,11 @@ class DO_Lottery {
 				`${global_var.user_info.uname}\t执行launch_lottery抽奖失败！\n${e.stack}`
 			);
 		} finally {
+			console.log(
+				`${
+					global_var.user_info.uname
+				}\t任务执行完成，设置抽奖标志为false！  --${new Date().toLocaleTimeString()}`
+			);
 			this._setLotFlag(false);
 		}
 	};

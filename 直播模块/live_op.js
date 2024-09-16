@@ -1440,6 +1440,7 @@ class LIVE_LOT {
 				for (let times = 0; times < list.length; times++) {
 					for (let i = 0; i < 3; i++) {
 						try {
+							await sleep(10e3);
 							await pptr_op.check_page_is_front(pg);
 							await pg
 								.waitForSelector(
@@ -1449,7 +1450,7 @@ class LIVE_LOT {
 									await pptr_op.check_page_is_front(pg);
 									await el.click();
 								});
-							let gift_item_free = await pg.$(
+							let gift_item_free = await pg.waitForSelector(
 								live_op.element_map.gift_item_free
 							);
 							await gift_item_free.hover();
