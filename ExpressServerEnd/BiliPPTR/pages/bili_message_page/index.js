@@ -14,7 +14,7 @@ class BiliMessagePage extends BiliOtherPage {
      */
     constructor({bili_dynamic_page}) {
         super({bili_dynamic_page: bili_dynamic_page})
-        this.msg_sql = new AccountMsgService();
+        this.account_msg_service = new AccountMsgService();
     }
 
     /**
@@ -28,7 +28,6 @@ class BiliMessagePage extends BiliOtherPage {
             const {func, params, err, pg, reload_when_err} = tasks[i];
             let retries = 0;
             let success = false;
-
             while (!success && retries < maxRetries) {
                 try {
                     await func(...params);
@@ -44,6 +43,14 @@ class BiliMessagePage extends BiliOtherPage {
                         }
                     } else {
                         console.error('Max retries reached. Break the tasks.');
+                        await AccountLogService.add_common_log_by_account_id({
+                            account_id: this.bili_dynamic_page.account_id,
+                            contents: `${err}\n${error.stack}`,
+                            ts: parseInt(utils.Common.dateNow_s()),
+                            func_name: func.name,
+                            level: 4,
+                            module_name: this.constructor.name
+                        })
                         throw error;
                     }
                     if (pg.isClosed()) {
@@ -68,26 +75,30 @@ class BiliMessagePage extends BiliOtherPage {
     async #handle_whisper_msgs({messages, user_cards}) {
         Object.keys(user_cards).map(async k => {
             let user_card = user_cards[k];
-            await this.msg_sql.upsert_bili_user_Info({
+            await this.account_msg_service.upsert_bili_user_Info({
                 mid: user_card.mid,
                 avatar: user_card.face,
                 mid_link: "",
                 nickname: user_card.name
             });
-            await this.msg_sql.upsert_bili_user_detail(Object.assign({
+            await this.account_msg_service.upsert_bili_user_detail(Object.assign({
                 uid: user_card.mid
             }, user_card))
         })
         for (let message of messages) {
             let content
             switch (message.type) {
+                case undefined:
+                    content = JSON.parse(message.content).content
+                    console.log(this.bili_dynamic_page.log_format(`获取到应援团消息（type：${message.type}|source：${message.msg_source}）：【${String(content)}】`))
+                    break;
                 case 1:
                     let msg_source = message.msg_source;
                     content = JSON.parse(message.content).content
                     switch (msg_source) {
                         case 7:
                             console.log(this.bili_dynamic_page.log_format(`获取到人工回复消息（type：${message.type}|source：${msg_source}）：【${String(content)}】`))
-                            await this.msg_sql.upsert_bili_whisper_msg(
+                            await this.account_msg_service.upsert_bili_whisper_msg(
                                 Object.assign({
                                         account_id: this.bili_dynamic_page.account_id,
                                     }, message
@@ -98,7 +109,7 @@ class BiliMessagePage extends BiliOtherPage {
                             console.log(this.bili_dynamic_page.log_format(`获取到自动回复消息（type：${message.type}|source：${msg_source}）：【${String(content)}】`))
                             break;
                         default:
-                            await this.msg_sql.upsert_bili_whisper_msg(
+                            await this.account_msg_service.upsert_bili_whisper_msg(
                                 Object.assign({
                                         account_id: this.bili_dynamic_page.account_id,
                                     }, message
@@ -118,7 +129,7 @@ class BiliMessagePage extends BiliOtherPage {
                 default:
                     content = JSON.parse(message.content).content
                     console.log(this.bili_dynamic_page.log_format(`获取到未知消息（type：${message.type}|source：${message.msg_source}）：【${String(content)}】`))
-                    await this.msg_sql.upsert_bili_whisper_msg(
+                    await this.account_msg_service.upsert_bili_whisper_msg(
                         Object.assign({
                                 account_id: this.bili_dynamic_page.account_id,
                             }, message
@@ -129,7 +140,7 @@ class BiliMessagePage extends BiliOtherPage {
     }
 
     /**
-     *
+     * 获取所有私信消息
      * @param {Page} pg
      * @return {Promise<*[]>}
      */
@@ -139,16 +150,12 @@ class BiliMessagePage extends BiliOtherPage {
         let user_cards_resp;
         await Promise.all([
             await pg.goto(BiliElementMap.url_path.user.msg_whisper),
-            fetch_session_msg = await pg.waitForResponse(
-                resp => resp.url()
-                    .includes(
-                        BiliElementMap.url_path.user.msg_session_svr_fetch_session_msgs
-                    )
-            ),
-            user_cards_resp = await pg.waitForResponse(resp => resp.url().includes(
-                    BiliElementMap.url_path.user.msg_user_cards
-                )
-            )
+            fetch_session_msg = await (await pg.waitForResponse(
+                resp => resp.url().includes(BiliElementMap.url_path.user.msg_session_svr_fetch_session_msgs)
+            ))?.json(),
+            user_cards_resp = await (await pg.waitForResponse(
+                resp => resp.url().includes(BiliElementMap.url_path.user.msg_user_cards)
+            ))?.json()
         ]);
         let messages = fetch_session_msg?.data?.messages
         let user_cards = user_cards_resp?.data
@@ -167,15 +174,12 @@ class BiliMessagePage extends BiliOtherPage {
                 let parent = await notify_point.getProperty('parentNode');
                 await Promise.all([
                     await parent.click(),
-                    fetch_session_msg = await pg.waitForResponse(
-                        resp => resp.url()
-                            .includes(
-                                BiliElementMap.url_path.user.msg_session_svr_fetch_session_msgs
-                            )),
-                    user_cards_resp = await pg.waitForResponse(resp => resp.url().includes(
-                            BiliElementMap.url_path.user.msg_user_cards
-                        )
-                    )
+                    fetch_session_msg = await (await pg.waitForResponse(
+                        resp => resp.url().includes(BiliElementMap.url_path.user.msg_session_svr_fetch_session_msgs)
+                    ))?.json(),
+                    user_cards_resp = await (await pg.waitForResponse(
+                        resp => resp.url().includes(BiliElementMap.url_path.user.msg_user_cards)
+                    ))?.json()
                 ]);
                 let messages = fetch_session_msg?.data?.messages
                 let user_cards = user_cards_resp?.data
@@ -186,10 +190,9 @@ class BiliMessagePage extends BiliOtherPage {
                     console.error(this.bili_dynamic_page.log_format(`获取单个私信消息失败！\n${JSON.stringify(fetch_session_msg)}\n${user_cards_resp}`));
                 }
             }
-            let left = await pg.waitForSelector(BiliElementMap.message_page.space_right_left)
-            await left.evaluate(() => {
-                this.scrollTo(0, 2000)
-            });
+            await pg.locator(BiliElementMap.message_page.space_right_left).scroll({
+                scrollTop: Number.MAX_SAFE_INTEGER,
+            })
             await sleep(5e3);
         }
 
@@ -203,15 +206,16 @@ class BiliMessagePage extends BiliOtherPage {
      * @return {Promise<boolean>} 遇到重复的返回true，表示终止，不继续获取下去！
      */
     async #handle_reply_msgs({reply_items, new_replies}) {
+        let is_repeat;
         for (let reply_item of reply_items) {
             let user = reply_item.user;
-            await this.msg_sql.upsert_bili_user_Info({
+            await this.account_msg_service.upsert_bili_user_Info({
                 mid: user.mid,
                 avatar: user.avatar,
                 mid_link: user.mid_link,
                 nickname: user.nickname
             })
-            let not_exist = await this.msg_sql.upsert_bili_reply_msg(
+            is_repeat = await this.account_msg_service.upsert_bili_reply_msg(
                 {
                     account_id: this.bili_dynamic_page.account_id,
                     reply_id: reply_item.id,
@@ -221,16 +225,13 @@ class BiliMessagePage extends BiliOtherPage {
                     uid: user.mid
                 }
             )
-            if (!not_exist) {
-                return true;
-            }
             new_replies.push(reply_item)
         }
-        return false;
+        return !!is_repeat;
     }
 
     /**
-     *
+     * 获取回复内容
      * @param pg
      * @return {Promise<*[]>}
      */
@@ -238,8 +239,8 @@ class BiliMessagePage extends BiliOtherPage {
         let new_replies = []
         let msgfeed_reply;
         await Promise.all([
-            msgfeed_reply = await pg.waitForResponse(resp => resp.url().includes(BiliElementMap.url_path.user.msg_reply)),
-            await pg.goto(BiliElementMap.url_path.user.msg_reply_router)
+            pg.goto(BiliElementMap.url_path.user.msg_reply_router),
+            msgfeed_reply = await (await pg.waitForResponse(resp => resp.url().includes(BiliElementMap.url_path.user.msg_reply)))?.json(),
         ])
         let reply_items = msgfeed_reply?.data?.items
         let is_end = msgfeed_reply?.data?.cursor?.is_end
@@ -251,16 +252,15 @@ class BiliMessagePage extends BiliOtherPage {
             return new_replies
         }
         while (!is_end) {
-            let space_right = await pg.waitForSelector(BiliElementMap.message_page.space_right);
             await Promise.all([
-                space_right.evaluate(() => {
-                    this.scrollTo(0, 2000)
+                pg.locator(BiliElementMap.message_page.space_right).scroll({
+                    scrollTop: Number.MAX_SAFE_INTEGER
                 }),
-                msgfeed_reply = await pg.waitForResponse(resp => resp.url().includes(BiliElementMap.url_path.user.msg_reply)),
+                msgfeed_reply = await (await pg.waitForResponse(resp => resp.url().includes(BiliElementMap.url_path.user.msg_reply))).json(),
             ])
             reply_items = msgfeed_reply?.data?.items;
             is_end = msgfeed_reply?.data?.cursor?.is_end;
-            if (reply_items) {
+            if (reply_items && reply_items.length > 0) {
                 let is_repeat = await this.#handle_reply_msgs({reply_items, new_replys: new_replies})
                 if (is_repeat || is_end) return new_replies
             } else {
@@ -273,15 +273,16 @@ class BiliMessagePage extends BiliOtherPage {
     }
 
     async #handle_at_msgs({at_items, new_at_msgs}) {
+        let is_repeat;
         for (let at_item of at_items) {
             let user = at_item.user;
-            await this.msg_sql.upsert_bili_user_Info({
+            await this.account_msg_service.upsert_bili_user_Info({
                 mid: user.mid,
                 avatar: user.avatar,
                 mid_link: user.mid_link,
                 nickname: user.nickname
             })
-            let not_exist = await this.msg_sql.upsert_bili_at_msg(
+            is_repeat = await this.account_msg_service.upsert_bili_at_msg(
                 {
                     account_id: this.bili_dynamic_page.account_id,
                     at_id: at_item.id,
@@ -290,16 +291,13 @@ class BiliMessagePage extends BiliOtherPage {
                     uid: user.mid
                 }
             )
-            if (!not_exist) {
-                return true;
-            }
             new_at_msgs.push(at_item);
         }
-        return false;
+        return !!is_repeat;
     }
 
     /**
-     *
+     * 获取at消息
      * @param pg
      * @return {Promise<*[]>}
      */
@@ -307,30 +305,29 @@ class BiliMessagePage extends BiliOtherPage {
         let new_at_msgs = []
         let msgfeed_at;
         await Promise.all([
-            msgfeed_at = await pg.waitForResponse(resp => resp.url().includes(BiliElementMap.url_path.user.msg_at)),
-            await pg.goto(BiliElementMap.url_path.user.msg_at_router)
+            pg.goto(BiliElementMap.url_path.user.msg_at_router),
+            msgfeed_at = await (await pg.waitForResponse(resp => resp.url().includes(BiliElementMap.url_path.user.msg_at)))?.json(),
         ])
-        let reply_items = msgfeed_at?.data?.items
+        let at_items = msgfeed_at?.data?.items
         let is_end = msgfeed_at?.data?.cursor?.is_end
-        if (reply_items) {
-            let is_repeat = await this.#handle_at_msgs({reply_items, new_at_msgs})
+        if (at_items && at_items.length > 0) {
+            let is_repeat = await this.#handle_at_msgs({at_items, new_at_msgs})
             if (is_repeat || is_end) return new_at_msgs
         } else {
             console.error(this.bili_dynamic_page.log_format(`获取at消息失败！\n${JSON.stringify(msgfeed_at)}`));
             return new_at_msgs
         }
         while (!is_end) {
-            let space_right = await pg.waitForSelector(BiliElementMap.message_page.space_right);
             await Promise.all([
-                space_right.evaluate(() => {
-                    this.scrollTo(0, 2000)
+                pg.locator(BiliElementMap.message_page.space_right).scroll({
+                    scrollTop: Number.MAX_SAFE_INTEGER
                 }),
-                msgfeed_at = await pg.waitForResponse(resp => resp.url().includes(BiliElementMap.url_path.user.msg_at)),
+                msgfeed_at = await (await pg.waitForResponse(resp => resp.url().includes(BiliElementMap.url_path.user.msg_at)))?.json(),
             ])
-            reply_items = msgfeed_at?.data?.items;
+            at_items = msgfeed_at?.data?.items;
             is_end = msgfeed_at?.data?.cursor?.is_end;
-            if (reply_items) {
-                let is_repeat = await this.#handle_at_msgs({reply_items, new_at_msgs})
+            if (at_items && at_items.length > 0) {
+                let is_repeat = await this.#handle_at_msgs({at_items, new_at_msgs})
                 if (is_repeat || is_end) return new_at_msgs
             } else {
                 console.error(this.bili_dynamic_page.log_format(`获取at消息失败！\n${JSON.stringify(msgfeed_at)}`));
@@ -342,12 +339,12 @@ class BiliMessagePage extends BiliOtherPage {
     }
 
     /**
-     *获取所有的私信提醒（at,reply,whisper）
+     *获取所有的消息提醒（at,reply,whisper）
      * @return {Promise<void>}
      */
     async get_all_msg_notify() {
         this.global_var.current_page = await this.bili_dynamic_page.create_new_pg(BiliElementMap.browser_usage.acquire_msg);
-        try {
+        let do_get_all_msg = async () => {
             let new_whisper_msg = await this.get_all_whisper_msg(this.global_var.current_page);
             let new_at_msg = await this.get_all_at_msg(this.global_var.current_page);
             let new_reply_msg = await this.get_all_reply_msg(this.global_var.current_page);
@@ -355,12 +352,21 @@ class BiliMessagePage extends BiliOtherPage {
                 await pptr_op.my_send_notify.push_me(`B站【${this.bili_dynamic_page.global_var.user_info.uname}】账号【${this.bili_dynamic_page.account_name}】获取到新消息！`,
                     `${new_whisper_msg}\n${new_at_msg}\n${new_reply_msg}`);
             }
-        } catch (e) {
-            throw e
-        } finally {
-            await this.global_var.current_page.close();
         }
-
+        await this.#executeWithRetry(
+            [
+                new ExcTaskParams(
+                    {
+                        func: do_get_all_msg,
+                        params: [],
+                        err: '获取所有的消息提醒失败！',
+                        pg: this.global_var.current_page,
+                        reload_when_err: true,
+                    }
+                )
+            ]
+        )
+        await this.global_var.current_page.close();
     }
 
     /**

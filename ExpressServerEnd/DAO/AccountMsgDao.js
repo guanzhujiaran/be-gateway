@@ -2,7 +2,7 @@ const {
     TUserInfo,
     TBiliUser,
     TAccountBiliReplyMsg,
-    TAccountBiliSessionMsg, TBiliUserDetail
+    TAccountBiliSessionMsg, TBiliUserDetail, TAccountBiliAtMsg
 } = require("@/ExpressServerEnd/DAO/SqlHelper");
 
 const {Op} = require("sequelize");
@@ -12,7 +12,7 @@ class AccountMsgDao {
     }
 
     static async upsert_bili_user_Info({mid, avatar, mid_link, nickname}) {
-        return await TBiliUser.upsert({mid, avatar, mid_link, nickname})
+        return await TBiliUser.upsert({mid, avatar, mid_link, nickname});
     };
 
     /**
@@ -28,17 +28,17 @@ class AccountMsgDao {
     static async upsert_bili_reply_msg({
                                            account_id, reply_id, counts, item, reply_time, uid
                                        }) {
-        let result = await TAccountBiliReplyMsg.upsert({
+        let [result,_] = await TAccountBiliReplyMsg.upsert({
             account_id, reply_id, counts, item, reply_time, uid
         })
-        return result.created;
+        return result.isNewRecord;
     }
 
-    static async upsert_bili_at_msg({account_id, at_id, item, uid}) {
-        let result = await TAccountBiliReplyMsg.upsert({
-            account_id, at_id, item, uid
+    static async upsert_bili_at_msg({account_id, at_id, item, uid, at_time}) {
+        let [result,_] = await TAccountBiliAtMsg.upsert({
+            account_id, at_id, item, uid, at_time
         })
-        return result.created;
+        return result.isNewRecord;
     }
 
     static async upsert_bili_whisper_msg({
@@ -52,10 +52,10 @@ class AccountMsgDao {
                                              sender_uid,
                                              timestamp
                                          }) {
-        let result = await TAccountBiliSessionMsg.upsert({
+        let [result,_] = await TAccountBiliSessionMsg.upsert({
             account_id, msg_key, msg_source, msg_type, notify_code, receiver_id, receiver_type, sender_uid, timestamp
         })
-        return result.created;
+        return result.isNewRecord;
     }
 
     static async upsert_bili_user_detail({

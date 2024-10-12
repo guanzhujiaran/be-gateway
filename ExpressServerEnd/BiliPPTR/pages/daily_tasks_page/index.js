@@ -42,6 +42,14 @@ class BiliDailyTaskPage extends BiliOtherPage {
                         }
                     } else {
                         console.error('Max retries reached. Break the tasks.');
+                        await AccountLogService.add_common_log_by_account_id({
+                            account_id: this.bili_dynamic_page.account_id,
+                            contents: `${err}\n${error.stack}`,
+                            ts: parseInt(utils.Common.dateNow_s()),
+                            func_name: func.name,
+                            level: 4,
+                            module_name: this.constructor.name
+                        })
                         throw error;
                     }
                     if (pg.isClosed()) {
@@ -72,11 +80,7 @@ class BiliDailyTaskPage extends BiliOtherPage {
             );
             return;
         }
-        let my_level;
-        try {
-            my_level = user_nav.data.level_info.current_level;
-        } catch {
-        }
+        let my_level = user_nav?.data?.level_info?.current_level;
         if (my_level === 6) {
             console.log(this.bili_dynamic_page.log_format(`等级满了，跳过每日投币经验奖励`));
             await AccountLogService.update_sanlian_ts({
@@ -201,84 +205,96 @@ class BiliDailyTaskPage extends BiliOtherPage {
      * @return {Promise<boolean>}
      */
     async get_BCoin(pg = this.global_var.current_page) {
-        try {
-            let user_nav = this.bili_dynamic_page.global_var.user_info.user_nav;
-            let vipStatus = user_nav.data.vipStatus;
-            let vipType = user_nav.data.vipType;
-            let bcoin_get = false;
-            if (vipType === 2 && vipStatus === 1) {
-                await pptr_op.check_page_is_front(pg);
-                await pg.goto(
-                    `https://account.bilibili.com/account/big/myPackage`,
-                    {waitUntil: "networkidle2"}
+        let op_arr = [];
+        let user_nav = this.bili_dynamic_page.global_var.user_info.user_nav;
+        let vipStatus = user_nav.data.vipStatus;
+        let vipType = user_nav.data.vipType;
+        let bcoin_get = false;
+        let do_get_BCoin = async () => {
+            await pptr_op.check_page_is_front(pg);
+            await pg.goto(
+                `https://account.bilibili.com/account/big/myPackage`,
+                {waitUntil: "networkidle2"}
+            );
+            let coupon_contents =
+                await pg.$$(
+                    `.coupon-content`
                 );
-                let coupon_contents =
-                    await pg.$$(
-                        `.coupon-content`
-                    );
-                for (let coupon_content of coupon_contents) {
-                    await pptr_op.check_page_is_front(pg);
-                    console.log(
-                        this.bili_dynamic_page.log_format(`当前大会员权益：${await coupon_content.$eval(
-                            ".coupon-content-con",
-                            (el) => el.innerText
-                        )}`)
-                    );
-                    if ((await coupon_content.$eval(".coupon-btn", (el) => el.getAttribute("class"))).includes(`coupon-btn-disable`)) {
-                        if ((await coupon_content.$eval(".coupon-content-con", (el) => el.innerText)).includes(`B币`)) {
-                            bcoin_get = true;
-                        }
-                        continue;
-                    } else {
-                        await this.global_var.current_page
-                            .waitForSelector(".coupon-btn")
-                            .then(async (jshandle) => {
-                                await jshandle.click();
-                            });
-                        try {
-                            await this.global_var.current_page
-                                .waitForSelector(
-                                    `.dialog-close-icon`
-                                )
-                                .then(async (jshandle) => {
-                                    await jshandle.click();
-                                });
-                            if (
-                                (
-                                    await coupon_content.$eval(
-                                        ".coupon-content-con",
-                                        (el) => el.innerText
-                                    )
-                                ).includes(`B币`)
-                            ) {
+            for (let coupon_content of coupon_contents) {
+                await pptr_op.check_page_is_front(pg);
+                console.log(
+                    this.bili_dynamic_page.log_format(`当前大会员权益：${await coupon_content.$eval(
+                        ".coupon-content-con",
+                        (el) => el.innerText
+                    )}`)
+                );
+                if ((await coupon_content.$eval(".coupon-btn", (el) => el.getAttribute("class"))).includes(`coupon-btn-disable`)) {
+                    if ((await coupon_content.$eval(".coupon-content-con", (el) => el.innerText)).includes(`B币`)) {
+                        let desc_tips = await coupon_content.$$eval(".coupon-desc-tip", (el) => el.map(e => e.innerText).join('\n'))
+                        let dateMatch = desc_tips.match(/\d{4}\/\d{2}\/\d{2}/);
+                        if (dateMatch) {
+                            let dateString = dateMatch[0];
+                            let date = new Date(dateString.replace(/(\d{4})\/(\d{2})\/(\d{2})/, '$1-$2-$3'));
+                            let now = new Date();
+                            if (date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear()) {
+                                console.log(this.bili_dynamic_page.log_format(`领取b币的日期 ${dateString} 是本月的日期，判断为还没领取b币！`));
+                            } else {
                                 bcoin_get = true;
                             }
-                        } catch (e) {
-                            console.error(this.bili_dynamic_page.log_format(`当前大会员权益：${await coupon_content.$eval(
-                                    ".coupon-content-con",
-                                    (el) => el.innerText
-                                )} 领取失败！\n${e}`)
-                            );
+                        } else {
+                            console.log(this.bili_dynamic_page.log_format(`获取领取b币的日期失败，判断为还没领取b币！`));
                         }
                     }
+                } else {
+                    let coupon_btn = await coupon_content.waitForSelector(`.coupon-btn`);
+                    await coupon_btn.click()
+                    try {
+                        let _parent_node = await coupon_content.getProperty('parentNode');
+                        let dialog_close_icon = await _parent_node.waitForSelector('.dialog-close-icon');
+                        await dialog_close_icon.click();
+                        if (
+                            (
+                                await coupon_content.$eval(
+                                    ".coupon-content-con",
+                                    (el) => el.innerText
+                                )
+                            ).includes(`B币`)
+                        ) {
+                            bcoin_get = true;
+                        }
+                    } catch (e) {
+                        console.error(this.bili_dynamic_page.log_format(`当前大会员权益：${await coupon_content.$eval(
+                                ".coupon-content-con",
+                                (el) => el.innerText
+                            )} 领取失败！\n${e}`)
+                        );
+                        throw e
+                    }
                 }
-            } else {
-                bcoin_get = true;
             }
-            if (bcoin_get) {
-                await AccountLogService.update_bcoin_ts({
-                    account_id: this.bili_dynamic_page.account_id,
-                    bcoin_ts: Math.ceil(Date.now() / 1e3)
-                })
-                return true
-            }
-            return false;
-        } catch (e) {
-            console.error(
-                this.bili_dynamic_page.log_format(`领取5b币失败！`),
-                e
-            );
         }
+        if (vipType === 2 && vipStatus === 1) {
+            op_arr.push(
+                new ExcTaskParams({
+                    func: do_get_BCoin,
+                    params: [],
+                    err: "每日任务获取b币失败--获取b币失败",
+                    pg: pg,
+                    reload_when_err: true,
+                })
+            )
+        } else {
+            bcoin_get = true;
+        }
+        if (await this.#executeWithRetry(op_arr) && bcoin_get) {
+            await AccountLogService.update_bcoin_ts({
+                account_id: this.bili_dynamic_page.account_id,
+                bcoin_ts: utils.Common.dateNow_s()
+            })
+            return true
+        }
+        return false;
+
     }
 
     /**
@@ -342,18 +358,78 @@ class BiliDailyTaskPage extends BiliOtherPage {
         if ((await this.#executeWithRetry(op_arr) && user_nav.data.wallet.bcoin_balance !== 0) || (has_bcoin_get && user_nav.data.wallet.bcoin_balance === 0))
             await AccountLogService.update_charge_ts({
                 account_id: this.bili_dynamic_page.account_id,
-                charge_ts: Math.ceil(Date.now() / 1e3)
+                charge_ts: utils.Common.dateNow_s()
             });
+    }
+
+    /**
+     *
+     * @param pg {Page}
+     * @param send_bag_gift_room_id
+     * @return {Promise<void>}
+     */
+    async live_send_bag_gift(pg, send_bag_gift_room_id) {//TODO这里写一个送背包礼物的逻辑
+        let op_arr = [];
+        await pptr_op.check_page_is_front(pg);
+        let url = `https://live.bilibili.com/${send_bag_gift_room_id}`
+
+        await pg.goto(url, {waitUntil: "networkidle2"});
+        let do_send_bag = async () => {
+            let bag_list_url = BiliElementMap.url_path.live.bag_list;
+            let bag_resp;
+            await Promise.all([
+                pg.locator(BiliElementMap.live_page.gift_package).click(),
+                bag_resp = await (await pg.waitForResponse(resp => resp.url().includes(bag_list_url)))?.json()
+            ])
+            if (bag_resp?.code === 0 && bag_resp?.data?.list?.length > 0) {
+                console.log(this.bili_dynamic_page.log_format(
+                    `开始执行送礼，将免费礼物送至直播间：${url}\n礼物列表：${
+                        '\n'.join(bag_resp.data.list.map(el => el?.gift_name?.concat('*'.concat(JSON.stringify(el.gift_num)))))
+                    }`
+                ))
+                for (let i = 0; i < bag_resp?.data?.list?.length ?? 0; i++) {
+                    await pg.locator(BiliElementMap.live_page.new_gift_item_wrap).hover()
+                    await pg.locator(
+                        BiliElementMap.live_page.last_gift_send_box_btn
+                    ).click()
+                    await sleep(
+                        utils.Common.getRandomFloat(0.5, 3)
+                    )
+                }
+            }
+        }
+        op_arr.push(new ExcTaskParams({
+            func: do_send_bag, params: [], err: `每日直播间送礼失败！`, pg: pg, reload_when_err: true
+        }))
+        if (await this.#executeWithRetry(op_arr)) {
+            await AccountLogService.update_live_send_gift_ts({
+                account_id: this.bili_dynamic_page.account_id,
+                live_send_gift_ts: utils.Common.dateNow_s()
+            });
+        }
     }
 
 
     async #exec_daily_task() {
         await this.bili_dynamic_page.setting_op.refresh_lottery_setting();
+        let lottery_setting = Object.fromEntries(Object.entries(this.bili_dynamic_page.lottery_setting));
         let log_info = await AccountLogService.get_log_daily_task_info(this.bili_dynamic_page.account_id);
-        let sanlian_flag = (typeof log_info.sanlian_ts === "number") && !utils.Common.isToday(log_info.sanlian_ts * 1e3);
-        let get_bcoin_flag = (typeof log_info.bcoin_ts === "number") && !utils.Common.isThisMonth(log_info.bcoin_ts * 1e3);
-        let charge_flag = (typeof log_info.charge_ts === "number") && !utils.Common.isThisMonth(log_info.charge_ts * 1e3);
-        if (sanlian_flag || get_bcoin_flag || charge_flag) {
+        let sanlian_flag = (typeof log_info.sanlian_ts === "number") &&
+            !utils.Common.isToday(log_info.sanlian_ts * 1e3) &&
+            lottery_setting.daily_task_module.sanlian_flag;
+        let get_bcoin_flag = (typeof log_info.bcoin_ts === "number") &&
+            !utils.Common.isThisMonth(log_info.bcoin_ts * 1e3) &&
+            lottery_setting.daily_task_module.bcoin_flag;
+        let charge_flag = (typeof log_info.charge_ts === "number") &&
+            !utils.Common.isThisMonth(log_info.charge_ts * 1e3) &&
+            lottery_setting.daily_task_module.charge_flag;
+        let live_send_gift_flag = (typeof log_info.live_send_gift_ts === "number") &&
+            !utils.Common.isThisMonth(log_info.live_send_gift_ts * 1e3) &&
+            lottery_setting.daily_task_module.send_bag_gift_flag &&
+            parseInt(lottery_setting.daily_task_module.send_bag_gift_room_id) >= 0;
+
+
+        if (sanlian_flag || get_bcoin_flag || charge_flag || live_send_gift_flag) {
             this.global_var.current_page = await this.bili_dynamic_page.create_new_pg(BiliElementMap.browser_usage.daily_task)
         } else {
             return
@@ -365,10 +441,15 @@ class BiliDailyTaskPage extends BiliOtherPage {
                 await this.sanlian(); //执行三连
             }
             if (get_bcoin_flag) {
-                get_bcoin_flag = !await this.   get_BCoin(); //执行领取b币
+                get_bcoin_flag = !await this.get_BCoin(); //执行领取b币
             }
             if (charge_flag) {
-                await this.charge_BCoin(undefined, !get_bcoin_flag); //执行充电
+                await this.charge_BCoin(this.global_var.current_page, !get_bcoin_flag); //执行充电
+            }
+            if (live_send_gift_flag) {
+                await this.live_send_bag_gift(
+                    this.global_var.current_page, lottery_setting.live_lottery_module.send_bag_gift_room_id
+                )
             }
         } catch (e) {
             throw e
@@ -403,6 +484,8 @@ class BiliDailyTaskPage extends BiliOtherPage {
             this.bili_dynamic_page.global_var.FLAG.执行其他任务中标志 = false;
         }
     }
+
+
 }
 
 module.exports = {

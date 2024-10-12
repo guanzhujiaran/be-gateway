@@ -53,10 +53,10 @@ class AccountMsgService {
     }
 
     async upsert_bili_at_msg({
-                                 account_id, at_id, item, uid
+                                 account_id, at_id, item, uid,at_time
                              }) {
         return await this.accountMsgDao.upsert_bili_at_msg({
-            account_id, at_id, item, uid
+            account_id, at_id, item, uid,at_time
         });
     }
 

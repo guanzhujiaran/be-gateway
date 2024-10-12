@@ -2,8 +2,6 @@ const Sequelize = require('sequelize');
 module.exports = function(sequelize, DataTypes) {
   return sequelize.define('TBiliUser', {
     mid: {
-      autoIncrement: true,
-      autoIncrementIdentity: true,
       type: DataTypes.BIGINT,
       allowNull: false,
       primaryKey: true

@@ -39,6 +39,15 @@ class BasePage {
         this.lottery_setting = lottery_setting;
     }
 
+    #status = {
+        is_login: false,
+        latest_check_login_ts: 0
+    }
+
+    get is_login() {
+        return this.#status.is_login && utils.Common.isToday(this.#status.latest_check_login_ts);
+    }
+
     _has_try_login = false
 
     setting_op = {
@@ -492,6 +501,10 @@ class BasePage {
      */
     async check_login(pg, need_check_login = false) {
         try {
+            if (utils.Common.isToday(this.#status.latest_check_login_ts)){
+                return this.is_login
+            } 
+            
             if (!need_check_login) {
                 return true;
             }
@@ -537,6 +550,8 @@ class BasePage {
                                 nav_json: this.global_var.user_info.user_nav
                             }
                         )
+                        this.#status.is_login = true;
+
                         return true;
                     } else {
                         await this.try_login_by_phone_password(pg)
@@ -555,6 +570,8 @@ class BasePage {
                         }
                     )
                     await sleep(10e3);
+                } finally {
+                    this.#status.latest_check_login_ts = utils.Common.dateNow();
                 }
         } catch {
         } finally {

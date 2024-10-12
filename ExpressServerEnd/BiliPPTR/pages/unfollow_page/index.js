@@ -41,6 +41,14 @@ class BiliUnfollowPage extends BiliOtherPage {
                         }
                     } else {
                         console.error('Max retries reached. Break the tasks.');
+                        await AccountLogService.add_common_log_by_account_id({
+                            account_id: this.bili_dynamic_page.account_id,
+                            contents: `${err}\n${error.stack}`,
+                            ts: parseInt(utils.Common.dateNow_s()),
+                            func_name: func.name,
+                            level: 4,
+                            module_name: this.constructor.name
+                        })
                         throw error;
                     }
                     if (pg?.isClosed()) {

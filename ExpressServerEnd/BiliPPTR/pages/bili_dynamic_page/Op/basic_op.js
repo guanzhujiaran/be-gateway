@@ -121,25 +121,31 @@ class BasicOp extends BasePage {
                         });
                     await sleep(3e3);
                     msg_box = await pg_or_frame.waitForSelector(input_text_area_element);
-                    await msg_box.focus();
+                    await msg_box.type(modal_input_text, {
+                        delay: 300,
+                    });
                     let msg_box_content;
                     if (text_area_type === 'modal') {
-                        msg_box_content = await this.basic_op.get_opus_dynamic_repost_area_content(msg_box);
+                        msg_box_content = await this.basic_op.get_opus_dynamic_repost_area_content(
+                            pg_or_frame,
+                            BiliElementMap.opus_dynamic.interact.repost_input_text_area
+                        );
                     } else if (text_area_type === 'plain') {
-                        msg_box_content = await pg_or_frame.$eval(input_text_area_element, (el) => el.value);
+                        msg_box_content = await pg_or_frame.$eval(input_text_area_element, (el) => el.innerText);
                     }
                     let _bt = 0;
                     //#region 输入转发内容
-                    while (modal_input_text && !msg_box_content.includes(modal_input_text)) {//回复栏里的东西等于回复内容时break
+                    while (modal_input_text && !utils.Common.remove_invisible_char(msg_box_content)?.includes(modal_input_text)) {//回复栏里的东西等于回复内容时break
                         msg_box = await pg_or_frame.waitForSelector(input_text_area_element);
-                        await msg_box.focus();
-                        await sleep(3e3);
                         await msg_box.type(modal_input_text, {
                             delay: 300,
                         });
                         await sleep(3e3);
                         if (text_area_type === 'modal') {
-                            msg_box_content = await this.basic_op.get_opus_dynamic_repost_area_content(msg_box);
+                            msg_box_content = await this.basic_op.get_opus_dynamic_repost_area_content(
+                                pg_or_frame,
+                                BiliElementMap.opus_dynamic.interact.repost_input_text_area
+                            );
                             if (!msg_box_content.includes(modal_input_text)) {
                                 await this.global_var.current_page.mouse.click(10, 10);
                                 await sleep(3e3);
@@ -253,22 +259,26 @@ class BasicOp extends BasePage {
 
         /**
          * 获取opus动态的转发框里的内容
-         * @param {puppeteer.Node} msg_box_node
+         * @param {Page} page
+         * @param {string} css_selector
          * @returns {Promise<string>}
          */
-        get_opus_dynamic_repost_area_content: async (msg_box_node) => {
-            return await msg_box_node.$eval(BiliElementMap.opus_dynamic.interact.rich_text_area, async (el) => {
-                let ret_msg = "";
-                for (let i of el.childNodes) {
-                    if (i.data) {
-                        ret_msg += i.data;
-                    } else {
-                        let emoji_data = JSON.parse(i.dataset.data);
-                        ret_msg += emoji_data.text;
+        get_opus_dynamic_repost_area_content: async (page, css_selector) => {
+            return await page.$eval(
+                css_selector,
+                async (el) => {
+                    let ret_msg = "";
+                    for (let i of el.childNodes) {
+                        if (i.data) {
+                            ret_msg += i.data;
+                        } else {
+                            let emoji_data = JSON.parse(i.dataset.data);
+                            ret_msg += emoji_data.text;
+                        }
                     }
+                    return ret_msg;
                 }
-                return ret_msg;
-            });
+            );
         },
         /**
          * 点赞动态
@@ -472,17 +482,10 @@ class BasicOp extends BasePage {
             my_comment_thumb = all_comment_thumb_btn[comment_user_index];
 
             if (my_comment_thumb) {
-                await this.global_var.current_page.evaluate(()=>{
-                   this.scrollTo(0,300)
-                })
+                await this.global_var.current_page.locator('body').scroll({scrollTop: 300});
                 await my_comment_thumb.click();
             } else {
                 console.error(this.log_format(`${BiliElementMap.log_record.opus_dynamic.comment_thumb_fail}\t获取评论框元素失败评论点赞失败`));
-            }
-            if (!(await this.global_var.current_page.waitForSelector(BiliElementMap.opus_dynamic.interact.comment_thumb_btn_is_active, {timeout: 10e3}))) {
-                console.error(this.log_format(`${BiliElementMap.log_record.opus_dynamic.comment_thumb_fail}\t评论点赞失败，获取点赞成功图标失败`));
-            } else {
-                console.log(`${this.log_name}评论点赞成功`);
             }
         }
     }

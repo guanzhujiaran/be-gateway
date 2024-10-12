@@ -34,13 +34,13 @@ class BiliLiveLotPage extends BiliOtherPage {
                     window.EmbedPlayer && window.EmbedPlayer.instance.freeze();
                 });//暂停直播播放
                 await pg.evaluate((selector) => {
-                    const elementToRemove = document.querySelector(selector);
+                    let elementToRemove = document.querySelector(selector);
                     if (elementToRemove) {
                         elementToRemove.remove();
                     }
                 }, BiliElementMap.live_page.live_player); //移除播放器
                 await pg.evaluate((selector) => {
-                    const elementToRemove = document.querySelector(selector);
+                    let elementToRemove = document.querySelector(selector);
                     if (elementToRemove) {
                         elementToRemove.remove();
                     }
@@ -270,7 +270,7 @@ class BiliLiveLotPage extends BiliOtherPage {
     async #join_goldbox_lot({pg, lottery_info}) {
         let is_succ = false;
         let response;
-        const goto_live_page = async () => {
+        let goto_live_page = async () => {
             await pg.emulate({
                 userAgent: this.global_var.redpack.emulate_info.ua,
                 viewport: {
@@ -284,16 +284,16 @@ class BiliLiveLotPage extends BiliOtherPage {
             });
             await pg.goto(`https://live.bilibili.com/p/html/live-room-treasurebox/index.html?aid=${lottery_info.aid}#/`);
         }
-        const before_anchor_lot = async () => {
-            this.global_var.goldbox.joined_redpacket_lot_id_list.push(lottery_info.aid * 100 + lottery_info.num);//实物抽奖特征id：aid*100+number
-            if (this.global_var.goldbox.joined_redpacket_lot_id_list.length > 200) {
-                this.global_var.goldbox.joined_redpacket_lot_id_list = this.global_var.goldbox.joined_redpacket_lot_id_list.slice(-50);
+        let before_anchor_lot = async () => {
+            this.global_var.goldbox.joined_goldbox_id_list.push(lottery_info.aid * 100 + lottery_info.num);//实物抽奖特征id：aid*100+number
+            if (this.global_var.goldbox.joined_goldbox_id_list.length > 200) {
+                this.global_var.goldbox.joined_goldbox_id_list = this.global_var.goldbox.joined_goldbox_id_list.slice(-50);
             }
         }
-        const exec_anchor_lot = async () => {
+        let exec_anchor_lot = async () => {
             response = await utils.BAPI.gold_box.draw({pg: pg, aid: lottery_info.aid, number: lottery_info.num});
         }
-        const after_anchor_lot = async () => {
+        let after_anchor_lot = async () => {
             switch (response.code) {
                 case 0: {
                     is_succ = true;
@@ -359,7 +359,7 @@ class BiliLiveLotPage extends BiliOtherPage {
     async #join_redpacket_lot({pg, lottery_info}) {
         let resp_data;
         let is_succ = false;
-        const before_redpack_lot = async () => {
+        let before_redpack_lot = async () => {
             this.global_var.redpack.joined_redpacket_lot_id_list.push(lottery_info.lot_id);
             if (
                 this.global_var.redpack.joined_redpacket_lot_id_list.length > 200
@@ -370,7 +370,7 @@ class BiliLiveLotPage extends BiliOtherPage {
                     );
             }
         }
-        const goto_live_page = async () => {
+        let goto_live_page = async () => {
             await pg.emulate({
                 userAgent: this.global_var.redpack.emulate_info.ua,
                 viewport: {
@@ -385,7 +385,7 @@ class BiliLiveLotPage extends BiliOtherPage {
             await pg.goto(`https://live.bilibili.com/${lottery_info.room_id}`);
         }
 
-        const exec_redpack_lot = async () => {
+        let exec_redpack_lot = async () => {
             resp_data = await pg.evaluate(
                 //红包抽奖和天选抽奖的js里面数据获取依赖wss的消息，所以要查看https://s1.hdslb.com/bfs/static/blive/blfe-live-room/static/js/app.268978a8c4d7b424e697.js 里面如何绕过前端不显示红包抽奖的界面
                 async (roomid, anchor_uid, csrf_token, lot_id) => {
@@ -432,7 +432,7 @@ class BiliLiveLotPage extends BiliOtherPage {
                 lottery_info.lot_id
             );
         }
-        const after_redpack_lot = async () => {
+        let after_redpack_lot = async () => {
             switch (resp_data.code) {
                 case 0: {
                     console.log(
@@ -615,7 +615,7 @@ class BiliLiveLotPage extends BiliOtherPage {
         let is_succ = false;
         let unusual_mark = false;
         let anchor_join_resp;
-        const before_anchor_lot = async () => {
+        let before_anchor_lot = async () => {
             if (this.CONFIG.live_info.ALLFollowingList.indexOf(lottery_info.anchor_uid) === -1 && lottery_info.require_type !== 0) {
                 await utils.BAPI.IsUserFollow(pg, lottery_info.anchor_uid).then(
                     async (data) => {
@@ -634,12 +634,12 @@ class BiliLiveLotPage extends BiliOtherPage {
                 this.global_var.anchor.joined_anchor_id_list = this.global_var.anchor.joined_anchor_id_list.slice(-50);
             }
         }
-        const goto_live_page = async () => {
+        let goto_live_page = async () => {
             await pg.goto(`https://live.bilibili.com/${lottery_info.room_id}`);
             await this.basic_op.remove_live_player(pg);
         }
 
-        const exec_anchor_lot = async () => {
+        let exec_anchor_lot = async () => {
             await pg.waitForSelector(BiliElementMap.live_page.rightArrow_btn, {
                 timeout: 10e3,
             }).then(async (btn) => await btn.click());
@@ -662,7 +662,7 @@ class BiliLiveLotPage extends BiliOtherPage {
             ])
             anchor_join_resp = await __anchor_join_resp.json();
         }
-        const after_anchor_lot = async () => {
+        let after_anchor_lot = async () => {
             if ((anchor_join_resp.code === 400) && (lottery_info.gift_num * lottery_info.gift_price !== 0)) {
                 console.error(
                     this.bili_dynamic_page.log_format(`【天选抽奖 ${
@@ -827,10 +827,18 @@ class BiliLiveLotPage extends BiliOtherPage {
                         }
                     } else {
                         console.error('Max retries reached. Break the tasks.');
+                        await AccountLogService.add_common_log_by_account_id({
+                            account_id: this.bili_dynamic_page.account_id,
+                            contents: `${err}\n${error.stack}`,
+                            ts: parseInt(utils.Common.dateNow_s()),
+                            func_name: func.name,
+                            level: 4,
+                            module_name: this.constructor.name
+                        })
                         throw error;
                     }
                     if (pg.isClosed()) {
-                        this.global_var.current_page = await this.bili_dynamic_page.create_new_pg(BiliElementMap.browser_usage.daily_task)
+                        this.global_var.current_page = await this.bili_dynamic_page.create_new_pg(BiliElementMap.browser_usage.live_lottery)
                     }
                 }
             }

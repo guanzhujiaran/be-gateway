@@ -184,13 +184,19 @@ class BiliLotterySetting {
         anchor_unignore_words: [],
         /**@type {number} 红包最低参加的金瓜子价值（1元=1000金瓜子） */
         redpack_limit_price: 50e3,
-        risk_sleeptime_s: 60 * 60
+        risk_sleeptime_s: 60 * 60,
     }
     notify_setting_module = {
         pushme_key: "",
         push_plus_key: ""
     }
-
+    daily_task_module={
+        send_bag_gift_flag:false,//是否赠送背包里的礼物（全部）
+        send_bag_gift_room_id:'24354075',//赠送直播间房间号
+        sanlian_flag:true, //自动三连
+        bcoin_flag:true,//自动获取b币
+        charge_flag:true //自动充电
+    }
     constructor(account_name) {
         this.CONFIG.COOKIENAME = account_name;
     }

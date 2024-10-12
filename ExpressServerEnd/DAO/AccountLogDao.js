@@ -261,6 +261,15 @@ class AccountLogDao {
         return await log_info.save()
     }
 
+    static async update_live_send_gift_ts({account_id, live_send_gift_ts}){
+        let log_info = await this.get_log_bili_daily_task_by_account_id(account_id)
+        if (!log_info) {
+            return await this.create_log_bili_daily_task({account_id: account_id, live_send_gift_ts: live_send_gift_ts})
+        }
+        log_info.live_send_gift_ts = live_send_gift_ts;
+        return await log_info.save()
+    }
+
     static async get_log_bili_daily_task_by_account_id(account_id) {
         return await TLogBiliDailyTask.findOne(
             {

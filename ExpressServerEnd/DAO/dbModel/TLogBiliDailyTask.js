@@ -20,7 +20,8 @@ module.exports = function(sequelize, DataTypes) {
     },
     charge_ts: {
       type: DataTypes.INTEGER,
-      allowNull: true
+      allowNull: true,
+      comment: "上一次充电任务的时间戳（秒"
     },
     log_account_id: {
       type: DataTypes.INTEGER,
@@ -30,6 +31,11 @@ module.exports = function(sequelize, DataTypes) {
         key: 'account_id'
       },
       unique: "uk-log_account_id"
+    },
+    live_send_gift_ts: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      comment: "上一次直播间送免费礼物的时间戳（秒"
     }
   }, {
     sequelize,

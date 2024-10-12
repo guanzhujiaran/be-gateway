@@ -20,7 +20,7 @@ const BiliElementMap = {
             /**
              * 转发富文本框
              */
-            repost_input_text_area: `.bili-rich-textarea`,
+            repost_input_text_area: `.bili-rich-textarea__inner`,
             /**
              * opus动态边侧点赞按钮是否激活
              */
@@ -33,7 +33,7 @@ const BiliElementMap = {
             /**
              * opus动态评论富文本框
              */
-            reply_box_text_area: `.reply-box-textarea,>>>textarea[id='input']`,
+            reply_box_text_area: `.reply-box-textarea,>>>.brt-editor`,
             reply_send_btn: `.send-text,>>>#pub>button`,
             reply_user_icon: `.user-name,>>>#user-name > a`,
             comment_thumb_btn: `.reply-like,>>>#like`,
@@ -82,6 +82,8 @@ const BiliElementMap = {
         contribution_btn: ".switch-btn-bg.live-skin-highlight-bg", //贡献值下拉框按钮
         gift_package: ".gift-control-section .gift-package", //包裹按钮
         gift_item_free: ".gift-item.package.free",
+        new_gift_item_wrap: `.new-gift-item-wrap[data-type='bag']`,
+        last_gift_send_box_btn: `.new-gift-list-box form[name='gift-sender-form'] .feed-bar-section .left-box .click-root[data-label='Click']:nth-last-child(1)`,
         live_room_treasurebox: {
             round_item: ".round-item", // 金宝箱侧边栏
             join_btn: ".bl-button.bl-button--primary", //参加金宝箱按钮
@@ -92,8 +94,9 @@ const BiliElementMap = {
     message_page: {
         whisper_notify_total_number: `a[href="#/whisper"]>.notify.notify-number`,
         whisper_notify: `.space-right .notify.notify-number`,
-        space_right_left: `.left`,
-        space_right: `.space-right`
+        space_right_left: `.list-container`,
+        space_right: `.space-right-bottom`,
+
     },
     url_path: {
         main: {
@@ -106,8 +109,8 @@ const BiliElementMap = {
             msg_whisper: `https://message.bilibili.com/?spm_id_from=333.1007.0.0#/whisper`,
             msg_reply_router: `https://message.bilibili.com/?spm_id_from=333.788.0.0#/reply`,
             msg_at_router: `https://message.bilibili.com/?spm_id_from=333.788.0.0#/at`,
-            msg_reply: `https://api.bilibili.com/x/msgfeed/reply`,
-            msg_at: `https://api.bilibili.com/x/msgfeed/at`,
+            msg_reply: `api.bilibili.com/x/msgfeed/reply`,
+            msg_at: `api.bilibili.com/x/msgfeed/at`,
             msg_session_svr_get_session: `https://api.vc.bilibili.com/session_svr/v1/session_svr/get_sessions`,
             msg_session_svr_fetch_session_msgs: `https://api.vc.bilibili.com/svr_sync/v1/svr_sync/fetch_session_msgs`,
             msg_user_cards: `https://api.bilibili.com/x/polymer/pc-electron/v1/user/cards`,
@@ -140,7 +143,8 @@ const BiliElementMap = {
             anchor: {
                 join: "/Anchor/Join",
             },
-            all: `https://live.bilibili.com/all`
+            all: `https://live.bilibili.com/all`,
+            bag_list: `api.live.bilibili.com/xlive/web-room/v1/gift/bag_list`,
         }
     },
     log_record: {
@@ -219,7 +223,7 @@ const BiliElementMap = {
         unfollow: `取关`,
         live_lottery: `直播抽奖`,
         acquire_msg: `获取私信`,
-    }
+    },
 }
 Object.freeze(BiliElementMap)
 module.exports = {BiliElementMap}

@@ -69,7 +69,7 @@ function initModels(sequelize) {
   TAccountBiliWhisperMsg.belongsTo(TBiliUser, { as: "sender_u", foreignKey: "sender_uid"});
   TBiliUser.hasMany(TAccountBiliWhisperMsg, { as: "sender_u_TAccountBiliWhisperMsgs", foreignKey: "sender_uid"});
   TBiliUserDetail.belongsTo(TBiliUser, { as: "uid_TBiliUser", foreignKey: "uid"});
-  TBiliUser.hasMany(TBiliUserDetail, { as: "TBiliUserDetails", foreignKey: "uid"});
+  TBiliUser.hasOne(TBiliUserDetail, { as: "TBiliUserDetail", foreignKey: "uid"});
   TAtariInfo.belongsTo(TDynamicInfo, { as: "atari_dynamic", foreignKey: "atari_dynamic_id"});
   TDynamicInfo.hasMany(TAtariInfo, { as: "TAtariInfos", foreignKey: "atari_dynamic_id"});
   TLotteryLogInfo.belongsTo(TDynamicInfo, { as: "dynamic_info", foreignKey: "dynamic_info_id"});

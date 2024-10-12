@@ -143,13 +143,19 @@ class AccountLogService {
         return await AccountLogDao.update_charge_ts({account_id, charge_ts})
     }
 
+    static async update_live_send_gift_ts({account_id, live_send_gift_ts}) {
+        if (!live_send_gift_ts) live_send_gift_ts = Math.ceil(Date.now() / 1e3);
+        return await AccountLogDao.update_live_send_gift_ts({account_id, live_send_gift_ts})
+    }
+
     /**
      * 获取每日任务执行的时间戳
      * @param account_id
      * @return {Promise<{
      *     sanlian_ts:number,
      *     bcoin_ts:number,
-     *     charge_ts:number
+     *     charge_ts:number,
+     *     live_send_gift_ts:number
      * }>}
      */
     static async get_log_daily_task_info(account_id) {
@@ -165,7 +171,7 @@ class AccountLogService {
      * @param {string}contents
      * @param {number}ts 时间戳（秒级）
      * @param {string}func_name
-     * @param {number}level
+     * @param {number}level - 日志等级，必须是 `LogLevel` 枚举中的一个值 取值：[0,4]
      * @param {string}module_name
      * @return {Promise<*>}
      */

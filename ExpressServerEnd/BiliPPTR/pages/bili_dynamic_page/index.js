@@ -408,7 +408,6 @@ class BiliDynamicPage extends BasePage {
                     //先进行点赞判断
                     console.log(this.log_format(`${BiliElementMap.log_record.succ_info.thumbed_dynamic}\t${this.page_url}`));
                     await sleep(3e3);
-                    await this.log_record.my_throw(BiliElementMap.log_record.succ_info.thumbed_dynamic);
                     record_data.err_msg = BiliElementMap.log_record.succ_info.thumbed_dynamic;
                     await this.log_record.dynamic_lottery_record(record_data)
                     statistic_data.lottery_succ_record.push(record_data)

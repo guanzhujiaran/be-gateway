@@ -3,7 +3,8 @@ module.exports = function(sequelize, DataTypes) {
   return sequelize.define('TBiliUserDetail', {
     uid: {
       type: DataTypes.BIGINT,
-      allowNull: true,
+      allowNull: false,
+      primaryKey: true,
       references: {
         model: 'TBiliUser',
         key: 'mid'
@@ -45,6 +46,15 @@ module.exports = function(sequelize, DataTypes) {
     sequelize,
     tableName: 'TBiliUserDetail',
     schema: 'public',
-    timestamps: false
+    timestamps: false,
+    indexes: [
+      {
+        name: "TBiliUserDetail_pkey",
+        unique: true,
+        fields: [
+          { name: "uid" },
+        ]
+      },
+    ]
   });
 };
