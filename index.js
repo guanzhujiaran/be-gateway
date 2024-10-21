@@ -2,7 +2,7 @@
  * @Author: 星瞳 1944637830@qq.com
  * @Date: 2023-11-12 23:55:03
  * @LastEditors: 星瞳 1944637830@qq.com
- * @LastEditTime: 2024-09-06 22:29:04
+ * @LastEditTime: 2024-09-28 11:50:42
  * @FilePath: \tampermonkey\index.js
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -31,8 +31,6 @@
  * ______#####______;###________###______#________
  * ________##_______####________####______________
  */
-const easyMonitor = require("easy-monitor");
-easyMonitor("BiliPPTR");
 const { DO_Lottery, sleep } = require("./木偶模块/puppeteer_lottery.js");
 const { LIVE_LOT_Service } = require("./直播模块/live_op.js");
 const { live_dm_wss_service } = require("./直播模块/live_dm_server.js");
@@ -265,15 +263,15 @@ async function gen_lot_file(start_time) {
 			"http://127.0.0.1:23333/get_others_lot_dyn"
 		);
 		let lot_dyn_data = get_lot_dyn.data;
-		if (
-			latest_lot_dyn_data.length === lot_dyn_data.length &&
-			latest_lot_dyn_data.every((v, i) => v === lot_dyn_data[i])
-		) {
-			fs.writeFileSync("./木偶模块/一般的抽奖动态id.txt", "");
-			console.log(
-				`与原来的抽奖内容相同，清空一般的抽奖动态！--${start_time.toLocaleString()}`
-			);
-		} else {
+		// if (
+		// 	latest_lot_dyn_data.length === lot_dyn_data.length &&
+		// 	latest_lot_dyn_data.every((v, i) => v === lot_dyn_data[i])
+		// ) {
+		// 	fs.writeFileSync("./木偶模块/一般的抽奖动态id.txt", "");
+		// 	console.log(
+		// 		`与原来的抽奖内容相同，清空一般的抽奖动态！--${start_time.toLocaleString()}`
+		// 	);
+		// } else {
 			fs.writeFileSync(
 				"./木偶模块/一般的抽奖动态id.txt",
 				lot_dyn_data.join("\n")
@@ -283,7 +281,7 @@ async function gen_lot_file(start_time) {
 					lot_dyn_data.length
 				}条抽奖！\n抽奖，启动！--${start_time.toLocaleString()}`
 			);
-		}
+		// }
 	} catch (e) {
 		console.error(
 			`获取抽奖动态失败！${e}\n${
@@ -395,7 +393,6 @@ async function gen_lot_file(start_time) {
 }
 
 (async function () {
-
 	while (1) {
 		console.log(`执行main函数！${new Date().toLocaleString()}`);
 		await main();

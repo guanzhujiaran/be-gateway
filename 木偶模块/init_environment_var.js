@@ -632,12 +632,13 @@ class ENVIRONMENT {
 				},
 				/**
 				 * 获取opus动态的转发框里的内容
-				 * @param {*} msg_box_node
+				 * @param {Page} page
+				 * @param {string} css_selector
 				 * @returns {Promise<string>}
 				 */
-				get_opus_dynamic_repost_area_content: async (msg_box_node) => {
-					return await msg_box_node.$eval(
-						`.bili-rich-textarea__inner`,
+				get_opus_dynamic_repost_area_content: async (page,css_selector) => {
+					return await page.$eval(
+						css_selector,
 						async (el) => {
 							let ret_msg = "";
 							for (let i of el.childNodes) {
@@ -800,12 +801,13 @@ class ENVIRONMENT {
 										});
 									msg_box =
 										await global_var.page.waitForSelector(
-											`.bili-rich-textarea`
+											`.bili-rich-textarea__inner`
 										);
 									await msg_box.focus();
 									let msg_box_content =
 										await my_operator.basic_operator.get_opus_dynamic_repost_area_content(
-											msg_box
+											global_var.page,
+											`.bili-rich-textarea__inner`
 										);
 									let _bt = 0;
 									//#region 输入转发内容
@@ -815,25 +817,12 @@ class ENVIRONMENT {
 											repost_content
 										) //回复栏里的东西等于回复内容时break
 									) {
-										msg_box =
-											await global_var.page.waitForSelector(
-												`.bili-rich-textarea`
-											);
-										await msg_box.focus();
-										await sleep(
-											utl.random_choice(
-												3 *
-													lottery_setting.Working_clearance_time
-											)
-										);
-										await msg_box.type(repost_content, {
-											delay: 20,
-										});
+										await global_var.page.locator(`.bili-rich-textarea__inner`).fill(repost_content)
 										await sleep(1e3);
-										msg_box_content =
-											await my_operator.basic_operator.get_opus_dynamic_repost_area_content(
-												msg_box
-											);
+										msg_box_content = await my_operator.basic_operator.get_opus_dynamic_repost_area_content(
+											global_var.page,
+											`.bili-rich-textarea__inner`
+										);
 										if (
 											!msg_box_content.includes(
 												repost_content
@@ -1005,8 +994,7 @@ class ENVIRONMENT {
 									//回复栏里的东西等于回复内容时break
 									await msg_box.click();
 									await sleep(
-										utl.random_choice(
-											3 *
+										3 *utl.random_choice(
 												lottery_setting.Working_clearance_time
 										)
 									);
@@ -3140,7 +3128,7 @@ class ENVIRONMENT {
 													await my_operator.copy_reply_module.get_copy_reply(
 														dynamic_id,
 														1,
-														0.01,
+														0.3,
 														false,
 														dynamic_content
 													);
@@ -3709,8 +3697,8 @@ class ENVIRONMENT {
 														//回复栏里的东西等于回复内容时break
 														await msg_box.focus();
 														await sleep(
-															utl.random_choice(
-																3 *
+															3 *utl.random_choice(
+																
 																	lottery_setting.Working_clearance_time
 															)
 														);
@@ -4776,20 +4764,19 @@ ${Dynamic_content}
 								"http://localhost:3000/ChatGPT/ask",
 								{ data: format_str }
 							);
+							console.log(`chatgpt响应`,res_string)
 							let res = res_string.data;
 							let result = res.data;
 							if (!result) {
 								throw Error(
-									`ai回复结果为空！${JSON.stringify(
-										res_string
-									)}`
+									`ai回复结果为空！`,res_string
 								);
 							}
 							console.log(
 								{
 									prompt: Dynamic_content,
 									user: global_var.user_info.uname,
-									dynamic_url: await global_var.page.url(),
+									dynamic_url: global_var.page.url(),
 									request_time: Math.ceil(Date.now() / 1000),
 								},
 								`AI回复内容：${Dynamic_content}\n结果：${result}\t${new Date().toLocaleTimeString()}`
@@ -5144,7 +5131,7 @@ ${Dynamic_content}
 						return JSON.parse(Str);
 					} catch (err) {
 						console.error("Error reading file from disk:", err);
-						return new Object();
+						return {}
 					}
 				},
 			},
