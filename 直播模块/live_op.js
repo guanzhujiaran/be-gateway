@@ -1538,10 +1538,10 @@ class LIVE_LOT {
 				break;
 			} catch (e) {
 				this.API.chatLog(
-					`执行金宝箱点击操作失败！ ${e}\n${e.stack}`,
+					`执行金宝箱点击操作失败！\n${e.stack}`,
 					"error"
 				);
-				await sleep(10e3);
+				await sleep(Math.random() * 30e3);
 			}
 		}
 	};
@@ -1619,14 +1619,19 @@ class LIVE_LOT {
 				referer: `https://live.bilibili.com/`,
 			});
 			await pptr_op.hook_teck_logdata(new_pg);
-			new_pg.goto(
-				`https://live.bilibili.com/p/html/live-room-treasurebox/index.html?aid=${aid}#/`
-			);
-			let goldbox_resp = await (
-				await new_pg.waitForResponse((resp) =>
-					resp.url().includes("goldBox/getBoxInfo")
-				)
-			).json();
+			let goldbox_resp;
+			await Promise.all([
+				new_pg.goto(
+					`https://live.bilibili.com/p/html/live-room-treasurebox/index.html?aid=${aid}#/`
+				),
+				goldbox_resp = await (
+					await new_pg.waitForResponse((resp) =>
+						resp.url().includes("goldBox/getBoxInfo")
+					)
+				).json()
+			])
+			
+			if(goldbox_resp.code!==0)return ; // 未登录
 			/**@type {roundObj[]} */
 			let rounds = goldbox_resp.data.rounds;
 			for (let round of rounds) {
@@ -1652,9 +1657,10 @@ class LIVE_LOT {
 			console.error(
 				`${this.__DO_Lottery_class.lottery_name}执行金宝箱抽奖失败！${e}\n${e.stack}`
 			);
+			if(JSON.stringify(e).includes('登录状态获取失败')) return;
 			await sleep(10e3);
 			this.__DO_Lottery_class.goldbox_lottery_flag = false;
-			return this.gold_box_main(aid);
+			return await this.gold_box_main(aid);
 		}
 	};
 	/**
@@ -1931,10 +1937,10 @@ class LIVE_LOT_Service {
 			// );
 			return response;
 		} catch (e) {
-			this.API.chatLog(
-				`获取服务器数据失败！${e}\n${JSON.stringify(e.stack)}`,
-				"error"
-			);
+			// this.API.chatLog(
+			// 	`获取服务器数据失败！${e}\n${JSON.stringify(e.stack)}`,
+			// 	"error"
+			// );
 			return [];
 		}
 	};

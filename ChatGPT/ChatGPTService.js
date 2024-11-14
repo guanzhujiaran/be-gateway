@@ -2,35 +2,33 @@
  * @Author: 星瞳 1944637830@qq.com
  * @Date: 2023-08-18 17:24:27
  * @LastEditors: 星瞳 1944637830@qq.com
- * @LastEditTime: 2024-06-20 11:29:39
+ * @LastEditTime: 2024-11-11 15:22:44
  * @FilePath: \tampermonkey\ChatGPT\ChatGPTService.js
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
 // const chatgpt_op = require("../木偶模块/util/chatgpt_browser");
 // const my_chat = new chatgpt_op();
 const express = require("express");
+const timeout = require("express-timeout-handler");
 const app = express();
+app.use(timeout.handler({ timeout: 30000 }));
 const fs = require("fs");
 const axios = require("axios");
 const port = 3000;
 app.use(express.json());
 app.use(express.urlencoded());
 const ChatGPT_log_filePath = "./ChatGPT/回复内容日志/log.txt";
-
 // 处理 POST 请求的路由
-
+// 超时的错误处理程序
+app.use((err, req, res, next) => {
+	if (err.timeout) {
+		res.status(503).send("请求超时");
+	} else {
+		next(err);
+	}
+});
 function sleep(ms) {
 	return new Promise((resolve) => setTimeout(() => resolve(sleep), ms));
-}
-
-function writeToFile(filePath, data) {
-	fs.appendFile(filePath, data, "utf8", (err) => {
-		if (err) {
-			console.error(`写入文件时发生错误: ${err}`);
-		} else {
-			console.log(`成功将数据追加到文件 ${filePath}`);
-		}
-	});
 }
 
 app.post("/ChatGPT/ask", async (req, res) => {
@@ -62,18 +60,23 @@ app.post("/ChatGPT/ask", async (req, res) => {
 				if (resp.data.code) {
 					throw Error(resp.msg);
 				}
-				console.debug(`请求：${inputText}\n获取到响应：${JSON.stringify(resp.data)}`)
+				console.debug(
+					`请求：${inputText}\n获取到响应：${JSON.stringify(
+						resp.data
+					)}`
+				);
 				// let processedText = await my_chat.askquestion(inputText);
-				let  processedText = resp.data.data.answer
+				let processedText = resp.data.data.answer;
 				processedText = processedText
 					? JSON.parse(
-							processedText.replace('：{','{')
+							processedText
+								.replace("：{", "{")
 								.replace("jsonCopy code", "")
 								.replace("data{", "{")
 								.replaceAll("json1", "")
 								.replaceAll("Json\n1", "")
-								.replaceAll("```json\n","")
-								.replaceAll("\n```","")
+								.replaceAll("```json\n", "")
+								.replaceAll("\n```", "")
 								.replaceAll("\n2", "")
 								.replaceAll("\n4", "")
 								.replaceAll("\n5", "")
@@ -91,10 +94,6 @@ app.post("/ChatGPT/ask", async (req, res) => {
 					throw Error(`获取的答案为空！`);
 				}
 				console.log(`回复内容：${JSON.stringify(processedText)}`);
-				writeToFile(
-					ChatGPT_log_filePath,
-					JSON.stringify(processedText) + "\n"
-				);
 				res.send(processedText);
 				break;
 			} else {

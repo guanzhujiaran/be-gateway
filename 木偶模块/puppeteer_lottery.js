@@ -214,11 +214,17 @@ class DO_Lottery {
 	 */
 	main = async (lotFlag) => {
 		await this.variable_init(lotFlag);
-		await this.mainFunc(
-			this.lottery_name,
-			this.browser_mode,
-			this.opus动态标志
-		);
+		try {
+			await this.mainFunc(
+				this.lottery_name,
+				this.browser_mode,
+				this.opus动态标志
+			);
+		} catch (e) {
+			console.error(`执行抽奖失败！！！${e}`);
+		} finally {
+			this._setLotFlag(false);
+		}
 	};
 	/**
 	 * @param {boolean} check_login_flag - 是否检查登录状态，也就是是否前往b站首页
@@ -2075,7 +2081,7 @@ class DO_Lottery {
 													await global_var.page
 														.browser()
 														.close();
-													await sleep(10e3);
+													await sleep(60e3);
 													await this.account_init(
 														false
 													);
@@ -2318,7 +2324,6 @@ class DO_Lottery {
 											await this.account_init();
 										}
 									}
-
 									is_lot_error = false;
 								} catch (e) {
 									is_lot_error = true;
@@ -2381,7 +2386,6 @@ class DO_Lottery {
 										.replaceAll(":", "：");
 								let write_in_content = [];
 								for (let i = 0; i < manual_op.length; i++) {
-									console.log(manual_op[i]);
 									let myDynamicId =
 										MYAPI.BiliAPI.draw_dynamic_id(
 											manual_op[i]

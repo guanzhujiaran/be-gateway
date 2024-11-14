@@ -55,8 +55,8 @@ async function main() {
 		"lottery_setting9",
 		"lottery_setting10",
 		"lottery_setting11",
-		"lottery_setting13",
 		"lottery_setting14",
+		"lottery_setting13", 
 		// 养成四级号再跑脚本
 		// "lottery_setting12",//G
 		// 'lottery_setting7',//G
@@ -231,9 +231,7 @@ async function main() {
 			} else {
 				console.log(
 					`账号：\n${JSON.stringify(
-						is_lotting,
-						"",
-						"\t"
+						is_lotting
 					)}\n抽奖还在进行中，不获取下一轮！\t\t${new Date().toLocaleTimeString()}`
 				);
 			}
