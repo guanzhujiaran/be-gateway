@@ -22,7 +22,6 @@ class base_model{
  */
 
 
-// exports.base_model = base_model
 class base_api_model extends base_model {
     code=0;
     data;

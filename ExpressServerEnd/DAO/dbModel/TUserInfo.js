@@ -16,6 +16,12 @@ module.exports = function(sequelize, DataTypes) {
     pwd: {
       type: DataTypes.TEXT,
       allowNull: true
+    },
+    role: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+      defaultValue: "level0",
+      comment: "level0\nlevel1\n...\nroot"
     }
   }, {
     sequelize,

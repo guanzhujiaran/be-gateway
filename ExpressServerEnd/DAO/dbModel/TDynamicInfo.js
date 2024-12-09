@@ -2,7 +2,7 @@ const Sequelize = require('sequelize');
 module.exports = function(sequelize, DataTypes) {
   return sequelize.define('TDynamicInfo', {
     dynamic_content: {
-      type: DataTypes.STRING(1500),
+      type: DataTypes.STRING(4096),
       allowNull: true
     },
     up_name: {

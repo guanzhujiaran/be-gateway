@@ -593,23 +593,58 @@ const utils = {
             } catch (e) {
                 console.error(`${filename}写入失败！`, e);
             }
-        }, BiliAPI:
-            {
-                //用之前加个await
-                get: async (api, params) => {
-                    let query = new URLSearchParams(params).toString();
-                    if (api.includes("wbi")) {
-                        try {
-                            query = await QueryWbiEnc(params);
-                        } catch (e) {
-                            console.error(`wbi加密失败！${api}\t${JSON.stringify(params)}\n${e.stack}`);
-                        }
+        },
+        BiliAPI: {
+            //用之前加个await
+            get: async (api, params) => {
+                let query = new URLSearchParams(params).toString();
+                if (api.includes("wbi")) {
+                    try {
+                        query = await QueryWbiEnc(params);
+                    } catch (e) {
+                        console.error(`wbi加密失败！${api}\t${JSON.stringify(params)}\n${e.stack}`);
                     }
-                    let resp = await new Promise((resolve, reject) => {
+                }
+                let resp = await new Promise((resolve, reject) => {
+                    superagent
+                        .get(api + (query ? "?" + query : ""))
+                        .set({
+                            "User-Agent": "Mozilla/5.0", //这个ua不容易被风控
+                            Accept: "application/json, text/plain, */*",
+                            "accept-encoding": "gzip, deflate",
+                            origin: "https://t.bilibili.com",
+                            referer: "https://t.bilibili.com/?spm_id_from=444.41.0.0",
+                            "sec-ch-ua": '"Google Chrome";v="105", "Not)A;Brand";v="8", "Chromium";v="105"',
+                            "sec-ch-ua-mobile": "?0",
+                            "sec-ch-ua-platform": '"Windows"',
+                            "sec-fetch-dest": "empty",
+                            "sec-fetch-mode": "cors",
+                            "sec-fetch-site": "same-site",
+                        })
+                        .end(function (err, res) {
+                            try {
+                                // console.debug(res);
+                                if (res.body) {
+                                    resolve(res.body);
+                                } else {
+                                    throw err;
+                                }
+                            } catch (e) {
+                                console.error(`这个地址 "${api}" 的内容无法被解析!详细错误信息：${e}`);
+                                reject(`这个地址 "${api}" 的内容无法被解析!详细错误信息：${e}`);
+                            }
+                        });
+                });
+                console.debug(`使用api获取响应！${api}?${query}\t${JSON.stringify(resp).slice(0, 100)}`);
+                return resp;
+            }, post:
+                (api, data) => {
+                    let resp = new Promise((resolve, reject) => {
                         superagent
-                            .get(api + (query ? "?" + query : ""))
+                            .post(api)
+                            .send(data)
                             .set({
-                                "User-Agent": "Mozilla/5.0", //这个ua不容易被风控
+                                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Edg/114.0.1823.82",
                                 Accept: "application/json, text/plain, */*",
                                 "accept-encoding": "gzip, deflate",
                                 origin: "https://t.bilibili.com",
@@ -622,144 +657,88 @@ const utils = {
                                 "sec-fetch-site": "same-site",
                             })
                             .end(function (err, res) {
-                                try {
-                                    // console.debug(res);
-                                    if (res.body) {
+                                if (!err) {
+                                    try {
                                         resolve(res.body);
-                                    } else {
-                                        throw err;
+                                    } catch (e) {
+                                        reject(`这个地址 "${api}" 的内容无法被解析!详细错误信息：${e}`);
                                     }
-                                } catch (e) {
-                                    console.error(`这个地址 "${api}" 的内容无法被解析!详细错误信息：${e}`);
-                                    reject(`这个地址 "${api}" 的内容无法被解析!详细错误信息：${e}`);
                                 }
                             });
                     });
-                    console.debug(`使用api获取响应！${api}?${query}\t${JSON.stringify(resp).slice(0, 100)}`);
+                    console.debug(`使用api获取响应！${api}?${query}\t${resp.data}`);
                     return resp;
-                }, post:
-                    (api, data) => {
-                        let resp = new Promise((resolve, reject) => {
-                            superagent
-                                .post(api)
-                                .send(data)
-                                .set({
-                                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Edg/114.0.1823.82",
-                                    Accept: "application/json, text/plain, */*",
-                                    "accept-encoding": "gzip, deflate",
-                                    origin: "https://t.bilibili.com",
-                                    referer: "https://t.bilibili.com/?spm_id_from=444.41.0.0",
-                                    "sec-ch-ua": '"Google Chrome";v="105", "Not)A;Brand";v="8", "Chromium";v="105"',
-                                    "sec-ch-ua-mobile": "?0",
-                                    "sec-ch-ua-platform": '"Windows"',
-                                    "sec-fetch-dest": "empty",
-                                    "sec-fetch-mode": "cors",
-                                    "sec-fetch-site": "same-site",
-                                })
-                                .end(function (err, res) {
-                                    if (!err) {
-                                        try {
-                                            resolve(res.body);
-                                        } catch (e) {
-                                            reject(`这个地址 "${api}" 的内容无法被解析!详细错误信息：${e}`);
-                                        }
-                                    }
-                                });
-                        });
-                        console.debug(`使用api获取响应！${api}?${query}\t${resp.data}`);
-                        return resp;
-                    }, get_dynamic_v1_detail:
-                    (dynamic_id) => {
-                        //获取动态详情
-                        return utils.BiliAPI.BiliAPI.get(`https://api.bilibili.com/x/polymer/web-dynamic/v1/detail`, {
-                            timezone_offset: -480, platform: "h5", id: dynamic_id,
-                        });
-                    }, /**
-                 * 返回评论区response
-                 *  默认为 3
-                 0 3：仅按热度
-                 1：按热度+按时间
-                 2：仅按时间
-                 按热度时：热度顺序页码（0 为第一页）
-                 按时间时：时间倒序楼层号
-                 默认为 0
-                 * @returns {Promise}
-                 */
-                get_lottery_database:
-
-                    async function () {
-                        return (await this.get('http://127.0.0.1:23333/api/v1/lottery_database/bili/GetAllLottery',
-                            {
-                                limit_time: 259200,
-                                round_num: 2
-                            })).data
-                    }
-
-                ,
-                get_reply_main: (mode, next, comment_id, type) => {
-                    //获取主站视频和动态底下的评论
+                }, get_dynamic_v1_detail:
+                (dynamic_id) => {
+                    //获取动态详情
+                    return utils.BiliAPI.BiliAPI.get(`https://api.bilibili.com/x/polymer/web-dynamic/v1/detail`, {
+                        timezone_offset: -480, platform: "h5", id: dynamic_id,
+                    });
+                },
+            get_reply_main: (mode, next, comment_id, type) => {
+                //获取主站视频和动态底下的评论
+                return utils.BiliAPI.BiliAPI.get(`https://api.bilibili.com/x/v2/reply/wbi/main`, {
+                    mode: mode, next: next, oid: comment_id, plat: 1, type: type, web_location: 1315875,
+                });
+            }, /**
+             * 获取评论区明细_翻页加载
+             * @param {*} sort 默认为0
+             0：按时间
+             1：按点赞数
+             2：按回复数
+             * @param pn
+             * @param {*} comment_id
+             * @param {*} type
+             * @returns
+             */
+            get_reply:
+                (sort, pn, comment_id, type) => {
                     return utils.BiliAPI.BiliAPI.get(`https://api.bilibili.com/x/v2/reply/wbi/main`, {
-                        mode: mode, next: next, oid: comment_id, plat: 1, type: type, web_location: 1315875,
+                        sort: sort, pn: pn, oid: comment_id, type: type,
+                    });
+                },
+            BV_AV_trans:
+                (inputcontent) => {
+                    let XOR_CODE = 23442827791579n;
+                    let MASK_CODE = 2251799813685247n;
+                    let MAX_AID = 1n << 51n;
+                    let BASE = 58n;
+                    let data = ["F", "c", "w", "A", "P", "N", "K", "T", "M", "u", "g", "3", "G", "V", "5", "L", "j", "7", "E", "J", "n", "H", "p", "W", "s", "x", "4", "t", "b", "8", "h", "a", "Y", "e", "v", "i", "q", "B", "z", "6", "r", "k", "C", "y", "1", "2", "m", "U", "S", "D", "Q", "X", "9", "R", "d", "o", "Z", "f",];
+                    let bvidArr = Array.from(inputcontent);
+                    [bvidArr[3], bvidArr[9]] = [bvidArr[9], bvidArr[3]];
+                    [bvidArr[4], bvidArr[7]] = [bvidArr[7], bvidArr[4]];
+                    bvidArr.splice(0, 3);
+                    let tmp = 0n;
+                    for (let i = 0; i < bvidArr.length; i++) {
+                        let idx = data.indexOf(bvidArr[i]);
+                        tmp = tmp * BASE + BigInt(idx);
+                    }
+                    return Number((tmp & MASK_CODE) ^ XOR_CODE);
+                },
+            draw_dynamic_id:
+                (dynamic_url) => {
+                    return /\d+/g.exec(dynamic_url)?.pop();
+                },
+            archive_stat:
+                (aid) => {
+                    return utils.BiliAPI.BiliAPI.get(`https://api.bilibili.com/x/web-interface/archive/stat`, {
+                        aid: aid,
                     });
                 }, /**
-                 * 获取评论区明细_翻页加载
-                 * @param {*} sort 默认为0
-                 0：按时间
-                 1：按点赞数
-                 2：按回复数
-                 * @param pn
-                 * @param {*} comment_id
-                 * @param {*} type
-                 * @returns
-                 */
-                get_reply:
-                    (sort, pn, comment_id, type) => {
-                        return utils.BiliAPI.BiliAPI.get(`https://api.bilibili.com/x/v2/reply/wbi/main`, {
-                            sort: sort, pn: pn, oid: comment_id, type: type,
-                        });
-                    },
-                BV_AV_trans:
-                    (inputcontent) => {
-                        let XOR_CODE = 23442827791579n;
-                        let MASK_CODE = 2251799813685247n;
-                        let MAX_AID = 1n << 51n;
-                        let BASE = 58n;
-                        let data = ["F", "c", "w", "A", "P", "N", "K", "T", "M", "u", "g", "3", "G", "V", "5", "L", "j", "7", "E", "J", "n", "H", "p", "W", "s", "x", "4", "t", "b", "8", "h", "a", "Y", "e", "v", "i", "q", "B", "z", "6", "r", "k", "C", "y", "1", "2", "m", "U", "S", "D", "Q", "X", "9", "R", "d", "o", "Z", "f",];
-                        let bvidArr = Array.from(inputcontent);
-                        [bvidArr[3], bvidArr[9]] = [bvidArr[9], bvidArr[3]];
-                        [bvidArr[4], bvidArr[7]] = [bvidArr[7], bvidArr[4]];
-                        bvidArr.splice(0, 3);
-                        let tmp = 0n;
-                        for (let i = 0; i < bvidArr.length; i++) {
-                            let idx = data.indexOf(bvidArr[i]);
-                            tmp = tmp * BASE + BigInt(idx);
-                        }
-                        return Number((tmp & MASK_CODE) ^ XOR_CODE);
-                    },
-                draw_dynamic_id:
-                    (dynamic_url) => {
-                        return /\d+/g.exec(dynamic_url)?.pop();
-                    },
-                archive_stat:
-                    (aid) => {
-                        return utils.BiliAPI.BiliAPI.get(`https://api.bilibili.com/x/web-interface/archive/stat`, {
-                            aid: aid,
-                        });
-                    }, /**
-                 * 跳转评论api返回promise，await之后返回json
-                 * @param {*} type 动态类型
-                 * @param {*} oid 评论区comment_id_str
-                 * @param {*} rpid 评论的编号id
-                 * @returns
-                 */
-                reply_jump:
-                    (type, oid, rpid) => {
-                        return utils.BiliAPI.BiliAPI.get(`https://api.bilibili.com/x/v2/reply/jump`, {
-                            type: type, oid: oid, rpid: rpid,
-                        });
-                    },
+             * 跳转评论api返回promise，await之后返回json
+             * @param {*} type 动态类型
+             * @param {*} oid 评论区comment_id_str
+             * @param {*} rpid 评论的编号id
+             * @returns
+             */
+            reply_jump:
+                (type, oid, rpid) => {
+                    return utils.BiliAPI.BiliAPI.get(`https://api.bilibili.com/x/v2/reply/jump`, {
+                        type: type, oid: oid, rpid: rpid,
+                    });
+                },
 
-            }
+        }
         ,
     }
     ,
@@ -803,8 +782,8 @@ const utils = {
                 last_headers[i[0]] = i[1];
             }
             if (
-                pg.url().includes("bilibili.com") &&
-                !url.includes("bilibili.com")
+                !pg.url().includes("bilibili.com") &&
+                url.includes("bilibili.com")
             ) {
                 await pg.goto(BiliElementMap.url_path.live.all, {waitUntil: "networkidle0"});
             }
@@ -860,7 +839,7 @@ const utils = {
                 last_headers,
                 isFormData
             );
-            if (resp.code != 0) {
+            if (resp.code !== 0) {
                 console.error(`api响应code不为0，检查参数！\n${url}\t${JSON.stringify(data)}\t${JSON.stringify(headers)}\n${JSON.stringify(resp)}`);
             }
             return resp;
@@ -1119,7 +1098,7 @@ const utils = {
         /**
          * API发送请求
          * @param {String} url
-         * @param {String} method
+         * @param {"get"|"GET"|"post"|"POST"} method
          * @param {Object} data
          * @returns {Promise<*>}
          */
@@ -1182,7 +1161,64 @@ const utils = {
                     pic_url: pic_url,
                     ts: Math.ceil(Date.now() / 1e3)
                 });
-            }
+            },
+        get_lottery_database: async () => {
+            let url = utils.MYAPI.base_url + "/api/v1/lottery_database/bili/GetAllLottery"
+            return await utils.MYAPI.ajax(url, "get", {
+                limit_time: 259200,
+                round_num: 2
+            });
+        },
+        get_topic_lottery_by_page:async({page_num, page_size} = {page_num: 0, page_size: 0}) =>{
+            let url = utils.MYAPI.base_url + "/api/v1/lottery_database/bili/GetTopicLottery";
+            return await utils.MYAPI.ajax(url, "get", {page_num, page_size});
+        },
+        get_live_lottery_by_page: async ({page_num, page_size} = {page_num: 0, page_size: 0}) => {
+            let url = utils.MYAPI.base_url + "/api/v1/lottery_database/bili/GetLiveLottery";
+            return await utils.MYAPI.ajax(url, "get", {page_num, page_size});
+        },
+        get_official_lottery_by_page: async ({
+                                                 limit_time,
+                                                 page_num,
+                                                 page_size
+                                             } = {
+            limit_time: 3 * 3600 * 24,
+            page_num: 0,
+            page_size: 0
+        }) => {
+            let url = utils.MYAPI.base_url + "/api/v1/lottery_database/bili/GetOfficialLottery";
+            return await utils.MYAPI.ajax(url, "get", {limit_time, page_num, page_size});
+        },
+        get_charge_lottery_by_page: async ({
+                                               limit_time,
+                                               page_num,
+                                               page_size
+                                           } = {
+            limit_time: 3 * 3600 * 24,
+            page_num: 0,
+            page_size: 0
+        }) => {
+            let url = utils.MYAPI.base_url + "/api/v1/lottery_database/bili/GetChargeLottery";
+            return await utils.MYAPI.ajax(url, "get", {limit_time, page_num, page_size});
+        },
+        get_reserve_lottery_by_page: async ({
+                                                limit_time,
+                                                page_num,
+                                                page_size
+                                            } = {
+            limit_time: 3 * 3600 * 24,
+            page_num: 0,
+            page_size: 0
+        }) => {
+            let url = utils.MYAPI.base_url + "/api/v1/lottery_database/bili/GetReserveLottery";
+            return await utils.MYAPI.ajax(url, "get", {limit_time, page_num, page_size});
+        },
+        add_dynamic_lottery:async ({
+            dynamic_id_or_url
+        })=>{
+            let url = utils.MYAPI.base_url + "/api/v1/lottery_database/bili/AddDynamicLottery";
+            return await utils.MYAPI.ajax(url, "post", {dynamic_id_or_url});
+        }
     }
 }
 const pptr_op = {
@@ -1370,7 +1406,12 @@ const pptr_op = {
     check_bili_login: async (pg) => {
         let url = pg.url();
         if (!url.includes(`bilibili`)) {
-            await pg.goto(`https://message.bilibili.com/?spm_id_from=333.1007.0.0#/love`);
+            try{
+                await pg.goto(`https://message.bilibili.com/?spm_id_from=333.1007.0.0#/love`);
+            }
+            finally {
+
+            }
         }
         let isLogin = await pg.evaluate(() => window.__BiliUser__?.isLogin);
         pg.url() === url ? {} : await pg.goto(url);

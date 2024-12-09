@@ -5,6 +5,7 @@ exports.UserModel = class UserModel {
     uid;
     user_name;
     parsed_pwd;
+    role;
     accounts;
 
     constructor({uid, user_name}) {
@@ -23,6 +24,7 @@ exports.UserModel = class UserModel {
             this.uid = user_info.uid;
             this.parsed_pwd = user_info.pwd;
             this.user_name = user_info.user_name;
+            this.role = user_info.role;
         }
     }
 
@@ -34,5 +36,19 @@ exports.UserModel = class UserModel {
     static async is_exists_by_user_name(user_name) {
         let result = await UserDao.get_user_info_by_user_name(user_name);
         return !!result;
+    }
+
+    static async get_user_vip({uid}) {
+        let default_vip_info = {
+            mid: uid,
+            vip_due_date: 0,
+            vip_pay_type: 0,
+            vip_status: 0,
+            vip_type: 0
+        }
+        if (!uid) {
+            return default_vip_info
+        }
+        return await UserDao.get_user_vip({uid}) ?? default_vip_info
     }
 }

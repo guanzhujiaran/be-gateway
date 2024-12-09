@@ -248,9 +248,12 @@ class BiliDailyTaskPage extends BiliOtherPage {
                 } else {
                     let coupon_btn = await coupon_content.waitForSelector(`.coupon-btn`);
                     await coupon_btn.click()
+                    await sleep(3e3);
                     try {
                         let _parent_node = await coupon_content.getProperty('parentNode');
-                        let dialog_close_icon = await _parent_node.waitForSelector('.dialog-close-icon');
+                        let dialog_close_icon = await _parent_node.waitForSelector('.dialog-close-icon', {
+                            visible: true,
+                        });
                         await dialog_close_icon.click();
                         if (
                             (

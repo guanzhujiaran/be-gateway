@@ -10,8 +10,6 @@ module.exports = function(sequelize, DataTypes) {
       }
     },
     at_id: {
-      autoIncrement: true,
-      autoIncrementIdentity: true,
       type: DataTypes.BIGINT,
       allowNull: false,
       primaryKey: true

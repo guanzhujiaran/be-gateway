@@ -61,7 +61,7 @@ class BaseTasks {
         },
     },)
 
-    read_msg_task_queue = new Queue(this.QueueName.unfollow_task_queue, {
+    read_msg_task_queue = new Queue(this.QueueName.read_msg_task_queue, {
         connection: redis_manager.connection,
         defaultJobOptions: {
             removeOnComplete: true,

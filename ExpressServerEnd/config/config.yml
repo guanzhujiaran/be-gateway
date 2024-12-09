@@ -1,5 +1,7 @@
 common_config:
     salt :
         password_salt: "田所浩二"
+        jwt_secret: "关注永雏塔菲喵，关注永雏塔菲谢谢喵！114514"
+    snow_flake_worker_id : 1
 cron_config:
     daily_task: "0 4 * * *" # 每日任务执行时间

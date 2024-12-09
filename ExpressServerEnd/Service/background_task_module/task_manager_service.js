@@ -1,5 +1,5 @@
 const {redis_manager} = require('@/ExpressServerEnd/DAO/Redis/RedisManager');
-const {Queue, Worker} = require('bullmq');
+const {Worker} = require('bullmq');
 const {AccountDao} = require("@/ExpressServerEnd/DAO/AccountDao");
 const {UserDao} = require("@/ExpressServerEnd/DAO/UserDao");
 const {base_api_model} = require("@/ExpressServerEnd/Model/base_model/base_model");
@@ -14,6 +14,7 @@ const {
 const {AccountLogDao} = require("@/ExpressServerEnd/DAO/AccountLogDao");
 const config = require("@/ExpressServerEnd/config");
 const {BaseTasks} = require("@/ExpressServerEnd/Service/background_task_module/base_task");
+const run_env_args = require("@/ExpressServerEnd/config/run_env");
 
 
 class TaskManager extends BaseTasks {
@@ -66,7 +67,15 @@ class TaskManager extends BaseTasks {
                     }
                     if (this.#bili_lottery_data.update_ts === undefined || (Date.now() / 1e3 - this.#bili_lottery_data.update_ts) > 60 * 60 * 24) {
                         console.log(`获取抽奖数据中！`)
-                        this.#bili_lottery_data.data = await utils.BiliAPI.BiliAPI.get_lottery_database()
+                        let lottery_database_resp = await utils.MYAPI.get_lottery_database()
+                        console.log("获取到数据库抽奖数据：", lottery_database_resp)
+                        this.#bili_lottery_data.data = lottery_database_resp.data ?? {
+                            common_lottery: [],
+                            must_join_common_lottery: [],
+                            official_lottery: [],
+                            reserve_lottery: []
+                        }
+
                         console.log("添加抽奖数据至pg数据库！")
                         if (!this.#bili_lottery_data.data) return await pptr_op.my_send_notify.sys_push_me('抽奖数据库内容为空！', "")
                         await Promise.all(this.#bili_lottery_data.data.common_lottery.map(async el => await AccountLogDao.add_dynamic_info(el)))
@@ -84,6 +93,10 @@ class TaskManager extends BaseTasks {
                     if (job.data.isRemoved !== true) {
                         await this.#restart_lot_by_bili_dynamic_page_instance(BP);
                     }
+                    console.log(BP.log_format(`【B站动态抽奖】任务执行完毕！`))
+                }).catch(e => {
+                    console.error(e)
+                    throw e
                 })
             },
             {
@@ -92,7 +105,6 @@ class TaskManager extends BaseTasks {
                 autorun: false
             },
         )
-        dynamic_lottery_worker.run();
         const daily_task_worker = new Worker(this.QueueName.daily_task_queue, async job => {
             let {uid, account_name} = job.data
             console.debug(`执行B站每日任务${JSON.stringify(job)}`);
@@ -113,8 +125,6 @@ class TaskManager extends BaseTasks {
             connection: redis_manager.connection,
             autorun: false
         })
-        daily_task_worker.run();
-
         const unfollow_task_worker = new Worker(this.QueueName.unfollow_task_queue, async job => {
             let {uid, account_name} = job.data
             console.debug(`执行B站取关任务${JSON.stringify(job)}`);
@@ -135,8 +145,6 @@ class TaskManager extends BaseTasks {
             connection: redis_manager.connection,
             autorun: false
         })
-        unfollow_task_worker.run()
-
         const live_lottery_worker = new Worker(this.QueueName.live_lottery_queue, async job => {
                 let {uid, account_name, lottery_info} = job.data
                 console.debug(`执行B站直播抽奖任务${JSON.stringify(job)}`);
@@ -148,7 +156,7 @@ class TaskManager extends BaseTasks {
                     account_name: account_name
                 })
                 if (!opus) throw Error(`BiliLotteryOpus获取失败！`)
-                console.log(`【${uid} ${account_name}】Opus获取成功`)
+                console.debug(`【${uid} ${account_name}】执行B站直播抽奖任务 Opus获取成功`)
                 return opus.GetBiliLiveLotPage().then(async BL => {
                     await BL.main({lottery_info: lottery_info});
                 })
@@ -158,8 +166,6 @@ class TaskManager extends BaseTasks {
                 autorun: false
             }
         )
-        live_lottery_worker.run()
-
         const read_msg_worker = new Worker(this.QueueName.read_msg_task_queue, async job => {
                 let {uid, account_name} = job.data
                 console.debug(`执行B站阅读消息任务${JSON.stringify(job)}`);
@@ -182,10 +188,20 @@ class TaskManager extends BaseTasks {
                 autorun: false
             }
         )
-        read_msg_worker.run();
+        if (run_env_args['env'] !== 'dev') {
+            dynamic_lottery_worker.run();
+            daily_task_worker.run();
+            unfollow_task_worker.run()
+            live_lottery_worker.run()
+            read_msg_worker.run();
+        }
         event_bus.on(EVENT_NAME_MAP.ALL_LIVE_LOT, async () => {
                 while (1) {
-                    let lottery_infos = await utils.MYAPI.get_live_lottery({get_all: false});
+                    let lottery_infos = await utils.MYAPI.get_live_lottery({get_all: false}).catch(e => {
+                        console.error(`获取直播信息失败！`, e);
+                        return []
+                    });
+                    // console.debug(`获取到直播抽奖信息：${JSON.stringify(lottery_infos, undefined, '\t')}`)
                     lottery_infos.map(async lottery_info => {
                         for (let [user_name, account_infos] of Object.entries(this.user_account_hash_map)) {
                             for (let [account_name, opus] of Object.entries(account_infos)) {
@@ -227,7 +243,7 @@ class TaskManager extends BaseTasks {
                     )
                     lotting_users.push({user_name: lotting_accounts})
                 }
-                console.debug(`抽奖中的账号：${JSON.stringify(lotting_users, undefined, '\t')}\n空闲中的账号：${JSON.stringify(none_lotting_users, undefined, '\t')}`)
+                // console.debug(`抽奖中的账号：${JSON.stringify(lotting_users, undefined, '\t')}\n空闲中的账号：${JSON.stringify(none_lotting_users, undefined, '\t')}`)
                 await sleep(30e3)
             }
 

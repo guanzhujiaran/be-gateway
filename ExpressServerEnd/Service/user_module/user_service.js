@@ -1,7 +1,7 @@
 const {UserModel} = require("@/ExpressServerEnd/Model/api/v1/user/user_model");
 const md5 = require("md5");
-const {createToken} = require("@/ExpressServerEnd/Controller/Route/JwtModule");
-const { base_api_model } = require("@/ExpressServerEnd/Model/base_model/base_model");
+const {createToken} = require("@/ExpressServerEnd/Service/user_permission_module/JwtModule");
+const {base_api_model} = require("@/ExpressServerEnd/Model/base_model/base_model");
 const fs = require('fs');
 
 const yaml = require('js-yaml');
@@ -14,7 +14,7 @@ class UserService {
      * 用户登录
      * @param uid
      * @param user_name
-     * @param pwd
+     * @param pwd {string} - 设置成前端加过密的密码
      * @return {Promise<base_api_model>}
      */
     static async check_login({uid, user_name, pwd}) {
@@ -26,6 +26,7 @@ class UserService {
                 let jwt_token = createToken({
                     user_name: user_model.user_name,
                     uid: user_model.uid,
+                    role:user_model.role
                 });
                 return new base_api_model(
                     {
@@ -88,8 +89,15 @@ class UserService {
         return new base_api_model({
             msg: "发生未知错误，注册失败！",
         })
+    }
 
+    static async get_user_vip({uid}) {
+        return new base_api_model(
+            {
+                data: await UserModel.get_user_vip({uid})
+            }
+        )
     }
 }
 
-module.exports= {UserService}
+module.exports = {UserService}

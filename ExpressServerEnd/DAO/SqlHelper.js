@@ -31,13 +31,18 @@ const {
     TAtariInfo,
     TBiliUser,
     TBiliUserDetail,
+    TComment,
+    TCommentInteractRelation,
     TCommonLog,
     TDynamicInfo,
     TLiveLotteryLog,
     TLogBiliDailyTask,
     TLotteryLogInfo,
+    TPersonalizedContent,
+    TPersonalizedContentType1,
     TReserveLotteryInfo,
     TUserInfo,
+    TUserVip,
 } = require("./dbModel/init-models")(sequelize);
 
 
@@ -53,12 +58,17 @@ module.exports = {
     TAtariInfo,
     TBiliUser,
     TBiliUserDetail,
+    TComment,
+    TCommentInteractRelation,
     TCommonLog,
     TDynamicInfo,
     TLiveLotteryLog,
     TLogBiliDailyTask,
     TLotteryLogInfo,
+    TPersonalizedContent,
+    TPersonalizedContentType1,
     TReserveLotteryInfo,
     TUserInfo,
+    TUserVip,
     sequelize
 };

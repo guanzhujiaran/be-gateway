@@ -17,9 +17,15 @@ const {AccountLogDao} = require('@/ExpressServerEnd/DAO/AccountLogDao');
 const {AccountLogService} = require('@/ExpressServerEnd/Service/account_log_module/account_log_service');
 const {manual_op_fail_model} = require('@/ExpressServerEnd/BiliPPTR/models/pages/bili_dynamic_page_model');
 const {AccountLotterySettingModel} = require("@/ExpressServerEnd/Model/api/v1/account/account_model");
+const {UserService} = require("@/ExpressServerEnd/Service/user_module/user_service");
+const {PersonalizedContentService} = require('@/ExpressServerEnd/Service/personalized_content_module/personalized_content_service');
+const {UserPersonalContentDao} = require('@/ExpressServerEnd/DAO/UserPersonalContentDao');
 (async () => {
-    let resp = await AccountDao.get_lottery_setting_by_account_name_and_uid(
-        'cookie1',11
+    let resp = await PersonalizedContentService.get_personalized_content(
+        {
+            oid:2,
+            type:1,
+        }
     );
     // let resp = await AccountDao.get_reserve_lottery_infos(1,);
     console.log(resp)

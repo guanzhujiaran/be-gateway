@@ -1,3 +1,5 @@
+const GenId = require('@/ExpressServerEnd/Tool/SnowFlakeGen')
+const config = require("@/ExpressServerEnd/config/index");
 const t = {
     deepMergeIfMissing: (target, source) => {
         for (let key in source) {
@@ -19,6 +21,28 @@ const t = {
             }
         }
         return target;
-    }
+    },
+    getClientIp: (req) => {
+        return req.headers['x-bili-ip'];
+    },
+    comment_rpid_snowflake_gen: new GenId({
+        WorkerId: config?.common_config?.snow_flake_worker_id ?? 1,
+        BaseTime: 1732849832635,
+        SeqBitLength: 3,
+        TopOverCostCount: 100
+    }),
+    personalized_content_type1_gen:new GenId({
+        WorkerId: config?.common_config?.snow_flake_worker_id ?? 1,
+        BaseTime: 1732849832635,
+        SeqBitLength: 4,
+        TopOverCostCount: 200
+    }),
+    now_s: () => {
+        return Math.round(Date.now() / 1e3)
+    },
+    now_ms: () => {
+        return Date.now()
+    },
+
 }
 module.exports = {t}

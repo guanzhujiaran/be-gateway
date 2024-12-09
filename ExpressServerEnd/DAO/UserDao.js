@@ -1,4 +1,4 @@
-const {TUserInfo} = require("@/ExpressServerEnd/DAO/SqlHelper");
+const {TUserInfo, TUserVip} = require("@/ExpressServerEnd/DAO/SqlHelper");
 
 const {Op} = require("sequelize");
 
@@ -65,10 +65,17 @@ class UserDao {
         return (await TUserInfo.create({
             pwd: pwd,
             user_name: user_name,
-        })).toJSON();
+        }))?.toJSON();
     };
     //#endregion
 
+    static get_user_vip = async ({uid}) => {
+        return (await TUserVip.findOne({
+            where: {
+                mid: uid
+            }
+        }))?.toJSON();
+    };
 }
 
 module.exports = {

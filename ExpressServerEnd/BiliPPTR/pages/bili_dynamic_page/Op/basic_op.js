@@ -16,11 +16,13 @@ class BasicOp extends BasePage {
         sleep: {
             single_op: async (st) => {
                 st = st ?? utils.Common.random_choice(this.lottery_setting.lottery_module.lottery_sep_time);
+                st = st + (-0.5 + Math.random()) * 5 // 加入随机数，更加拟真
                 console.debug(this.log_format(`每个操作间隔休眠${(st / 1e3).toFixed(2)}秒`))
                 await sleep(st)
             },
             single_round: async ({st, pg}) => {
                 st = st ?? utils.Common.random_choice(this.lottery_setting.lottery_module.Working_clearance_time);
+                st = st + (-0.5 + Math.random()) * 5 // 加入随机数，更加拟真
                 console.log(this.log_format(`每个抽奖间隔休眠${(st / 1e3).toFixed(2)}秒`))
                 if (st > 30e3) await pg.goto('about:blank');
                 await sleep(st)
@@ -52,8 +54,6 @@ class BasicOp extends BasePage {
                     if (break_time > 3) {
                         throw e;
                     }
-                    this.global_var.current_page && await this.global_var.current_page.close();
-                    this.global_var.current_page && await this.global_var.current_page.browser().close();
                     await sleep(10e3);
                     await this.basic_op.check_global_pg_open();
                 }
@@ -82,10 +82,10 @@ class BasicOp extends BasePage {
                             break_time < 3 ? `\n重试第${break_time}次！` : `\n彻底失败！`
                         )
                     );
-                    this.global_var.current_page && await this.global_var.current_page.close();
-                    this.global_var.current_page && await this.global_var.current_page.browser().close();
+                    // this.global_var.current_page && await this.global_var.current_page.close();
+                    // this.global_var.current_page && await this.global_var.current_page.browser().close();
                     await sleep(10e3);
-                    await this.account_page_init(false);
+                    // await this.account_page_init(false);
                 }
             }
             throw Error(BiliElementMap.log_record.critical_error.goto_page_fail);
@@ -114,11 +114,7 @@ class BasicOp extends BasePage {
             for (let bt = 0; bt <= 5; bt++) {
                 try {
                     await pptr_op.check_page_is_front(this.global_var.current_page);
-                    await pg_or_frame
-                        .waitForSelector(modal_popup_btn_element)
-                        .then(async (el) => {
-                            await el.click();
-                        });
+                    await pg_or_frame.locator(modal_popup_btn_element).click();
                     await sleep(3e3);
                     msg_box = await pg_or_frame.waitForSelector(input_text_area_element);
                     await msg_box.type(modal_input_text, {
@@ -135,7 +131,7 @@ class BasicOp extends BasePage {
                     }
                     let _bt = 0;
                     //#region 输入转发内容
-                    while (modal_input_text && !utils.Common.remove_invisible_char(msg_box_content)?.includes(modal_input_text)) {//回复栏里的东西等于回复内容时break
+                    while (modal_input_text && !utils.Common.remove_invisible_char(msg_box_content)?.includes(utils.Common.remove_invisible_char(modal_input_text))) {//回复栏里的东西等于回复内容时break
                         msg_box = await pg_or_frame.waitForSelector(input_text_area_element);
                         await msg_box.type(modal_input_text, {
                             delay: 300,
@@ -189,7 +185,7 @@ class BasicOp extends BasePage {
                     console.error(`${this.log_name}${this.page_url}\t${error_name}\n${e.stack}`);
                     if (reload) {
                         await this.global_var.current_page.reload({
-                            waitUntil: 'networkidle2'
+                            waitUntil: 'networkidle0'
                         });
                     }
                 }
@@ -383,21 +379,28 @@ class BasicOp extends BasePage {
             }
 
             let page_url = this.page_url;
-            if (this.global_var.response.reply_main.code === 12061) {
-                //UP主已关闭评论区
+            console.debug(1)
+            if (this.global_var.response.reply_main.code === 12061 || //UP主已关闭评论区
+                this.global_var.response.reply_main.code === 12002 //当前页面评论功能已关闭
+            ) {
                 return true;
             }
+
             if (page_url.includes("read/cv")) {
+                console.debug(2)
                 await this.global_var.current_page.goto(`https://t.bilibili.com/${this.global_var.dynamic_id}`);
+                console.debug(3)
             }
             if (typeof comment_msg != "string" || !comment_msg || comment_msg.includes("undefined") || comment_msg.includes("null") || comment_msg.includes("true") || comment_msg.includes("false")) {
                 //检查是否传入的是string类型参数 或者是否为空
+                console.debug(4)
                 await this.log_record.my_throw(`${BiliElementMap.log_record.opus_dynamic.err.comment.comment_msg_error}\t传入参数评论内容为空`);
                 return false;
             }
             let bt = 0;
             for (let i = 1; ; i++) {
                 try {
+                    console.debug(5)
                     await this.basic_op.check_text_area_input_same_text(
                         comment_msg,
                         BiliElementMap.opus_dynamic.interact.reply_box_text_area,
@@ -405,15 +408,18 @@ class BasicOp extends BasePage {
                         BiliElementMap.log_record.opus_dynamic.err.comment.comment_msg_input_error,
                         "plain"
                     )
+                    console.debug(6)
                     let comment_resp;
                     await Promise.all([
-                        this.global_var.current_page.waitForSelector(BiliElementMap.opus_dynamic.interact.reply_send_btn).then(el => el.click()),
+                        this.global_var.current_page.locator(BiliElementMap.opus_dynamic.interact.reply_send_btn).click(),
                         comment_resp = await this.global_var.current_page.waitForResponse(
                             resp => resp.url().includes(BiliElementMap.url_path.opus_dynamic.dynamic_reply_add))
                     ])
+                    console.debug(7)
                     this.global_var.response.comment_dyn_response = comment_resp ? await comment_resp.json() : undefined;
 
                     console.log(this.log_format(`评论响应：${JSON.stringify(this.global_var.response.comment_dyn_response)}`))
+                    console.debug(10)
                     await CheckRisk();
                     break;
                 } catch (e) {
@@ -426,11 +432,10 @@ class BasicOp extends BasePage {
                         throw e;
                     }
                     await this.global_var.current_page.reload({
-                        waitUntil: "networkidle2",
+                        waitUntil: "networkidle0",
                     });
-                    await this.global_var.current_page.evaluate(() => {
-                        this.scrollTo(0, 1500);
-                    });
+                    await this.global_var.current_page.locator('body').scroll({scrollTop: 1500})
+                    await this.global_var.current_page.locator('body').scroll({scrollTop: 0})
                 }
             }
 
@@ -1825,7 +1830,7 @@ class BasicOp extends BasePage {
                      */
                     let e = {prev: 0, next: 0};
                     let copy_msg_flag =
-                        this.global_var.response.reply_main?.code === 12061
+                        (this.global_var.response.reply_main?.code === 12061 || this.global_var.response.reply_main?.code === 12002)
                             ? false
                             : this.copy_reply_op.copy_reply_judge(
                                 dynamic_content
@@ -2498,7 +2503,7 @@ ${Dynamic_content}
                         `同义改写内容：${OriginMessage}\n结果：${result}\n${this.now}`
                     );
                     if (!result) {
-                        throw Error(`同义改写结果为空！${result}\t${this.now}`);
+                        throw new Error(`同义改写结果为空！${result}\t${this.now}`);
                     }
                     return result;
                 } catch (e) {
@@ -2673,14 +2678,14 @@ ${Dynamic_content}
     judge_official_lottery_op = {
         judge_official_lottery: () => {
             //官方抽奖判断 没过期返回false 过期了返回true ,undefinde是普通抽奖
-            let lot_rich_text =
-                this.global_var.response.global_dynamic_data?.item?.modules?.module_dynamic?.major?.opus?.summary?.rich_text_nodes?.filter(
-                    (el) => el.type === "RICH_TEXT_NODE_TYPE_LOTTERY"
-                );
-            if (lot_rich_text === undefined) {
-                return undefined;
-            }
-            return !(lot_rich_text && lot_rich_text.length > 0);
+            // let lot_rich_text =
+            //     this.global_var.response.global_dynamic_data?.item?.modules?.module_dynamic?.major?.opus?.summary?.rich_text_nodes?.filter(
+            //         (el) => el.type === "RICH_TEXT_NODE_TYPE_LOTTERY"
+            //     );
+            // if (lot_rich_text === undefined) {
+            //     return undefined;
+            // }
+            // return !(lot_rich_text && lot_rich_text.length > 0);
 
         },
         judge_charge_lottery: async () => {

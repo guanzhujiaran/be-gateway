@@ -12,6 +12,7 @@ const {UserDao} = require("@/ExpressServerEnd/DAO/UserDao");
 const {AccountService} = require("@/ExpressServerEnd/Service/account_module/account_service");
 const {resolve, join} = require('path')
 const {BiliLotterySetting} = require("@/ExpressServerEnd/Model/api/v1/account/account_model");
+const {LogLevel} = require("@/ExpressServerEnd/Model/api/v1/log/log_model");
 
 class BasePage {
 
@@ -501,10 +502,10 @@ class BasePage {
      */
     async check_login(pg, need_check_login = false) {
         try {
-            if (utils.Common.isToday(this.#status.latest_check_login_ts)){
+            if (utils.Common.isToday(this.#status.latest_check_login_ts)) {
                 return this.is_login
-            } 
-            
+            }
+
             if (!need_check_login) {
                 return true;
             }
@@ -769,6 +770,7 @@ class BasePage {
             const {func, params, err, pg, reload_when_err} = tasks[i];
             let retries = 0;
             let success = false;
+            let record_err;
             while (!success && retries < maxRetries) {
                 try {
                     while (this.global_var.FLAG.执行其他任务中标志) {
@@ -776,29 +778,39 @@ class BasePage {
                     }
                     success = await func(params);// 成功执行，不需要重试
                     if (!success) {
-                        throw Error(`任务${i}执行失败！`)
+                        throw new Error(`任务【${func.name}】执行失败！`)
                     }
                 } catch (error) {
-
+                    record_err = `${err}\n${error.stack}`
                     record_data.err_msg = err ? `${err}\n`.concat(`${error}`) : error
                     await this.log_record.dynamic_lottery_record(record_data);
                     retries++;
                     console.error(`Error executing function ${func.name}:`, error);
                     if (retries < maxRetries) {
                         console.warn(`Retrying (${retries}/${maxRetries})...`);
-
                         if (reload_when_err) {
-                            await pg.reload()
+                            pg && await pg.reload({waitUntil: "networkidle2"})
+                            await sleep(10e3);
                         }
-
                     } else {
                         console.error('Max retries reached. jump out of the flow!');
+                        break;
                     }
                 }
             }
 
             if (!success) {
                 console.error(`Failed to execute function ${func.name} after ${maxRetries} retries.`);
+                await AccountLogService.add_common_log_by_account_id(
+                    {
+                        account_id: this.account_id,
+                        contents: record_err,
+                        ts: utils.Common.dateNow_s(),
+                        func_name: func.name,
+                        level: LogLevel.critical,
+                        module_name: this.constructor.name
+                    }
+                )
                 return false
 
             }

@@ -265,11 +265,17 @@ class BiliLiveLotPage extends BiliOtherPage {
     /**
      *
      * @param {Page}pg
-     * @param {LiveGoldBoxType} lottery_info
+     * @param {gold_box} LiveGoldBoxType
      */
-    async #join_goldbox_lot({pg, lottery_info}) {
+    async #join_goldbox_lot({pg, gold_box}) {
         let is_succ = false;
         let response;
+        let before_anchor_lot = async () => {
+            this.global_var.goldbox.joined_goldbox_id_list.push(lottery_info.aid * 100 + lottery_info.num);//实物抽奖特征id：aid*100+number
+            if (this.global_var.goldbox.joined_goldbox_id_list.length > 200) {
+                this.global_var.goldbox.joined_goldbox_id_list = this.global_var.goldbox.joined_goldbox_id_list.slice(-50);
+            }
+        }
         let goto_live_page = async () => {
             await pg.emulate({
                 userAgent: this.global_var.redpack.emulate_info.ua,
@@ -283,12 +289,6 @@ class BiliLiveLotPage extends BiliOtherPage {
                 },
             });
             await pg.goto(`https://live.bilibili.com/p/html/live-room-treasurebox/index.html?aid=${lottery_info.aid}#/`);
-        }
-        let before_anchor_lot = async () => {
-            this.global_var.goldbox.joined_goldbox_id_list.push(lottery_info.aid * 100 + lottery_info.num);//实物抽奖特征id：aid*100+number
-            if (this.global_var.goldbox.joined_goldbox_id_list.length > 200) {
-                this.global_var.goldbox.joined_goldbox_id_list = this.global_var.goldbox.joined_goldbox_id_list.slice(-50);
-            }
         }
         let exec_anchor_lot = async () => {
             response = await utils.BAPI.gold_box.draw({pg: pg, aid: lottery_info.aid, number: lottery_info.num});
@@ -313,7 +313,6 @@ class BiliLiveLotPage extends BiliOtherPage {
             }
 
         }
-
         await this.#executeWithRetry([
             new ExcTaskParams({
                 func: before_anchor_lot,
@@ -322,7 +321,13 @@ class BiliLiveLotPage extends BiliOtherPage {
                 pg: pg,
                 reload_when_err: false
             }),
-            new ExcTaskParams({func: goto_live_page, params: [], err: "前往页面失败", pg: pg, reload_when_err: false}),
+            new ExcTaskParams({
+                func: goto_live_page,
+                params: [],
+                err: "前往页面失败",
+                pg: pg,
+                reload_when_err: false
+            }),
             new ExcTaskParams({
                 func: exec_anchor_lot,
                 params: [],
@@ -860,18 +865,19 @@ class BiliLiveLotPage extends BiliOtherPage {
             this.global_var.redpack.max_joined_switch = false;
             this.global_var.live_info.init_ms = new Date();
         }
-        if ((lottery_info.end_time && (utils.Common.dateNow_s() - lottery_info.end_time) < 30) ||
+        let left_ts = lottery_info.end_time - utils.Common.dateNow_s()
+        if ((lottery_info.end_time && left_ts < 30) ||
             (!lottery_info.goldbox)
         ) {
-            console.log(this.bili_dynamic_page.log_format(`当前抽奖剩余时间小于30s，跳过`))
+            console.log(this.bili_dynamic_page.log_format(`当前抽奖剩余时间${left_ts}秒小于30s，跳过`))
             return false
         }
         if (lottery_info.goldbox && lottery_info.goldbox.length > 0) {
-            if (lottery_info.goldbox[lottery_info.goldbox.length - 1].join_end_time >= utils.Common.dateNow()) {
+            if (lottery_info.goldbox[lottery_info.goldbox.length - 1].join_end_time >= utils.Common.dateNow_s()) {
                 return false //已经全部结束
             }
             for (let i = 0; i <= lottery_info.goldbox.length; i++) {
-                if (lottery_info.goldbox[i].join_start_time * 1e3 > utils.Common.dateNow()) {
+                if (lottery_info.goldbox[i].join_start_time * 1e3 > utils.Common.dateNow_s()) {
                     return false; //未开始
                 }
                 if (this.global_var.goldbox.joined_goldbox_id_list.includes(lottery_info.goldbox[i].aid * 100 + lottery_info.goldbox[i].num)) {
@@ -943,7 +949,7 @@ class BiliLiveLotPage extends BiliOtherPage {
                 await this.#join_redpacket_lot({pg: pg, lottery_info: lottery_info});
                 break;
             case "gold_box":
-                await this.#join_goldbox_lot({pg: pg, lottery_info: lottery_info[0]});
+                await this.#join_goldbox_lot({pg: pg, gold_box: lottery_info.goldbox[0]});
                 break;
             default: {
                 await AccountLogService.add_common_log_by_account_id({
@@ -969,14 +975,17 @@ class BiliLiveLotPage extends BiliOtherPage {
     async main({lottery_info}) {
         try {
             if (!await this.#is_need_join({lottery_info: lottery_info})) {
-                console.log(this.bili_dynamic_page.log_format(`跳过抽奖：【${JSON.stringify(lottery_info)}】`))
+                console.debug(this.bili_dynamic_page.log_format(`跳过抽奖：【${JSON.stringify(lottery_info)}】`))
                 return;
             }
             console.log(this.bili_dynamic_page.log_format(`执行直播抽奖任务:【${JSON.stringify(lottery_info)}】`))
             if (lottery_info.goldbox && lottery_info.goldbox.length > 0) {
                 this.bili_dynamic_page.global_var.FLAG.执行其他任务中标志 = true;
                 lottery_info.type = "gold_box";
-                lottery_info.goldbox = lottery_info.goldbox.filter(el => el);
+                lottery_info.goldbox = lottery_info.goldbox.filter(
+                    el =>
+                        !this.global_var.goldbox.joined_goldbox_id_list.includes(el.aid * 100 + el.num)
+                )//实物抽奖特征id：aid*100+number
             }
             await this.#exec_live_lottery({lottery_info: lottery_info});
             console.log(this.bili_dynamic_page.log_format(`直播抽奖任务执行完成！`))

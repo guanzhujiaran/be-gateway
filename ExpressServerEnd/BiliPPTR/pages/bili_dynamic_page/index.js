@@ -146,7 +146,7 @@ class BiliDynamicPage extends BasePage {
                     params: comment_msg,
                     err: BiliElementMap.log_record.opus_dynamic.err.comment.dynamic_comment_fail,
                     pg: this.global_var.current_page,
-                    reload_when_err: false
+                    reload_when_err: true
                 },
                 {func: sleep, params: 3e3},
                 {
@@ -213,7 +213,7 @@ class BiliDynamicPage extends BasePage {
                             follow_pg
                         );
                         await Promise.all([
-                            await follow_pg.waitForSelector(BiliElementMap.opus_dynamic.interact.follow_btn).then((el) => el.click()),
+                            await follow_pg.waitForSelector(BiliElementMap.opus_dynamic.interact.follow_btn).then(async( el) => await el.click()),
                             (global_var.response.relation_modify_response =
                                 await follow_pg
                                     .waitForResponse(
@@ -753,6 +753,7 @@ class BiliDynamicPage extends BasePage {
          */
         single: {
             reserve_lottery: async (reserve_info, new_reserve_data, join_success_list, joinfail_list) => {
+                await this.basic_op.check_global_pg_open();
                 let record_data = undefined;
                 this.global_var.response.space_reservation = undefined;
                 console.log(
