@@ -41,12 +41,30 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.STRING(30),
       allowNull: true,
       comment: "vip等级（普通用户，月度大会员，年度大会员，十年大会员，百年大会员"
+    },
+    createdAt: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: Sequelize.Sequelize.literal('CURRENT_TIMESTAMP')
+    },
+    updatedAt: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: Sequelize.Sequelize.literal('CURRENT_TIMESTAMP')
+    },
+    deletedAt: {
+      type: DataTypes.DATE,
+      allowNull: true
     }
   }, {
     sequelize,
     tableName: 'TAccountInfo_DashBoardInfo',
     schema: 'public',
-    timestamps: false,
+    timestamps: true,
+    paranoid: true,
+    createdAt: true,
+    updatedAt: true,
+    deletedAt: true,
     indexes: [
       {
         name: "TAccountInfo_DashBoardInfo_pkey",

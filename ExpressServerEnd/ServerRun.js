@@ -19,6 +19,9 @@ const UserRouter = require("@/ExpressServerEnd/Controller/api/v1/user/UserContro
 const AccountRouter = require("@/ExpressServerEnd/Controller/api/v1/account/AccountController");
 const DoLotteryRouter = require("@/ExpressServerEnd/Controller/api/v1/do_lottery/DoLotteryController");
 const LotteryDatabaseBiliRouter = require("@/ExpressServerEnd/Controller/api/v1/lottery_database/bili/LotteryDatabaseBiliController");
+const FeedbackCommentRouter = require("@/ExpressServerEnd/Controller/api/v1/feedback/comment/CommentController");
+const FeedbackContentRouter = require("@/ExpressServerEnd/Controller/api/v1/feedback/content/ContentController");
+
 const {bullRouter} = require("@/ExpressServerEnd/Controller/api/admin/queues");
 const {
     jwtAuth,
@@ -30,8 +33,15 @@ const hostname = "0.0.0.0";
 const app = express();
 const helmet = require('helmet');
 const {createGuard} = require("@/ExpressServerEnd/Service/user_permission_module/user_permission_service");
-const ip = require("ip");
 const {restrictToLocalhost} = require("@/ExpressServerEnd/MiddleWare");
+const timeout = require('connect-timeout')
+const {system_mq_task_manager} = require("@/ExpressServerEnd/Service/background_task_module/system_mq_task_service");
+app.use((req, res, next) => {
+    const start = new Date().getTime();
+    next();
+    console.log(`请求【${req.path}】【${JSON.stringify(req.body)}】【${JSON.stringify(req.query)}】耗时${new Date().getTime() - start}ms`);
+})
+app.use(timeout('15s'))
 app.use(helmet({
     referrerPolicy: {
         policy: "no-referrer"
@@ -48,7 +58,8 @@ app.use("/api/v1/user", UserRouter);
 app.use("/api/v1/account", AccountRouter);
 app.use("/api/v1/do_lottery", DoLotteryRouter);
 app.use("/api/v1/lottery_database/bili", LotteryDatabaseBiliRouter);
-
+app.use("/api/v1/feedback/comment", FeedbackCommentRouter);
+app.use("/api/v1/feedback/content", FeedbackContentRouter);
 app.use("/api/admin/queues", restrictToLocalhost, bullRouter);
 
 // 错误处理中间
@@ -90,12 +101,20 @@ app.use((err, req, resp, next) => {
             ttl: 1,
         });
     }
+    console.error(err)
+    if (run_env_args['env'] === 'prod') {
+        system_mq_task_manager.add_system_pushme_task({
+            title: 'nodejs服务器错误！',
+            msg: err.stack
+        }).then(r => {
+        })
+    }
     return resp.json({
         code: 500,
         data: null,
         msg: "服务器错误",
         ttl: 1,
-    });
+    }).status(500);
 });
 
 app.listen(port, hostname, () => {

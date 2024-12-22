@@ -24,12 +24,30 @@ module.exports = function(sequelize, DataTypes) {
         model: 'TLotteryLogInfo',
         key: 'pk'
       }
+    },
+    createdAt: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: Sequelize.Sequelize.literal('CURRENT_TIMESTAMP')
+    },
+    updatedAt: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: Sequelize.Sequelize.literal('CURRENT_TIMESTAMP')
+    },
+    deletedAt: {
+      type: DataTypes.DATE,
+      allowNull: true
     }
   }, {
     sequelize,
     tableName: 'TAccountInfo_LotteryLog',
     schema: 'public',
-    timestamps: false,
+    timestamps: true,
+    paranoid: true,
+    createdAt: true,
+    updatedAt: true,
+    deletedAt: true,
     indexes: [
       {
         name: "TAccountInfo_LotteryLog_pkey",

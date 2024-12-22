@@ -1,34 +1,36 @@
 const Sequelize = require('sequelize');
 module.exports = function(sequelize, DataTypes) {
-  return sequelize.define('TAccountBiliAtMsg', {
-    account_id: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-      references: {
-        model: 'TAccountInfo',
-        key: 'account_id'
-      }
-    },
-    at_id: {
+  return sequelize.define('TUserActInfoLog', {
+    mid: {
       type: DataTypes.BIGINT,
       allowNull: false,
-      primaryKey: true
+      references: {
+        model: 'TUserInfo',
+        key: 'uid'
+      }
     },
-    item: {
+    ip: {
+      type: DataTypes.STRING(50),
+      allowNull: true
+    },
+    ua: {
+      type: DataTypes.TEXT,
+      allowNull: true
+    },
+    headers: {
       type: DataTypes.JSON,
       allowNull: true
     },
-    uid: {
-      type: DataTypes.BIGINT,
-      allowNull: true,
-      references: {
-        model: 'TBiliUser',
-        key: 'mid'
-      }
-    },
-    at_time: {
-      type: DataTypes.INTEGER,
+    act_info: {
+      type: DataTypes.TEXT,
       allowNull: true
+    },
+    pk: {
+      autoIncrement: true,
+      autoIncrementIdentity: true,
+      type: DataTypes.BIGINT,
+      allowNull: false,
+      primaryKey: true
     },
     createdAt: {
       type: DataTypes.DATE,
@@ -46,7 +48,7 @@ module.exports = function(sequelize, DataTypes) {
     }
   }, {
     sequelize,
-    tableName: 'TAccountBiliAtMsg',
+    tableName: 'TUserActInfoLog',
     schema: 'public',
     timestamps: true,
     paranoid: true,
@@ -55,10 +57,10 @@ module.exports = function(sequelize, DataTypes) {
     deletedAt: true,
     indexes: [
       {
-        name: "TAccountBiliAtMsg_pkey",
+        name: "TUserActInfoLog_pkey",
         unique: true,
         fields: [
-          { name: "at_id" },
+          { name: "pk" },
         ]
       },
     ]

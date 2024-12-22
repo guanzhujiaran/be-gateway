@@ -36,13 +36,38 @@ module.exports = function(sequelize, DataTypes) {
     module_name: {
       type: DataTypes.TEXT,
       allowNull: true
+    },
+    createdAt: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: Sequelize.Sequelize.literal('CURRENT_TIMESTAMP')
+    },
+    updatedAt: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: Sequelize.Sequelize.literal('CURRENT_TIMESTAMP')
+    },
+    deletedAt: {
+      type: DataTypes.DATE,
+      allowNull: true
     }
   }, {
     sequelize,
     tableName: 'TCommonLog',
     schema: 'public',
-    timestamps: false,
+    timestamps: true,
+    paranoid: true,
+    createdAt: true,
+    updatedAt: true,
+    deletedAt: true,
     indexes: [
+      {
+        name: "TCommonLog_pkey",
+        unique: true,
+        fields: [
+          { name: "pk" },
+        ]
+      },
       {
         name: "TErrorLog_pkey",
         unique: true,

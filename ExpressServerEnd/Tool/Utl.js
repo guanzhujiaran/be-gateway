@@ -1,5 +1,10 @@
 const GenId = require('@/ExpressServerEnd/Tool/SnowFlakeGen')
 const config = require("@/ExpressServerEnd/config/index");
+const CryptoJS = require("crypto-js");
+const SHA256 = require("crypto-js/sha256");
+const axios = require("axios");
+const run_env_args = require("@/ExpressServerEnd/config/run_env");
+const ip = require("ip");
 const t = {
     deepMergeIfMissing: (target, source) => {
         for (let key in source) {
@@ -31,7 +36,7 @@ const t = {
         SeqBitLength: 3,
         TopOverCostCount: 100
     }),
-    personalized_content_type1_gen:new GenId({
+    personalized_content_type1_gen: new GenId({
         WorkerId: config?.common_config?.snow_flake_worker_id ?? 1,
         BaseTime: 1732849832635,
         SeqBitLength: 4,
@@ -43,6 +48,78 @@ const t = {
     now_ms: () => {
         return Date.now()
     },
+    //region 前端密码加密
+    get_frontend_enc_pwd_salt: () => {
+        return SHA256(config.common_config.salt.password_aes_salt).toString()
+    },
+    decrypt_frontend_enced_pwd: (enced_pwd) => {
+        let bytes = CryptoJS.AES.decrypt(enced_pwd, t.get_frontend_enc_pwd_salt());
+        return bytes.toString(CryptoJS.enc.Utf8);
+    },
+    delete_attr_from_obj: (obj, delete_attr = ['createdAt', 'updatedAt', 'deletedAt']) => {
+        delete_attr.map(attr => delete obj[attr])
+    },
+    /**
+     *
+     * @param title {string}
+     * @param msg {string}
+     * @return {Promise<void>}
+     */
+    push_plus: async ({title, msg}) => {
+        title = title.slice(0, 200)
+        let resp = await axios.post("http://www.pushplus.plus/send", {
+            token: config.common_config.keys.system_pushplus_key,
+            title: title,
+            content: msg,
+            template: "txt",
+        });
+        if (resp.data.code !== 200) {
+            console.error(
+                `推送${(title + msg)}失败！原因：${JSON.stringify(
+                    resp.data
+                )}`
+            );
+        }
+    },
+    renameKeys: (obj, keyMap) => {
+        // 辅助函数：用于递归处理对象或数组中的每个元素
+        const recursiveRename = currentObj => {
+            if (Array.isArray(currentObj)) {
+                // 如果当前元素是数组，则递归处理数组中的每个元素
+                return currentObj.map(item =>
+                    item && typeof item === 'object' ? recursiveRename(item) : item
+                );
+            } else if (currentObj !== null && typeof currentObj === 'object') {
+                // 如果当前元素是对象，则创建新对象并应用映射规则
+                return Object.entries(currentObj).reduce((newObj, [oldKey, value]) => {
+                    const newKey = keyMap[oldKey] || oldKey; // 应用映射规则，如果没有匹配则保持原名
+                    newObj[newKey] = recursiveRename(value); // 递归处理子对象或数组
+                    return newObj;
+                }, {});
+            }
+            // 如果不是对象也不是数组，直接返回原始值
+            return currentObj;
+        };
 
+        // 调用辅助函数处理传入的对象
+        return recursiveRename(obj);
+    }
+    //endregion
 }
-module.exports = {t}
+const req_tool = {
+    get_ip: (req, res) => {
+        if (run_env_args['env'] === 'dev') return '127.0.0.1'
+        let ip_addr = req.headers['x-bili-ip'];
+        if (ip.isV6Format(ip_addr)) {
+            return ip_addr.split(':').splice(0, 4).join(":");
+        }
+        return ip_addr
+    },
+    get_ua: (req, res) => {
+        return req.headers['user-agent']
+    },
+    get_headers: (req, res) => {
+        return req.headers
+    }
+}
+module.exports = {t, req_tool}

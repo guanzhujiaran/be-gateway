@@ -30,19 +30,44 @@ module.exports = function(sequelize, DataTypes) {
         model: 'TAccountInfo',
         key: 'account_id'
       },
-      unique: "uk-log_account_id"
+      unique: "TLogBiliDailyTask_log_account_id_key"
     },
     live_send_gift_ts: {
       type: DataTypes.INTEGER,
       allowNull: true,
       comment: "上一次直播间送免费礼物的时间戳（秒"
+    },
+    createdAt: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: Sequelize.Sequelize.literal('CURRENT_TIMESTAMP')
+    },
+    updatedAt: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: Sequelize.Sequelize.literal('CURRENT_TIMESTAMP')
+    },
+    deletedAt: {
+      type: DataTypes.DATE,
+      allowNull: true
     }
   }, {
     sequelize,
     tableName: 'TLogBiliDailyTask',
     schema: 'public',
-    timestamps: false,
+    timestamps: true,
+    paranoid: true,
+    createdAt: true,
+    updatedAt: true,
+    deletedAt: true,
     indexes: [
+      {
+        name: "TLogBiliDailyTask_log_account_id_key",
+        unique: true,
+        fields: [
+          { name: "log_account_id" },
+        ]
+      },
       {
         name: "TLogBiliDailyTask_pkey",
         unique: true,

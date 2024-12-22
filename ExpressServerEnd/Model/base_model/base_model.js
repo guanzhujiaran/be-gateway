@@ -20,8 +20,6 @@ class base_model{
  * @property {string} msg
  * @property {number} ttl
  */
-
-
 class base_api_model extends base_model {
     code=0;
     data;

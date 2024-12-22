@@ -1,33 +1,29 @@
 const Sequelize = require('sequelize');
 module.exports = function(sequelize, DataTypes) {
-  return sequelize.define('TAccountBiliAtMsg', {
-    account_id: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-      references: {
-        model: 'TAccountInfo',
-        key: 'account_id'
-      }
-    },
-    at_id: {
+  return sequelize.define('TUserDetail', {
+    mid: {
       type: DataTypes.BIGINT,
       allowNull: false,
-      primaryKey: true
-    },
-    item: {
-      type: DataTypes.JSON,
-      allowNull: true
-    },
-    uid: {
-      type: DataTypes.BIGINT,
-      allowNull: true,
+      primaryKey: true,
       references: {
-        model: 'TBiliUser',
-        key: 'mid'
+        model: 'TUserInfo',
+        key: 'uid'
       }
     },
-    at_time: {
-      type: DataTypes.INTEGER,
+    avatar: {
+      type: DataTypes.STRING(1024),
+      allowNull: true
+    },
+    uname: {
+      type: DataTypes.STRING(50),
+      allowNull: true
+    },
+    sign: {
+      type: DataTypes.STRING(1024),
+      allowNull: true
+    },
+    sex: {
+      type: DataTypes.STRING(50),
       allowNull: true
     },
     createdAt: {
@@ -46,7 +42,7 @@ module.exports = function(sequelize, DataTypes) {
     }
   }, {
     sequelize,
-    tableName: 'TAccountBiliAtMsg',
+    tableName: 'TUserDetail',
     schema: 'public',
     timestamps: true,
     paranoid: true,
@@ -55,10 +51,10 @@ module.exports = function(sequelize, DataTypes) {
     deletedAt: true,
     indexes: [
       {
-        name: "TAccountBiliAtMsg_pkey",
+        name: "TUserDetail_pkey",
         unique: true,
         fields: [
-          { name: "at_id" },
+          { name: "mid" },
         ]
       },
     ]

@@ -32,7 +32,7 @@ module.exports = function(sequelize, DataTypes) {
     dynamic_id: {
       type: DataTypes.STRING(255),
       allowNull: false,
-      unique: "dynamic_id_unique"
+      unique: "TDynamicInfo_dynamic_id_key"
     },
     pk: {
       autoIncrement: true,
@@ -40,13 +40,38 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.BIGINT,
       allowNull: false,
       primaryKey: true
+    },
+    createdAt: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: Sequelize.Sequelize.literal('CURRENT_TIMESTAMP')
+    },
+    updatedAt: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: Sequelize.Sequelize.literal('CURRENT_TIMESTAMP')
+    },
+    deletedAt: {
+      type: DataTypes.DATE,
+      allowNull: true
     }
   }, {
     sequelize,
     tableName: 'TDynamicInfo',
     schema: 'public',
-    timestamps: false,
+    timestamps: true,
+    paranoid: true,
+    createdAt: true,
+    updatedAt: true,
+    deletedAt: true,
     indexes: [
+      {
+        name: "TDynamicInfo_dynamic_id_key",
+        unique: true,
+        fields: [
+          { name: "dynamic_id" },
+        ]
+      },
       {
         name: "TDynamicInfo_pkey",
         unique: true,

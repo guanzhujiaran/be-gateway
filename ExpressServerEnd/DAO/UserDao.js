@@ -30,6 +30,9 @@ class UserDao {
      */
     static get_user_info_by_uid = async (uid) => {
         let user_info = await TUserInfo.findOne({
+            attributes: {
+                exclude: ['createdAt', 'updatedAt', 'deletedAt']
+            },
             where: {
                 uid: uid,
             },
@@ -48,6 +51,9 @@ class UserDao {
      */
     static async get_user_info_by_user_name(user_name) {
         let user_info = await TUserInfo.findOne({
+            attributes: {
+                exclude: ['createdAt', 'updatedAt', 'deletedAt']
+            },
             where: {
                 user_name: user_name,
             },
@@ -59,18 +65,21 @@ class UserDao {
      *
      * @param user_name
      * @param pwd
-     * @return {Promise<UserCredentials>}
+     * @return {Promise<TUserInfo>}
      */
     static add_user_info = async (user_name, pwd) => {
-        return (await TUserInfo.create({
+        return await TUserInfo.create({
             pwd: pwd,
             user_name: user_name,
-        }))?.toJSON();
+        })
     };
     //#endregion
 
     static get_user_vip = async ({uid}) => {
         return (await TUserVip.findOne({
+            attributes: {
+                exclude: ['createdAt', 'updatedAt', 'deletedAt']
+            },
             where: {
                 mid: uid
             }

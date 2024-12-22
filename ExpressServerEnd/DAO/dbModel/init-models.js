@@ -20,7 +20,10 @@ var _TLotteryLogInfo = require("./TLotteryLogInfo");
 var _TPersonalizedContent = require("./TPersonalizedContent");
 var _TPersonalizedContentType1 = require("./TPersonalizedContentType1");
 var _TReserveLotteryInfo = require("./TReserveLotteryInfo");
+var _TUserActInfoLog = require("./TUserActInfoLog");
+var _TUserDetail = require("./TUserDetail");
 var _TUserInfo = require("./TUserInfo");
+var _TUserLevel = require("./TUserLevel");
 var _TUserVip = require("./TUserVip");
 
 function initModels(sequelize) {
@@ -45,7 +48,10 @@ function initModels(sequelize) {
   var TPersonalizedContent = _TPersonalizedContent(sequelize, DataTypes);
   var TPersonalizedContentType1 = _TPersonalizedContentType1(sequelize, DataTypes);
   var TReserveLotteryInfo = _TReserveLotteryInfo(sequelize, DataTypes);
+  var TUserActInfoLog = _TUserActInfoLog(sequelize, DataTypes);
+  var TUserDetail = _TUserDetail(sequelize, DataTypes);
   var TUserInfo = _TUserInfo(sequelize, DataTypes);
+  var TUserLevel = _TUserLevel(sequelize, DataTypes);
   var TUserVip = _TUserVip(sequelize, DataTypes);
 
   TAccountBiliAtMsg.belongsTo(TAccountInfo, { as: "account", foreignKey: "account_id"});
@@ -80,6 +86,10 @@ function initModels(sequelize) {
   TBiliUser.hasMany(TAccountBiliWhisperMsg, { as: "sender_u_TAccountBiliWhisperMsgs", foreignKey: "sender_uid"});
   TBiliUserDetail.belongsTo(TBiliUser, { as: "uid_TBiliUser", foreignKey: "uid"});
   TBiliUser.hasOne(TBiliUserDetail, { as: "TBiliUserDetail", foreignKey: "uid"});
+  TComment.belongsTo(TComment, { as: "parent_TComment", foreignKey: "parent"});
+  TComment.hasMany(TComment, { as: "TComments", foreignKey: "parent"});
+  TComment.belongsTo(TComment, { as: "root_TComment", foreignKey: "root"});
+  TComment.hasMany(TComment, { as: "root_TComments", foreignKey: "root"});
   TCommentInteractRelation.belongsTo(TComment, { as: "comment_rp", foreignKey: "comment_rpid"});
   TComment.hasMany(TCommentInteractRelation, { as: "TCommentInteractRelations", foreignKey: "comment_rpid"});
   TAtariInfo.belongsTo(TDynamicInfo, { as: "atari_dynamic", foreignKey: "atari_dynamic_id"});
@@ -94,6 +104,18 @@ function initModels(sequelize) {
   TPersonalizedContent.hasOne(TPersonalizedContentType1, { as: "TPersonalizedContentType1", foreignKey: "rid"});
   TAccountInfo_ReserveLog.belongsTo(TReserveLotteryInfo, { as: "reserveinfo_", foreignKey: "reserveinfo_sid"});
   TReserveLotteryInfo.hasMany(TAccountInfo_ReserveLog, { as: "TAccountInfo_ReserveLogs", foreignKey: "reserveinfo_sid"});
+  TComment.belongsTo(TUserActInfoLog, { as: "ip_info", foreignKey: "ip_info_id"});
+  TUserActInfoLog.hasMany(TComment, { as: "TComments", foreignKey: "ip_info_id"});
+  TCommentInteractRelation.belongsTo(TUserActInfoLog, { as: "ip_info", foreignKey: "ip_info_id"});
+  TUserActInfoLog.hasMany(TCommentInteractRelation, { as: "TCommentInteractRelations", foreignKey: "ip_info_id"});
+  TPersonalizedContent.belongsTo(TUserActInfoLog, { as: "ip_info", foreignKey: "ip_info_id"});
+  TUserActInfoLog.hasMany(TPersonalizedContent, { as: "TPersonalizedContents", foreignKey: "ip_info_id"});
+  TUserInfo.belongsTo(TUserActInfoLog, { as: "reg_ip_info", foreignKey: "reg_ip_info_id"});
+  TUserActInfoLog.hasMany(TUserInfo, { as: "TUserInfos", foreignKey: "reg_ip_info_id"});
+  TUserLevel.belongsTo(TUserDetail, { as: "mid_TUserDetail", foreignKey: "mid"});
+  TUserDetail.hasOne(TUserLevel, { as: "TUserLevel", foreignKey: "mid"});
+  TUserVip.belongsTo(TUserDetail, { as: "mid_TUserDetail", foreignKey: "mid"});
+  TUserDetail.hasOne(TUserVip, { as: "TUserVip", foreignKey: "mid"});
   TAccountInfo.belongsTo(TUserInfo, { as: "uid_TUserInfo", foreignKey: "uid"});
   TUserInfo.hasMany(TAccountInfo, { as: "TAccountInfos", foreignKey: "uid"});
   TComment.belongsTo(TUserInfo, { as: "mid_TUserInfo", foreignKey: "mid"});
@@ -102,8 +124,10 @@ function initModels(sequelize) {
   TUserInfo.hasMany(TCommentInteractRelation, { as: "TCommentInteractRelations", foreignKey: "mid"});
   TPersonalizedContent.belongsTo(TUserInfo, { as: "up_m", foreignKey: "up_mid"});
   TUserInfo.hasMany(TPersonalizedContent, { as: "TPersonalizedContents", foreignKey: "up_mid"});
-  TUserVip.belongsTo(TUserInfo, { as: "mid_TUserInfo", foreignKey: "mid"});
-  TUserInfo.hasOne(TUserVip, { as: "TUserVip", foreignKey: "mid"});
+  TUserActInfoLog.belongsTo(TUserInfo, { as: "mid_TUserInfo", foreignKey: "mid"});
+  TUserInfo.hasMany(TUserActInfoLog, { as: "TUserActInfoLogs", foreignKey: "mid"});
+  TUserDetail.belongsTo(TUserInfo, { as: "mid_TUserInfo", foreignKey: "mid"});
+  TUserInfo.hasOne(TUserDetail, { as: "TUserDetail", foreignKey: "mid"});
 
   return {
     TAccountBiliAtMsg,
@@ -127,7 +151,10 @@ function initModels(sequelize) {
     TPersonalizedContent,
     TPersonalizedContentType1,
     TReserveLotteryInfo,
+    TUserActInfoLog,
+    TUserDetail,
     TUserInfo,
+    TUserLevel,
     TUserVip,
   };
 }

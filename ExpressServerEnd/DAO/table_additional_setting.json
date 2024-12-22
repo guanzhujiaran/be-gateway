@@ -1,0 +1,7 @@
+{
+    "timestamps": true,
+    "paranoid": true,
+    "createdAt": true,
+    "updatedAt": true,
+    "deletedAt": true
+}

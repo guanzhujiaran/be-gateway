@@ -1,34 +1,29 @@
 const Sequelize = require('sequelize');
 module.exports = function(sequelize, DataTypes) {
-  return sequelize.define('TAccountBiliAtMsg', {
-    account_id: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-      references: {
-        model: 'TAccountInfo',
-        key: 'account_id'
-      }
-    },
-    at_id: {
+  return sequelize.define('TUserLevel', {
+    mid: {
       type: DataTypes.BIGINT,
       allowNull: false,
-      primaryKey: true
-    },
-    item: {
-      type: DataTypes.JSON,
-      allowNull: true
-    },
-    uid: {
-      type: DataTypes.BIGINT,
-      allowNull: true,
+      primaryKey: true,
       references: {
-        model: 'TBiliUser',
+        model: 'TUserDetail',
         key: 'mid'
       }
     },
-    at_time: {
-      type: DataTypes.INTEGER,
-      allowNull: true
+    current_exp: {
+      type: DataTypes.BIGINT,
+      allowNull: true,
+      defaultValue: 0
+    },
+    current_level: {
+      type: DataTypes.BIGINT,
+      allowNull: true,
+      defaultValue: 0
+    },
+    current_min: {
+      type: DataTypes.BIGINT,
+      allowNull: true,
+      defaultValue: 0
     },
     createdAt: {
       type: DataTypes.DATE,
@@ -46,7 +41,7 @@ module.exports = function(sequelize, DataTypes) {
     }
   }, {
     sequelize,
-    tableName: 'TAccountBiliAtMsg',
+    tableName: 'TUserLevel',
     schema: 'public',
     timestamps: true,
     paranoid: true,
@@ -55,10 +50,10 @@ module.exports = function(sequelize, DataTypes) {
     deletedAt: true,
     indexes: [
       {
-        name: "TAccountBiliAtMsg_pkey",
+        name: "TUserLevel_pkey",
         unique: true,
         fields: [
-          { name: "at_id" },
+          { name: "mid" },
         ]
       },
     ]

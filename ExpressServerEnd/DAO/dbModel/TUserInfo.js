@@ -22,13 +22,46 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true,
       defaultValue: "level0",
       comment: "level0\nlevel1\n...\nroot"
+    },
+    createdAt: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: Sequelize.Sequelize.literal('CURRENT_TIMESTAMP')
+    },
+    updatedAt: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: Sequelize.Sequelize.literal('CURRENT_TIMESTAMP')
+    },
+    deletedAt: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    reg_ip_info_id: {
+      type: DataTypes.BIGINT,
+      allowNull: true,
+      references: {
+        model: 'TUserActInfoLog',
+        key: 'pk'
+      }
     }
   }, {
     sequelize,
     tableName: 'TUserInfo',
     schema: 'public',
-    timestamps: false,
+    timestamps: true,
+    paranoid: true,
+    createdAt: true,
+    updatedAt: true,
+    deletedAt: true,
     indexes: [
+      {
+        name: "TUserInfo_pkey",
+        unique: true,
+        fields: [
+          { name: "uid" },
+        ]
+      },
       {
         name: "TUserInfo_user_name_key",
         unique: true,

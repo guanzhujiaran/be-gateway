@@ -6,7 +6,6 @@ exports.UserModel = class UserModel {
     user_name;
     parsed_pwd;
     role;
-    accounts;
 
     constructor({uid, user_name}) {
         this.uid = uid
@@ -51,4 +50,7 @@ exports.UserModel = class UserModel {
         }
         return await UserDao.get_user_vip({uid}) ?? default_vip_info
     }
+
+
 }
+

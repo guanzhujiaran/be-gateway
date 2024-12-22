@@ -16,7 +16,14 @@ class AccountLogDao {
 
     //region 动态抽奖/官方转发抽奖记录
     static async is_dynamic_info_exist(dynamic_id) {
-        return await TDynamicInfo.findOne({where: {dynamic_id: dynamic_id}});
+        return await TDynamicInfo.findOne(
+            {
+                attributes: {
+                    exclude: ['createdAt', 'updatedAt', 'deletedAt']
+                },
+            where: {dynamic_id: dynamic_id}
+        }
+        );
     }
 
     /**
@@ -40,6 +47,9 @@ class AccountLogDao {
 
     static async get_dynamic_info_by_dynamic_id(dynId) {
         return await TDynamicInfo.findOne({
+             attributes: {
+                    exclude: ['createdAt', 'updatedAt', 'deletedAt']
+                },
             where: {
                 dynamic_id: dynId
             }
@@ -127,12 +137,14 @@ class AccountLogDao {
      */
     static async get_joined_account_info_lottery_log_by_lottery_offset(account_id, min_dynamic_id) {
         let results = await TDynamicInfo.findAll({
+             attributes: {
+                    exclude: ['createdAt', 'updatedAt', 'deletedAt','pk']
+                },
                 where: {
                     dynamic_id: {
                         [Op.gte]: min_dynamic_id
                     },
                 },
-                attributes: {exclude: ['pk']},
                 include: {
                     model: TLotteryLogInfo,
                     where: {
@@ -186,6 +198,9 @@ class AccountLogDao {
      */
     static async get_account_reserve_sid_info_by_sid_range({sid_start, sid_end}, account_id) {
         let results = await TAccountInfo_ReserveLog.findAll({
+             attributes: {
+                    exclude: ['createdAt', 'updatedAt', 'deletedAt','pk']
+                },
                 where: {
                     reserveinfo_sid: {
                         [Op.and]: {
@@ -196,9 +211,6 @@ class AccountLogDao {
                     accountinfo_id: account_id
                 },
                 order: [['reserveinfo_sid', 'desc']],
-                attributes: {
-                    exclude: ['pk']
-                }
             }
         )
         return results.map(el => el.toJSON())
@@ -266,6 +278,9 @@ class AccountLogDao {
     static async get_log_bili_daily_task_by_account_id(account_id) {
         return await TLogBiliDailyTask.findOne(
             {
+                 attributes: {
+                    exclude: ['createdAt', 'updatedAt', 'deletedAt']
+                },
                 where: {
                     log_account_id: account_id
                 }

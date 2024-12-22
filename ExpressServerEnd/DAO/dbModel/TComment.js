@@ -14,11 +14,6 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true,
       defaultValue: Sequelize.Sequelize.literal('EXTRACT(epoch FROM now())')
     },
-    action: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-      defaultValue: 0
-    },
     assist: {
       type: DataTypes.INTEGER,
       allowNull: true,
@@ -28,25 +23,21 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.STRING(4096),
       allowNull: true
     },
-    like: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-      defaultValue: 0
-    },
-    dislike: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-      defaultValue: 0
-    },
     root: {
       type: DataTypes.BIGINT,
       allowNull: true,
-      defaultValue: 0
+      references: {
+        model: 'TComment',
+        key: 'rpid'
+      }
     },
     parent: {
       type: DataTypes.BIGINT,
       allowNull: true,
-      defaultValue: 0
+      references: {
+        model: 'TComment',
+        key: 'rpid'
+      }
     },
     rcount: {
       type: DataTypes.BIGINT,
@@ -60,16 +51,10 @@ module.exports = function(sequelize, DataTypes) {
       defaultValue: 0,
       comment: "根评论条数"
     },
-    is_deleted: {
-      type: DataTypes.BOOLEAN,
-      allowNull: true,
-      defaultValue: false
-    },
     rpid: {
       type: DataTypes.BIGINT,
       allowNull: false,
-      primaryKey: true,
-      unique: "uq_rpid"
+      primaryKey: true
     },
     rid: {
       type: DataTypes.BIGINT,
@@ -78,12 +63,59 @@ module.exports = function(sequelize, DataTypes) {
         model: 'TPersonalizedContent',
         key: 'content_id'
       }
+    },
+    like: {
+      type: DataTypes.BIGINT,
+      allowNull: true,
+      defaultValue: 0
+    },
+    dislike: {
+      type: DataTypes.BIGINT,
+      allowNull: true,
+      defaultValue: 0
+    },
+    is_reported: {
+      type: DataTypes.BOOLEAN,
+      allowNull: true,
+      defaultValue: false,
+      comment: "是否被举办"
+    },
+    createdAt: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: Sequelize.Sequelize.literal('CURRENT_TIMESTAMP')
+    },
+    updatedAt: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: Sequelize.Sequelize.literal('CURRENT_TIMESTAMP')
+    },
+    deletedAt: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    is_topped: {
+      type: DataTypes.BOOLEAN,
+      allowNull: true,
+      defaultValue: false
+    },
+    ip_info_id: {
+      type: DataTypes.BIGINT,
+      allowNull: true,
+      references: {
+        model: 'TUserActInfoLog',
+        key: 'pk'
+      }
     }
   }, {
     sequelize,
     tableName: 'TComment',
     schema: 'public',
-    timestamps: false,
+    timestamps: true,
+    paranoid: true,
+    createdAt: true,
+    updatedAt: true,
+    deletedAt: true,
     indexes: [
       {
         name: "TComment_pkey",

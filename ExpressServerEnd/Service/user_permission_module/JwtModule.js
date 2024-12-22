@@ -20,27 +20,41 @@ const expressJwt = require("express-jwt");
  * @return {string}
  */
 const createToken = (payload) =>
-  jwt.sign(payload, secretKey, {
-    expiresIn: 15 * 24 * 3600, // 设置token的有效期 单位（秒）
-    algorithm: "HS256",
-  });
+    jwt.sign(payload, secretKey, {
+        expiresIn: 15 * 24 * 3600, // 设置token的有效期 单位（秒）
+        algorithm: "HS256",
+    });
 
 // 验证 token
 const jwtAuth = expressJwt
-  .expressjwt({
-    secret: secretKey,
-    algorithms: ["HS256"],
-    credentialsRequired: true, //  false：不校验
-  })
-  .unless({
-    path: [
-      "/api/v1/user/login",
-      "/api/v1/user/reg",
-      "/api/admin/queues",
-      // { url: /api\/v1\/lottery_database\/bili\/.*/ },
-      { url: /api\/admin\/queues\/.*/ },
-    ], //不需要校验的路径
-  });
+    .expressjwt({
+        secret: secretKey,
+        algorithms: ["HS256"],
+        credentialsRequired: true, //  false：不校验
+    })
+    .unless({
+        path: [
+            "/api/v1/user/login",
+            "/api/v1/user/reg",
+            "/api/v1/user/pwd_salt",
+            "/api/admin/queues",
+            {url: /api\/v1\/lottery_database\/bili\/.*/},
+            {url: /api\/admin\/queues\/.*/},
+            {url: /api\/v1\/feedback\/comment\/reply_main/}
+        ], //不需要校验的路径
+    });
+
+const jwtAuthGenerator = ({
+                              credentialsRequired = true
+                          }) => {
+    return expressJwt
+        .expressjwt({
+            secret: secretKey,
+            algorithms: ["HS256"],
+            credentialsRequired: credentialsRequired, //  false：不校验
+
+        })
+}
 
 
-module.exports = { jwtAuth, createToken };
+module.exports = {jwtAuth, createToken, jwtAuthGenerator};

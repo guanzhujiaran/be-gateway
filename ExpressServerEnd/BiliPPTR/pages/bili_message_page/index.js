@@ -164,9 +164,9 @@ class BiliMessagePage extends BiliOtherPage {
             await this.#handle_whisper_msgs({messages: messages, user_cards: user_cards});
         }
         while (true) {
-            let notify_num = parseInt(await pg.waitForSelector(BiliElementMap.message_page.whisper_notify_total_number).then(async el => {
-                return await el.textContent();
-            }))
+            let notify_num = parseInt(await pg.$eval(BiliElementMap.message_page.whisper_notify_total_number,
+                (el) => el.innerText)
+            )
             console.log(this.bili_dynamic_page.log_format(`当前剩余${notify_num}条新私信`))
             if (notify_num === 0) break;
             let all_notify_point = await pg.$$(BiliElementMap.message_page.whisper_notify)
@@ -396,8 +396,6 @@ class BiliMessagePage extends BiliOtherPage {
             this.bili_dynamic_page.global_var.FLAG.执行其他任务中标志 = false;
         }
     }
-
-
 }
 
 module.exports = {

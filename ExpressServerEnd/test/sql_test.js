@@ -18,16 +18,18 @@ const {AccountLogService} = require('@/ExpressServerEnd/Service/account_log_modu
 const {manual_op_fail_model} = require('@/ExpressServerEnd/BiliPPTR/models/pages/bili_dynamic_page_model');
 const {AccountLotterySettingModel} = require("@/ExpressServerEnd/Model/api/v1/account/account_model");
 const {UserService} = require("@/ExpressServerEnd/Service/user_module/user_service");
-const {PersonalizedContentService} = require('@/ExpressServerEnd/Service/personalized_content_module/personalized_content_service');
+const {personalized_content_service} = require('@/ExpressServerEnd/Service/personalized_content_module/personalized_content_service');
 const {UserPersonalContentDao} = require('@/ExpressServerEnd/DAO/UserPersonalContentDao');
+const {sequelize} = require("@/ExpressServerEnd/DAO/SqlHelper");
 (async () => {
-    let resp = await PersonalizedContentService.get_personalized_content(
-        {
-            oid:2,
-            type:1,
-        }
+    let resp = await personalized_content_service.get_content_comments_by_oid_type({
+        oid: 2,
+        type: 1
+    })
+
+    console.log(JSON.stringify(resp.rows.map(item => {
+            item.replies = item.replies ? item.replies.map(el => el.toJSON()) : item.replies;
+            return item.toJSON();
+        }))
     );
-    // let resp = await AccountDao.get_reserve_lottery_infos(1,);
-    console.log(resp)
-    console.log(JSON.stringify(resp, '', '\t'));
 })();

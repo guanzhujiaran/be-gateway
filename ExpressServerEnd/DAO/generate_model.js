@@ -13,7 +13,7 @@ const database = {
   // [required] * 数据库地址
   host: 'localhost',
   // [required] * 数据库名称
-  database: 'PPTR_Bili_Lot',
+  database: 'DEV_PPTR_Bili_Lot',
   // 数据库用户名
   user: 'postgres',
   // 数据库密码
@@ -26,8 +26,6 @@ const database = {
   output: './dbModel',
   // 数据库类型：postgres, mysql, sqlite
   dialect: 'postgres',
-  // 包含在model的配置参数中define的模型定义的JSON文件路径
-  additional: '',
   // 表名,多个表名逗号分隔
   tables: modelName || '',
   // 要跳过的表名，多个表名逗号分隔
@@ -40,6 +38,8 @@ const database = {
   schema: false,
   // 将模型输出为typescript文件
   typescript: false,
+  // 包含在model的配置参数中define的模型定义的JSON文件路径
+  additional:"./table_additional_setting.json"
 };
  
 let connectShell = 'sequelize-auto';

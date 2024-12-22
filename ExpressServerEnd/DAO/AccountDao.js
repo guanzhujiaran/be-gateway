@@ -15,7 +15,6 @@ const {UserDao} = require("@/ExpressServerEnd/DAO/UserDao");
 const {Op} = require("sequelize");
 
 
-
 class AccountDao {
 
     constructor() {
@@ -59,6 +58,9 @@ class AccountDao {
      */
     static get_all_account_info_by_uid = async (uid) => {
         let all_accounts = await TAccountInfo.findAll({
+            attributes: {
+                exclude: ['createdAt', 'updatedAt', 'deletedAt']
+            },
             where: {
                 uid: uid,
             },
@@ -93,6 +95,9 @@ class AccountDao {
      */
     static get_account_info_by_account_name_and_uid = async (account_name, uid) => {
         let user_info = await TAccountInfo.findOne({
+            attributes: {
+                exclude: ['createdAt', 'updatedAt', 'deletedAt']
+            },
             where: {
                 account_name: account_name,
                 uid: uid,
@@ -117,6 +122,9 @@ class AccountDao {
      */
     static async get_account_info_by_account_id_and_uid(account_id, uid) {
         let user_info = await TAccountInfo.findOne({
+            attributes: {
+                exclude: ['createdAt', 'updatedAt', 'deletedAt']
+            },
             where: {
                 account_id: account_id,
                 uid: uid,
@@ -151,6 +159,9 @@ class AccountDao {
      */
     static async get_account_info_by_account_name_and_user_name(account_name, user_name) {
         let account_info = await TAccountInfo.findOne({
+            attributes: {
+                exclude: ['createdAt', 'updatedAt', 'deletedAt']
+            },
             where: {
                 account_name: account_name,
             },
@@ -178,6 +189,9 @@ class AccountDao {
         {account_id, uname, vip, level, face, uid, nav_json}
     ) {
         let account_detail_info = await TAccountDetailInfo.findOne({
+            attributes: {
+                exclude: ['createdAt', 'updatedAt', 'deletedAt']
+            },
             where: {
                 account_info_id: account_id
             }
@@ -216,6 +230,9 @@ class AccountDao {
      */
     static async get_lottery_setting_by_account_name_and_uid(account_name, uid) {
         let account_detail_info = await TAccountInfo.findOne({
+            attributes: {
+                exclude: ['createdAt', 'updatedAt', 'deletedAt', 'account_id']
+            },
             where: {
                 account_name: account_name,
                 uid: uid
@@ -224,11 +241,11 @@ class AccountDao {
                 {
                     model: TAccountDetailInfo,
                     as: "info",
+                    attributes: {
+                        exclude: ['createdAt', 'updatedAt', 'deletedAt', 'account_id']
+                    },
                 },
             ],
-            attributes: {
-                exclude: ['account_id']
-            }
         })
         return account_detail_info?.toJSON()
     }
@@ -260,6 +277,9 @@ class AccountDao {
      */
     static async save_lottery_setting_by_account_name_and_uid(account_name, uid, lottery_setting) {
         let account_detail_info = await TAccountInfo.findOne({
+            attributes: {
+                exclude: ['createdAt', 'updatedAt', 'deletedAt']
+            },
             where: {
                 account_name: account_name,
                 uid: uid
@@ -268,6 +288,9 @@ class AccountDao {
                 {
                     model: TAccountDetailInfo,
                     as: "info",
+                    attributes: {
+                        exclude: ['createdAt', 'updatedAt', 'deletedAt', 'account_id']
+                    },
                 }
             ]
         })
@@ -301,10 +324,13 @@ class AccountDao {
     static async get_reserve_lottery_log_sids_by_account_id(account_id, limit = 100) {
         let reserve_log = await TAccountInfo_ReserveLog.findAll(
             {
+                attributes: {
+                    include: ['reserveinfo_sid'],
+                    exclude: ['createdAt', 'updatedAt', 'deletedAt']
+                },
                 where: {
                     accountinfo_id: account_id,
                 },
-                attributes: ['reserveinfo_sid'],
                 order: [["reserveinfo_sid", "desc"]],
                 limit: limit
             }
@@ -315,7 +341,10 @@ class AccountDao {
     static async get_reserve_lottery_log_sids_by_username_account_name(username, account_name, limit = 100) {
         let reserve_log = await TAccountInfo_ReserveLog.findAll(
             {
-                attributes: ['reserveinfo_sid'],
+                attributes: {
+                    include: ['reserveinfo_sid'],
+                    exclude: ['createdAt', 'updatedAt', 'deletedAt']
+                },
                 order: [["reserveinfo_sid", "desc"]],
                 limit: limit,
                 include: {
@@ -323,13 +352,19 @@ class AccountDao {
                     where: {
                         account_name: account_name
                     },
+                    attributes: {
+                        exclude: ['createdAt', 'updatedAt', 'deletedAt', 'account_id']
+                    },
                     as: "accountinfo",
                     include: {
                         model: TUserInfo,
                         where: {
                             user_name: username
                         },
-                        as: "uid_TUserInfo"
+                        as: "uid_TUserInfo",
+                        attributes: {
+                            exclude: ['createdAt', 'updatedAt', 'deletedAt', 'account_id']
+                        },
                     }
                 }
             }
@@ -339,13 +374,13 @@ class AccountDao {
 
     static async get_reserve_lottery_infos() {
         let reserve_lottery_infos = await TReserveLotteryInfo.findAll({
+            attributes: {
+                exclude: ['createdAt', 'updatedAt', 'deletedAt', 'pk']
+            },
             where: {
                 available: true,
                 etime: {[Op.gt]: Math.ceil(Date.now() / 1e3)}
             },
-            attributes: {
-                exclude: ['pk']
-            }
         })
         return reserve_lottery_infos.map(el => el.toJSON())
     }
@@ -376,7 +411,7 @@ class AccountDao {
     /**
      * 获取dashboard上需要的信息 通过account_name 和uid特定出一个指定的账号，通过这个账号的account_id获取其他信息
      * @param {string} account_name
-     * @param {string} uid
+     * @param {number} uid
      * @returns {promise<account_dashboard_info>}
      */
     static get_account_dashboard_info_by_account_name_and_uid = async (
@@ -393,7 +428,9 @@ class AccountDao {
             );
         }
         let account_dashboard_info = await TAccountInfo_DashBoardInfo.findOne({
-            attributes: {exclude: ["dashboard_id", "accountinfo_id"]},
+            attributes: {
+                exclude: ['createdAt', 'updatedAt', 'deletedAt', "dashboard_id", "accountinfo_id"]
+            },
             where: {
                 accountinfo_id: account_info.account_id,
             },

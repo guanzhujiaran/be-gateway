@@ -2,13 +2,10 @@ const express = require("express");
 const {check, validationResult} = require("express-validator");
 const router = express.Router();
 const cookParser = require("cookie-parser");
-const {UserService} = require("@/ExpressServerEnd/Service/user_module/user_service")
-const {t} = require("@/ExpressServerEnd/Tool/Utl");
-const {base_api_model} = require("@/ExpressServerEnd/Model/base_model/base_model");
-const {PersonalizedContentService} = require("@/ExpressServerEnd/Service/personalized_content_module/personalized_content_service");
+const {personalized_content_service} = require("@/ExpressServerEnd/Service/personalized_content_module/personalized_content_service");
 router.use(cookParser());
 
-router.post("/pub", [
+router.post("/pub_content", [
         check('title', '标题不正确！').notEmpty({ignore_whitespace: true}).isString(),
         check('content', '内容不正确！').notEmpty({ignore_whitespace: true}).isString(),
         check('type', '发布类型不正确！').notEmpty({ignore_whitespace: true}).isNumeric(),
@@ -24,15 +21,16 @@ router.post("/pub", [
             let {
                 title,
                 content,
-                desc,
+                desc = "",
                 type
             } = req.body;
-            let result = await PersonalizedContentService.add_personalized_content({
+            let result = await personalized_content_service.add_personalized_content({
                 mid: uid,
                 title,
                 content,
                 desc,
-                type
+                type,
+                req,resp
             })
             /**
              * @type {RootObject<{oid:number}|null>}
@@ -45,7 +43,7 @@ router.post("/pub", [
     }
 );
 
-router.get("/pub_list",
+router.get("/get_list",
     [
         check("page_num", "页数必须为数字").isNumeric(),
         check("page_size", "页长必须为数字").isNumeric(),
@@ -63,7 +61,7 @@ router.get("/pub_list",
                 page_size,
                 order_by = "hot"
             } = req.query;
-            let result = await PersonalizedContentService.get_personalized_content({
+            let result = await personalized_content_service.get_personalized_content({
                 mid: uid,
                 page_num,
                 page_size,
@@ -79,3 +77,5 @@ router.get("/pub_list",
         }
     }
 )
+
+module.exports = router;

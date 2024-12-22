@@ -6,13 +6,13 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.BIGINT,
       allowNull: false,
       comment: "自己的id",
-      unique: "uq_oid_type"
+      unique: "TPersonalizedContent_oid_type_key"
     },
     type: {
       type: DataTypes.INTEGER,
       allowNull: false,
       comment: "1：文字\n后续待定",
-      unique: "uq_oid_type"
+      unique: "TPersonalizedContent_oid_type_key"
     },
     up_mid: {
       type: DataTypes.BIGINT,
@@ -31,15 +31,48 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.BIGINT,
       allowNull: false,
       comment: "对外显示的业务id",
-      primaryKey: true,
-      unique: "uq_content_id"
+      primaryKey: true
+    },
+    createdAt: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: Sequelize.Sequelize.literal('CURRENT_TIMESTAMP')
+    },
+    updatedAt: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: Sequelize.Sequelize.literal('CURRENT_TIMESTAMP')
+    },
+    deletedAt: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    ip_info_id: {
+      type: DataTypes.BIGINT,
+      allowNull: true,
+      references: {
+        model: 'TUserActInfoLog',
+        key: 'pk'
+      }
     }
   }, {
     sequelize,
     tableName: 'TPersonalizedContent',
     schema: 'public',
-    timestamps: false,
+    timestamps: true,
+    paranoid: true,
+    createdAt: true,
+    updatedAt: true,
+    deletedAt: true,
     indexes: [
+      {
+        name: "TPersonalizedContent_oid_type_key",
+        unique: true,
+        fields: [
+          { name: "oid" },
+          { name: "type" },
+        ]
+      },
       {
         name: "TPersonalizedContent_pkey",
         unique: true,

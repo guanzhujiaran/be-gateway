@@ -8,19 +8,20 @@
  */
 const config = require("dotenv").config();
 const {Sequelize} = require("sequelize");
-const {Op} = require("sequelize");
-const DB = config.parsed.DB;
+const run_env_args = require("@/ExpressServerEnd/config/run_env");
+
+const DB =run_env_args['env']=== 'prod'? config.parsed.DB:config.parsed.ENV_DB;
 const sequelize = new Sequelize(DB, {dialect: "postgres"});
 sequelize
     .authenticate()
     .then(() => {
-        console.debug(`数据库连接正常`);
+        console.log(`数据库【${DB}】连接正常`);
     })
     .catch((e) => {
-        console.error(`数据库连接失败！${e}`);
+        console.error(`数据库【${DB}】连接失败！${e}`);
     });
 const {
-    TAccountBiliAtMsg,
+   TAccountBiliAtMsg,
     TAccountBiliReplyMsg,
     TAccountBiliWhisperMsg,
     TAccountDetailInfo,
@@ -41,9 +42,14 @@ const {
     TPersonalizedContent,
     TPersonalizedContentType1,
     TReserveLotteryInfo,
+    TUserActInfoLog,
+    TUserDetail,
     TUserInfo,
+    TUserLevel,
     TUserVip,
 } = require("./dbModel/init-models")(sequelize);
+
+
 
 
 module.exports = {
@@ -68,7 +74,10 @@ module.exports = {
     TPersonalizedContent,
     TPersonalizedContentType1,
     TReserveLotteryInfo,
+    TUserActInfoLog,
+    TUserDetail,
     TUserInfo,
+    TUserLevel,
     TUserVip,
     sequelize
 };

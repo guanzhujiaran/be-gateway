@@ -8,10 +8,12 @@ const cookParser = require("cookie-parser");
 const {AccountService} = require("@/ExpressServerEnd/Service/account_module/account_service");
 const {task_manager} = require("@/ExpressServerEnd/Service/background_task_module/task_manager_service");
 const {base_api_model} = require("@/ExpressServerEnd/Model/base_model/base_model");
+const {createGuard} = require("@/ExpressServerEnd/Service/user_permission_module/user_permission_service");
 router.use(cookParser());
 
 //region 获取所有账号列表
 router.get("/all_accounts",
+    createGuard(),
     /**
      *
      * @param req
@@ -33,10 +35,10 @@ router.get("/all_accounts",
         }
     });
 //endregion
-
 //region 添加账号
 router.post(
     "/add_account",
+    createGuard(),
     [body("account_name").notEmpty().withMessage("账号名不能为空")],
     /**
      *
@@ -65,10 +67,10 @@ router.post(
     }
 );
 //endregion
-
 //region 获取账号信息
 router.get(
     "/get_account_info",
+    createGuard(),
     oneOf([
             query("account_name").notEmpty(),
             query("account_id").notEmpty()
@@ -86,7 +88,7 @@ router.get(
      */
     async (req, resp, next) => {
         try {
-            var errors = validationResult(req);
+            let errors = validationResult(req);
             if (!errors.isEmpty()) {
                 return next(errors.mapped());
             }
@@ -109,10 +111,10 @@ router.get(
     }
 );
 //endregion
-
 //region 获取账号设置
 router.get(
     "/get_account_setting",
+    createGuard(),
     query("account_name").notEmpty().withMessage("账号名称不能为空")
     ,
     async (req, resp, next) => {
@@ -150,6 +152,7 @@ router.get(
 //region 保存账号设置
 router.post(
     "/save_account_setting",
+    createGuard(),
     body("account_name").notEmpty(),
     body('settings').notEmpty(),
     async (req, resp, next) => {
@@ -173,10 +176,10 @@ router.post(
     }
 );
 //endregion
-
-//region 保存账号设置
+//region 获取账号运行状态
 router.get(
     "/get_account_running_status",
+    createGuard(),
     query("account_name").notEmpty(),
     async (req, resp, next) => {
         try {
@@ -198,6 +201,5 @@ router.get(
     }
 );
 //endregion
-
 
 module.exports = router;

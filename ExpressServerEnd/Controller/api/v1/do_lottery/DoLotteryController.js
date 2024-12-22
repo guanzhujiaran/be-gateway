@@ -5,12 +5,13 @@ const {
 } = require("express-validator");
 const router = express.Router();
 const cookParser = require("cookie-parser");
-const {AccountService} = require("@/ExpressServerEnd/Service/account_module/account_service");
 const {task_manager} = require("@/ExpressServerEnd/Service/background_task_module/task_manager_service");
+const {createGuard} = require("@/ExpressServerEnd/Service/user_permission_module/user_permission_service");
 router.use(cookParser());
 
 router.post('/bili/run',
-    body('account_name'),
+    createGuard(),
+    body('account_name').notEmpty(),
     async (req, resp, next) => {
         try {
             const errors = validationResult(req);
@@ -28,6 +29,7 @@ router.post('/bili/run',
     })
 
 router.post('/bili/run_bulk',
+    createGuard(),
     async (req, res, next) => {
         try {
             const errors = validationResult(req);
@@ -36,6 +38,25 @@ router.post('/bili/run_bulk',
             }
             let uid = req.auth.uid;
             let result = await task_manager.bulk_add_user_tasks(uid);
+            let result_json = result.toJSON()
+            return resp.json(result_json)
+        } catch (e) {
+            next(e);
+        }
+    }
+)
+router.post('/bili/run_read_account_msg',
+    createGuard(),
+    body('account_name').notEmpty(),
+    async (req, res, next) => {
+        try {
+            const errors = validationResult(req);
+            if (!errors.isEmpty()) {
+                return next(errors.mapped());
+            }
+            let uid = req.auth.uid;
+            let {account_name} = req.body;
+            let result = await task_manager.add_read_account_msg({uid: uid, account_name: account_name});
             let result_json = result.toJSON()
             return resp.json(result_json)
         } catch (e) {

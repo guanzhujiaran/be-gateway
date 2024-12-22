@@ -7,10 +7,6 @@ const LOTTERY_DATA_VIP_ACCESS_OFFSET = {
 }
 
 const PermissionName = {
-    root: {
-        name: 'root',
-        permissions: [['root']]
-    },
     level0: {
         name: 'level0',
         permissions: [
@@ -53,11 +49,15 @@ const PermissionName = {
             ['root'], ['level6']
         ]
     },
+        root: {
+        name: 'root',
+        permissions: [['root']]
+    },
 }
 
 const permissionMap = new Map([
-    ['/api/v1/account/*', PermissionName.root],
-
+    ['/api/v1/account/*', PermissionName.level6],
+    ['/api/v1/do_lottery/*',PermissionName.level6]
 ])
 module.exports = {
     LOTTERY_DATA_VIP_ACCESS_OFFSET,

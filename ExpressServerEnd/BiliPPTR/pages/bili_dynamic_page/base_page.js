@@ -709,7 +709,7 @@ class BasePage {
                     }
                 }
             }
-            if (this.global_var.current_page && this.global_var.current_page.isClosed() || this.global_var.current_page.usage !== usage) {
+            if (this.global_var.current_page && (this.global_var.current_page.isClosed() || this.global_var.current_page.usage !== usage)) {
                 //浏览器未关闭，抽奖页面已关闭
                 let br = this.global_var.current_page.browser();
                 let new_pg = await br.newPage();

@@ -3,6 +3,7 @@ module.exports = {
         name: 'nodejs_express_backend_nginx',
         script: './ExpressServerEnd/ServerRun.js',
         cwd: 'K:/BiliPPTRVerDEV',
+        args:'--env=prod',
         wait_ready: true,
         exec_mode: "fork",
         autorestart: true,
