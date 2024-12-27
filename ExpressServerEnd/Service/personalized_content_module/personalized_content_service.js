@@ -23,6 +23,25 @@ class PersonalizedContentService {
         "TUserVip": "vip",
     }
 
+    #process_single_comment_resp(_) {
+        _.mid_TUserInfo = _.mid_TUserInfo.TUserDetail;
+        if (_.parent_TComment) {
+            _.parent_TComment.mid_TUserInfo = _.parent_TComment.mid_TUserInfo.TUserDetail
+            _.content = {
+                message: `回复 @${_.parent_TComment.mid_TUserInfo.uname} :${_.content}`
+            }
+            _.content.members = [_.parent_TComment.mid_TUserInfo];
+            _.content.at_name_to_mid = {
+                [_.parent_TComment.mid_TUserInfo.uname]: _.parent_TComment.mid_TUserInfo.mid
+            }
+            delete _.parent_TComment
+        } else {
+            _.content = {
+                message: _.content
+            }
+        }
+    }
+
     /**
      *
      * @param el {Model}
@@ -31,9 +50,9 @@ class PersonalizedContentService {
      */
     _process_ret_comment(el) {
         let _ = el.toJSON();
-        _.mid_TUserInfo = _.mid_TUserInfo.TUserDetail;
+        this.#process_single_comment_resp(_)
         _.replies = _.root_TComments.map(__ => {
-            __.mid_TUserInfo = __.mid_TUserInfo.TUserDetail;
+            this.#process_single_comment_resp(__)
             return __
         })
         return _
@@ -260,7 +279,7 @@ class PersonalizedContentService {
             code: 0,
             data: {
                 total_num: count,
-                cur_page: typeof page_num === "string" ? parseInt(page_num) : page_num,
+                cur_page: typeof page_num === "number" ? page_num : parseInt(page_num),
                 replies: process_rows,
                 top_replies: processed_top_rows
             },

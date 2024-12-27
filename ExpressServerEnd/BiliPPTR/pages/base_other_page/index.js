@@ -1,10 +1,6 @@
 const {BiliElementMap} = require("@/ExpressServerEnd/BiliPPTR/utils/element_map");
 const {BaseGlobalVar} = require("@/ExpressServerEnd/BiliPPTR/utils/global_var");
-const {utils} = require("@/ExpressServerEnd/BiliPPTR/utils/utils");
-const {AccountLogService} = require("@/ExpressServerEnd/Service/account_log_module/account_log_service");
 const {ExcTaskParams} = require("@/ExpressServerEnd/BiliPPTR/models/pages/tasks_model");
-const {pptr_op, sleep} = require("@/木偶模块/util/common_utl");
-const {AccountService} = require("@/ExpressServerEnd/Service/account_module/account_service");
 
 class BiliOtherPage {
     /**

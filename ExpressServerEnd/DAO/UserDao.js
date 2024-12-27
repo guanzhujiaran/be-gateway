@@ -1,6 +1,6 @@
-const {TUserInfo, TUserVip} = require("@/ExpressServerEnd/DAO/SqlHelper");
+const {TUserInfo, TUserVip, TUserLevel, TUserDetail} = require("@/ExpressServerEnd/DAO/SqlHelper");
 
-const {Op} = require("sequelize");
+const {Op, literal} = require("sequelize");
 
 class UserDao {
     constructor() {
@@ -64,6 +64,70 @@ class UserDao {
     /**
      *
      * @param user_name
+     * @param uid
+     * @return {Promise<*>}
+     */
+    static async get_whole_user_info({user_name, uid}) {
+        return await TUserInfo.findOne({
+            attributes: {
+                exclude: ['createdAt', 'updatedAt', 'deletedAt']
+            },
+            where:
+                Object.fromEntries(Object.entries(arguments[0]).filter((el) => el[1]))
+            ,
+            include:
+                [
+                    {
+                        model: TUserDetail,
+                        as: "TUserDetail",
+                        required: false,
+                        attributes:
+                            [
+                                [literal(`COALESCE("TUserDetail"."mid", "uid")`), 'mid'],
+                                [literal('COALESCE("TUserDetail"."avatar", \'\')'), 'avatar'],
+                                [literal(`COALESCE("TUserDetail"."uname",'bili_'|| REGEXP_REPLACE("user_name",'^(.)(.{0,2})(.*)$', '\\1**\\3', 'g'))`), 'uname'],
+                                [literal('COALESCE("TUserDetail"."sign", \'\')'), 'sign'],
+                                [literal('COALESCE("TUserDetail"."sex", \'\')'), 'sex']
+                            ],
+                        include: [
+                            {
+                                model: TUserVip,
+                                as: "TUserVip",
+                                attributes: {
+                                    include: [
+                                        [literal(`COALESCE("TUserDetail->TUserVip"."mid", "uid")`), 'mid'],
+                                        [literal(`COALESCE("TUserDetail->TUserVip"."vip_due_date", 0)`), 'vip_due_date'],
+                                        [literal('COALESCE("TUserDetail->TUserVip"."vip_pay_type", 0)'), 'vip_pay_type'],
+                                        [literal('COALESCE("TUserDetail->TUserVip"."vip_status",0)'), 'vip_status'],
+                                        [literal('COALESCE("TUserDetail->TUserVip"."vip_type", 0)'), 'vip_type'],
+                                    ],
+                                    exclude: ['createdAt', 'ip_info_id', 'updatedAt', 'deletedAt', 'mid']
+                                },
+                                required: false,
+                            },
+                            {
+                                model: TUserLevel,
+                                as: "TUserLevel",
+                                attributes: {
+                                    include: [
+                                        [literal(`COALESCE("TUserDetail->TUserLevel"."mid", "uid")`), 'mid'],
+                                        [literal(`COALESCE("TUserDetail->TUserLevel"."current_level", 0)`), 'current_level'],
+                                        [literal('COALESCE("TUserDetail->TUserLevel"."current_exp", 0)'), 'current_exp'],
+                                        [literal('COALESCE("TUserDetail->TUserLevel"."current_min",0)'), 'current_min'],
+                                    ],
+                                    exclude: ['createdAt', 'updatedAt', 'ip_info_id', 'deletedAt', 'mid']
+                                },
+                                required: false,
+                            },
+                        ]
+                    },
+                ]
+        })
+    }
+
+    /**
+     *
+     * @param user_name
      * @param pwd
      * @return {Promise<TUserInfo>}
      */
@@ -85,6 +149,7 @@ class UserDao {
             }
         }))?.toJSON();
     };
+    
 }
 
 module.exports = {

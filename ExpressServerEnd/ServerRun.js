@@ -105,14 +105,14 @@ app.use((err, req, resp, next) => {
     if (run_env_args['env'] === 'prod') {
         system_mq_task_manager.add_system_pushme_task({
             title: 'nodejs服务器错误！',
-            msg: err.stack
+            msg: `${err.message}\n${err.stack}`
         }).then(r => {
         })
     }
     return resp.json({
         code: 500,
         data: null,
-        msg: "服务器错误",
+        msg: `服务器错误喵！${err.message ?? ""}`,
         ttl: 1,
     }).status(500);
 });

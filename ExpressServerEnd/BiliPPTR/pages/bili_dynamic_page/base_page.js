@@ -666,7 +666,7 @@ class BasePage {
                     try {
                         browser = await puppeteer.launch({
                             executablePath: GLOBAL_CONFIG.basic_module.browser_executable_path, //浏览器路径
-                            headless: false, //false为显示浏览器界面
+                            headless: true, //false为显示浏览器界面
                             defaultViewport: {
                                 //分辨率 随机分辨率防止指纹一致？
                                 width: 1920 + Math.floor((Math.random() - 1) * 400), // [-100,100]

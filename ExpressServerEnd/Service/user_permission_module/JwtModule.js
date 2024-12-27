@@ -11,12 +11,13 @@ const config = require('@/ExpressServerEnd/config');
 const secretKey = config.common_config.salt.jwt_secret;
 const jwt = require("jsonwebtoken");
 const expressJwt = require("express-jwt");
+const {user_redis_dao} = require("@/ExpressServerEnd/DAO/UserRedisDao");
 //生成 token
 /**
  *
  * @param payload {Object}
  * @param payload.uid {number}
- * @param payload.role {string} - 角色：level0，level1，level2 .etc 还有一个超级root
+ * @param payload.level {string} - 角色：0,1,2,3,4,5,6 还有一个超级root
  * @return {string}
  */
 const createToken = (payload) =>
@@ -31,6 +32,13 @@ const jwtAuth = expressJwt
         secret: secretKey,
         algorithms: ["HS256"],
         credentialsRequired: true, //  false：不校验
+        onExpired: async (req, err) => {
+            throw (err);
+        },
+        isRevoked: async (req, token) => {
+            return user_redis_dao.is_jwt_signature_in_black_list({signature: token.signature}
+            );
+        }
     })
     .unless({
         path: [

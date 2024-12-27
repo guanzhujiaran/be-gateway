@@ -121,8 +121,8 @@ class UserPersonalContentDao {
     }
 
     static async get_single_comment_by_rpid({
-                                         rpid
-                                     }) {
+                                                rpid
+                                            }) {
         return await TComment.findOne({
             attributes: {
                 exclude: ['createdAt', 'updatedAt', 'deletedAt']
@@ -132,6 +132,7 @@ class UserPersonalContentDao {
             }
         })
     }
+
 
     static async _get_comments_main_by_oid_type({
                                                     mid = 0,
@@ -177,38 +178,38 @@ COALESCE("TComment"."root",0)
 COALESCE("TComment"."parent",0)
 )`), 'parent'],
                     [literal(`(
-\t\tSELECT
-\t\t\tROW_TO_JSON(T)
-\t\tFROM
-\t\t\t(
-\t\t\t\tSELECT
-\t\t\t\t\t(
-\t\t\t\t\t\tEXISTS (
-\t\t\t\t\t\t\tSELECT
-\t\t\t\t\t\t\t\t1
-\t\t\t\t\t\t\tFROM
-\t\t\t\t\t\t\t\tPUBLIC."TCommentInteractRelation" AS A
-\t\t\t\t\t\t\tWHERE
-\t\t\t\t\t\t\t\tA."mid" = "rid_TPersonalizedContent"."up_mid"
-\t\t\t\t\t\t\t\tAND A."comment_rpid" = "TComment"."rpid"
-\t\t\t\t\t\t\tLIMIT
-\t\t\t\t\t\t\t\t1
-\t\t\t\t\t\t)
-\t\t\t\t\t) AS "like",
-\t\t\t\t\tEXISTS (
-\t\t\t\t\t\tSELECT
-\t\t\t\t\t\t\t1
-\t\t\t\t\t\tFROM
-\t\t\t\t\t\t\tPUBLIC."TComment" AS A
-\t\t\t\t\t\tWHERE
-\t\t\t\t\t\t\tA."mid" = "rid_TPersonalizedContent"."up_mid"
-\t\t\t\t\t\t\tAND (
-\t\t\t\t\t\t\t\tA."root" = "TComment"."rpid"
-\t\t\t\t\t\t\t\tOR A."parent" = "TComment"."rpid"
-\t\t\t\t\t\t\t)
-\t\t\t\t\t) AS "reply"
-\t\t\t) AS T
-\t)`), 'up_action',]
+SELECT
+ROW_TO_JSON(T)
+FROM
+(
+SELECT
+(
+EXISTS (
+SELECT
+1
+FROM
+PUBLIC."TCommentInteractRelation" AS A
+WHERE
+A."mid" = "rid_TPersonalizedContent"."up_mid"
+AND A."comment_rpid" = "TComment"."rpid"
+LIMIT
+1
+)
+) AS "like",
+EXISTS (
+SELECT
+1
+FROM
+PUBLIC."TComment" AS A
+WHERE
+A."mid" = "rid_TPersonalizedContent"."up_mid"
+AND (
+A."root" = "TComment"."rpid"
+OR A."parent" = "TComment"."rpid"
+)
+) AS "reply"
+) AS T
+)`), 'up_action',]
                 ],
             },
             where: where_args,
@@ -218,39 +219,98 @@ COALESCE("TComment"."parent",0)
                 [order_by, 'DESC'],
             ],
             include: [
+                 { //当前评论的父评论，也就是上一级评论
+                            model: TComment,
+                            as: "parent_TComment",
+                            required: false,
+                            paranoid: false,
+                            attributes: ['content'],
+                            include: [
+                                {
+                                    model: TUserInfo,
+                                    as: "mid_TUserInfo",
+                                    attributes: ['uid'],
+                                    include: [
+                                        {
+                                            model: TUserDetail,
+                                            as: "TUserDetail",
+                                            required: false,
+                                            paranoid: false,
+                                            attributes:
+                                                [
+                                                    [literal(`COALESCE("parent_TComment->mid_TUserInfo->TUserDetail"."mid", "parent_TComment->mid_TUserInfo"."uid")`), 'mid'],
+                                                    [literal('COALESCE("parent_TComment->mid_TUserInfo->TUserDetail"."avatar", \'\')'), 'avatar'],
+                                                    [literal(`COALESCE("parent_TComment->mid_TUserInfo->TUserDetail"."uname",'bili_'|| REGEXP_REPLACE("parent_TComment->mid_TUserInfo"."user_name",'^(.)(.{0,2})(.*)$', '\\1**\\3', 'g'))`), 'uname'],
+                                                    [literal('COALESCE("parent_TComment->mid_TUserInfo->TUserDetail"."sign", \'\')'), 'sign'],
+                                                    [literal('COALESCE("parent_TComment->mid_TUserInfo->TUserDetail"."sex", \'\')'), 'sex']
+                                                ],
+                                        },
+                                    ]
+                                }
+                            ]
+                        },
                 {
                     model: TComment,
                     as: "root_TComments",
                     attributes: {
                         include: [
                             [literal(`(
-Select COALESCE((SELECT a."action" FROM public."TCommentInteractRelation" AS a WHERE a.mid=:mid AND a."comment_rpid"="TComment"."rpid"),0)
+Select COALESCE((SELECT a."action" FROM public."TCommentInteractRelation" AS a WHERE a."mid"=:mid AND a."comment_rpid"="root_TComments"."rpid"),0)
 )`), 'action'],
                             [literal(`(
-COALESCE("TComment"."root",0)
+COALESCE("root_TComments"."root",0)
 )`), 'root'],
                             [literal(`(
-COALESCE("TComment"."parent",0)
+COALESCE("root_TComments"."parent",0)
 )`), 'parent'],
                             [literal(`(
 SELECT
 row_to_json(T)
 from (
 select exists(
-\t\tselect 1 from "public"."TCommentInteractRelation" as a, "public"."TPersonalizedContent" as b where a."comment_rpid" = "rpid" and a."mid" = b."up_mid" and b.content_id="TComment"."rid"
-\t\t)as "like",
-\texists(
-\t\tselect 1 from "public"."TComment" as a, "public"."TPersonalizedContent" as b where (a.root = "rpid" or a.parent = "rpid") and a."mid" = b."up_mid"
-\t\t) as "reply"
+select 1 from "public"."TCommentInteractRelation" as a, "public"."TPersonalizedContent" as b where a."comment_rpid" = "root_TComments"."rpid" and a."mid" = b."up_mid" and b."content_id"="root_TComments"."rid"
+)as "like",
+exists(
+select 1 from "public"."TComment" as a, "public"."TPersonalizedContent" as b where (a."root" = "root_TComments"."rpid" or a."parent" = "root_TComments"."rpid") and a."mid" = b."up_mid"
+) as "reply"
 ) as T
-) `), 'up_action',]
+) `), 'up_action',],
                         ],
                         exclude: ['createdAt', 'updatedAt', 'deletedAt', 'ip_info_id', 'is_reported', 'is_topped', 'root', 'parent'],
                     },
                     required: false,
-                    limit: 3,
                     include: [
-                        {
+                        { //二级评论的父评论，也就是上一级评论
+                            model: TComment,
+                            as: "parent_TComment",
+                            required: false,
+                            paranoid: false,
+                            attributes: ['content'],
+                            include: [
+                                {
+                                    model: TUserInfo,
+                                    as: "mid_TUserInfo",
+                                    attributes: ['uid'],
+                                    include: [
+                                        {
+                                            model: TUserDetail,
+                                            as: "TUserDetail",
+                                            required: false,
+                                            paranoid: false,
+                                            attributes:
+                                                [
+                                                    [literal(`COALESCE("root_TComments->parent_TComment->mid_TUserInfo->TUserDetail"."mid", "root_TComments->parent_TComment->mid_TUserInfo"."uid")`), 'mid'],
+                                                    [literal('COALESCE("root_TComments->parent_TComment->mid_TUserInfo->TUserDetail"."avatar", \'\')'), 'avatar'],
+                                                    [literal(`COALESCE("root_TComments->parent_TComment->mid_TUserInfo->TUserDetail"."uname",'bili_'|| REGEXP_REPLACE("root_TComments->parent_TComment->mid_TUserInfo"."user_name",'^(.)(.{0,2})(.*)$', '\\1**\\3', 'g'))`), 'uname'],
+                                                    [literal('COALESCE("root_TComments->parent_TComment->mid_TUserInfo->TUserDetail"."sign", \'\')'), 'sign'],
+                                                    [literal('COALESCE("root_TComments->parent_TComment->mid_TUserInfo->TUserDetail"."sex", \'\')'), 'sex']
+                                                ],
+                                        },
+                                    ]
+                                }
+                            ]
+                        },
+                        {//二级评论的用户信息，需要修改成自己表的数据，大致搞定
                             model: TUserInfo,
                             as: "mid_TUserInfo",
                             attributes: ['uid'],
@@ -261,11 +321,11 @@ select exists(
                                     required: false,
                                     attributes:
                                         [
-                                            [literal(`COALESCE("mid_TUserInfo->TUserDetail"."mid", "TComment"."mid")`), 'mid'],
-                                            [literal('COALESCE("mid_TUserInfo->TUserDetail"."avatar", \'\')'), 'avatar'],
-                                            [literal(`COALESCE("mid_TUserInfo->TUserDetail"."uname",'匿名_'|| REGEXP_REPLACE("mid_TUserInfo"."user_name",'^(.)(.{0,2})(.*)$', '\\1**\\3', 'g'))`), 'uname'],
-                                            [literal('COALESCE("mid_TUserInfo->TUserDetail"."sign", \'\')'), 'sign'],
-                                            [literal('COALESCE("mid_TUserInfo->TUserDetail"."sex", \'\')'), 'sex']
+                                            [literal(`COALESCE("root_TComments->mid_TUserInfo->TUserDetail"."mid", "root_TComments->mid_TUserInfo"."uid")`), 'mid'],
+                                            [literal('COALESCE("root_TComments->mid_TUserInfo->TUserDetail"."avatar", \'\')'), 'avatar'],
+                                            [literal(`COALESCE("root_TComments->mid_TUserInfo->TUserDetail"."uname",'bili_'|| REGEXP_REPLACE("root_TComments->mid_TUserInfo"."user_name",'^(.)(.{0,2})(.*)$', '\\1**\\3', 'g'))`), 'uname'],
+                                            [literal('COALESCE("root_TComments->mid_TUserInfo->TUserDetail"."sign", \'\')'), 'sign'],
+                                            [literal('COALESCE("root_TComments->mid_TUserInfo->TUserDetail"."sex", \'\')'), 'sex']
                                         ],
                                     include: [
                                         {
@@ -273,11 +333,11 @@ select exists(
                                             as: "TUserVip",
                                             attributes: {
                                                 include: [
-                                                    [literal(`COALESCE("mid_TUserInfo->TUserDetail->TUserVip"."mid", "TComment"."mid")`), 'mid'],
-                                                    [literal(`COALESCE("mid_TUserInfo->TUserDetail->TUserVip"."vip_due_date", 0)`), 'vip_due_date'],
-                                                    [literal('COALESCE("mid_TUserInfo->TUserDetail->TUserVip"."vip_pay_type", 0)'), 'vip_pay_type'],
-                                                    [literal('COALESCE("mid_TUserInfo->TUserDetail->TUserVip"."vip_status",0)'), 'vip_status'],
-                                                    [literal('COALESCE("mid_TUserInfo->TUserDetail->TUserVip"."vip_type", 0)'), 'vip_type'],
+                                                    [literal(`COALESCE("root_TComments->mid_TUserInfo->TUserDetail->TUserVip"."mid", "TComment"."mid")`), 'mid'],
+                                                    [literal(`COALESCE("root_TComments->mid_TUserInfo->TUserDetail->TUserVip"."vip_due_date", 0)`), 'vip_due_date'],
+                                                    [literal('COALESCE("root_TComments->mid_TUserInfo->TUserDetail->TUserVip"."vip_pay_type", 0)'), 'vip_pay_type'],
+                                                    [literal('COALESCE("root_TComments->mid_TUserInfo->TUserDetail->TUserVip"."vip_status",0)'), 'vip_status'],
+                                                    [literal('COALESCE("root_TComments->mid_TUserInfo->TUserDetail->TUserVip"."vip_type", 0)'), 'vip_type'],
                                                 ],
                                                 exclude: ['createdAt', 'ip_info_id', 'updatedAt', 'deletedAt', 'mid']
                                             },
@@ -288,10 +348,10 @@ select exists(
                                             as: "TUserLevel",
                                             attributes: {
                                                 include: [
-                                                    [literal(`COALESCE("mid_TUserInfo->TUserDetail->TUserLevel"."mid", "TComment"."mid")`), 'mid'],
-                                                    [literal(`COALESCE("mid_TUserInfo->TUserDetail->TUserLevel"."current_level", 0)`), 'current_level'],
-                                                    [literal('COALESCE("mid_TUserInfo->TUserDetail->TUserLevel"."current_exp", 0)'), 'current_exp'],
-                                                    [literal('COALESCE("mid_TUserInfo->TUserDetail->TUserLevel"."current_min",0)'), 'current_min'],
+                                                    [literal(`COALESCE("root_TComments->mid_TUserInfo->TUserDetail->TUserLevel"."mid", "TComment"."mid")`), 'mid'],
+                                                    [literal(`COALESCE("root_TComments->mid_TUserInfo->TUserDetail->TUserLevel"."current_level", 0)`), 'current_level'],
+                                                    [literal('COALESCE("root_TComments->mid_TUserInfo->TUserDetail->TUserLevel"."current_exp", 0)'), 'current_exp'],
+                                                    [literal('COALESCE("root_TComments->mid_TUserInfo->TUserDetail->TUserLevel"."current_min",0)'), 'current_min'],
                                                 ],
                                                 exclude: ['createdAt', 'updatedAt', 'ip_info_id', 'deletedAt', 'mid']
                                             },
@@ -310,7 +370,7 @@ select exists(
                     required: true,
                     where: rid_TPersonalizedContent_where,
                 },
-                {
+                { // 根评论的用户信息，这个是没问题的
                     model: TUserInfo,
                     as: "mid_TUserInfo",
                     attributes: ['uid'],
@@ -322,7 +382,7 @@ select exists(
                             attributes: [
                                 [literal(`COALESCE("mid_TUserInfo->TUserDetail"."mid", "TComment"."mid")`), 'mid'],
                                 [literal('COALESCE("mid_TUserInfo->TUserDetail"."avatar", \'\')'), 'avatar'],
-                                [literal(`COALESCE("mid_TUserInfo->TUserDetail"."uname",'匿名_'|| REGEXP_REPLACE("mid_TUserInfo"."user_name",'^(.)(.{0,2})(.*)$', '\\1**\\3', 'g'))`), 'uname'],
+                                [literal(`COALESCE("mid_TUserInfo->TUserDetail"."uname",'bili_'|| REGEXP_REPLACE("mid_TUserInfo"."user_name",'^(.)(.{0,2})(.*)$', '\\1**\\3', 'g'))`), 'uname'],
                                 [literal('COALESCE("mid_TUserInfo->TUserDetail"."sign", \'\')'), 'sign'],
                                 [literal('COALESCE("mid_TUserInfo->TUserDetail"."sex", \'\')'), 'sex']
                             ]
@@ -362,6 +422,7 @@ select exists(
                     ]
                 }
             ],
+            subQuery:false,
             replacements: {mid},
         }
         if (rpid) return await TComment.findOne(opts);

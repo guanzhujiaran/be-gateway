@@ -12,7 +12,6 @@ class RedisManager {
             {maxRetriesPerRequest: null}
         )
     }
-
 }
 
 const redis_manager = new RedisManager()

@@ -2,10 +2,11 @@ const {UserDao} = require("@/ExpressServerEnd/DAO/UserDao");
 
 
 exports.UserModel = class UserModel {
+    TUserInfo;
     uid;
     user_name;
     parsed_pwd;
-    role;
+    level;
 
     constructor({uid, user_name}) {
         this.uid = uid
@@ -13,17 +14,16 @@ exports.UserModel = class UserModel {
     }
 
     async get_uname_uid_pwd() {
-        let user_info
-        if (this.uid) {
-            user_info = await UserDao.get_user_info_by_uid(this.uid);
-        } else if (this.user_name) {
-            user_info = await UserDao.get_user_info_by_user_name(this.user_name);
-        }
+        let user_info = await UserDao.get_whole_user_info({
+            user_name: this.user_name,
+            uid: this.uid
+        })
+        this.TUserInfo = user_info;
         if (user_info) {
             this.uid = user_info.uid;
             this.parsed_pwd = user_info.pwd;
             this.user_name = user_info.user_name;
-            this.role = user_info.role;
+            this.level = user_info.TUserDetail.TUserLevel.current_level;
         }
     }
 
@@ -37,18 +37,12 @@ exports.UserModel = class UserModel {
         return !!result;
     }
 
-    static async get_user_vip({uid}) {
-        let default_vip_info = {
-            mid: uid,
-            vip_due_date: 0,
-            vip_pay_type: 0,
-            vip_status: 0,
-            vip_type: 0
-        }
-        if (!uid) {
-            return default_vip_info
-        }
-        return await UserDao.get_user_vip({uid}) ?? default_vip_info
+    async get_user_vip() {
+        this.TUserInfo = await UserDao.get_whole_user_info({
+            user_name: this.user_name,
+            uid: this.uid
+        });
+        return this.TUserInfo.TUserDetail.TUserVip
     }
 
 

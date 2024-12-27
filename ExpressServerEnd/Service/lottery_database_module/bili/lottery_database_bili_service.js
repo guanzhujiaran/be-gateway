@@ -8,7 +8,8 @@ const {utils} = require("@/ExpressServerEnd/BiliPPTR/utils/utils");
 
 class LotteryDatabaseBiliService {
     static async check_user_vip_accessible_page({uid, page_num, page_size}) {
-        let vip_info = await UserModel.get_user_vip({uid});
+        let user = new UserModel({uid});
+        let vip_info = await user.get_user_vip();
         let offset_value = LOTTERY_DATA_VIP_ACCESS_OFFSET[vip_info.vip_type];
         return page_num * page_size <= offset_value
     }

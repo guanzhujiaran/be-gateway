@@ -30,7 +30,7 @@ class UserService {
             let parsed_pwd = md5(pwd + password_salt);
             if (user_model.parsed_pwd === parsed_pwd) {
                 let jwt_token = createToken({
-                    user_name: user_model.user_name, uid: user_model.uid, role: user_model.role
+                    user_name: user_model.user_name, uid: user_model.uid, level: user_model.level
                 });
 
                 await UserService.add_user_act_ip_info({req, resp, act_info: UserActModel.login_succ})
@@ -58,7 +58,7 @@ class UserService {
                 data: {
                     uid: user_model.uid,
                     user_name: user_model.user_name,
-                    role: user_model.role
+                    level: user_model.level
                 }
             })
         } else {
@@ -107,8 +107,9 @@ class UserService {
     }
 
     static async get_user_vip({uid}) {
+        let user = new UserModel({uid})
         return new base_api_model({
-            data: await UserModel.get_user_vip({uid})
+            data: await user.get_user_vip()
         })
     }
 
@@ -246,6 +247,34 @@ class UserService {
             ip: req_tool.get_ip(req, resp),
             ua: req_tool.get_ua(req, resp),
             headers: req_tool.get_headers(req, resp), act_info
+        })
+    }
+
+    static async change_user_pwd({uid, pwd, req, resp}) {
+        let user_info = await TUserInfo.findOne({uid})
+
+        if (!user_info) return new base_api_model({
+            code: -100,
+            msg: '账号不存在'
+        });
+        req.auth = {
+            uid: uid,
+        }
+        await UserService.add_user_act_ip_info({req, resp, act_info: UserActModel.try_to_change_pwd})
+
+        let parsed_pwd = md5(pwd + password_salt);
+        if (parsed_pwd === user_info.pwd) return new base_api_model({
+            code: -99,
+            msg: '新密码不能与旧密码相同'
+        });
+        user_info.pwd = parsed_pwd;
+        await user_info.save();
+
+        await UserService.add_user_act_ip_info({req, resp, act_info: UserActModel.change_pwd})
+
+        return new base_api_model({
+            code: 0,
+            msg: '修改成功，用新密码重新登录！'
         })
     }
 }

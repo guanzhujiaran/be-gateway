@@ -20,13 +20,14 @@ const {AccountLotterySettingModel} = require("@/ExpressServerEnd/Model/api/v1/ac
 const {UserService} = require("@/ExpressServerEnd/Service/user_module/user_service");
 const {personalized_content_service} = require('@/ExpressServerEnd/Service/personalized_content_module/personalized_content_service');
 const {UserPersonalContentDao} = require('@/ExpressServerEnd/DAO/UserPersonalContentDao');
+const { user_redis_dao} = require("@/ExpressServerEnd/DAO/UserRedisDao");
 const {sequelize} = require("@/ExpressServerEnd/DAO/SqlHelper");
 (async () => {
     let resp = await personalized_content_service.get_content_comments_by_oid_type({
-        oid: 2,
-        type: 1
+        oid:2,
+        type:1
     })
-
+    console.log(resp.toJSON())
     console.log(JSON.stringify(resp.rows.map(item => {
             item.replies = item.replies ? item.replies.map(el => el.toJSON()) : item.replies;
             return item.toJSON();

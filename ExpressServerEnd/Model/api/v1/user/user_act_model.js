@@ -5,6 +5,7 @@ const UserActModel = Object.freeze(
         login_fail_pwd_err: '登录失败，密码错误',
         logout: '登出',
         change_pwd: '修改密码',
+        try_to_change_pwd: "尝试修改密码",
 
 
         add_comment: '添加评论',

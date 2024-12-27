@@ -30,7 +30,7 @@ const GLOBAL_CONFIG = {
             "3532811",
             "1508263674",
         ],
-        default_proxy: "http://192.168.1.7:3128"
+        default_proxy: "http://192.168.1.201:3128"
     },
     file_path: {
         comment_resp_record: join(log_path, '评论响应.csv'),
