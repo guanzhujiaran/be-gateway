@@ -59,7 +59,8 @@ class UserService {
                     uid: user_model.uid,
                     user_name: user_model.user_name,
                     level: user_model.level
-                }
+                },
+                msg: "账号已登录！"
             })
         } else {
             return new base_api_model({

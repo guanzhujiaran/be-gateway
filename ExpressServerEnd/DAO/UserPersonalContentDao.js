@@ -219,36 +219,36 @@ OR A."parent" = "TComment"."rpid"
                 [order_by, 'DESC'],
             ],
             include: [
-                 { //当前评论的父评论，也就是上一级评论
-                            model: TComment,
-                            as: "parent_TComment",
-                            required: false,
-                            paranoid: false,
-                            attributes: ['content'],
+                { //当前评论的父评论，也就是上一级评论
+                    model: TComment,
+                    as: "parent_TComment",
+                    required: false,
+                    paranoid: false,
+                    attributes: ['content'],
+                    include: [
+                        {
+                            model: TUserInfo,
+                            as: "mid_TUserInfo",
+                            attributes: ['uid'],
                             include: [
                                 {
-                                    model: TUserInfo,
-                                    as: "mid_TUserInfo",
-                                    attributes: ['uid'],
-                                    include: [
-                                        {
-                                            model: TUserDetail,
-                                            as: "TUserDetail",
-                                            required: false,
-                                            paranoid: false,
-                                            attributes:
-                                                [
-                                                    [literal(`COALESCE("parent_TComment->mid_TUserInfo->TUserDetail"."mid", "parent_TComment->mid_TUserInfo"."uid")`), 'mid'],
-                                                    [literal('COALESCE("parent_TComment->mid_TUserInfo->TUserDetail"."avatar", \'\')'), 'avatar'],
-                                                    [literal(`COALESCE("parent_TComment->mid_TUserInfo->TUserDetail"."uname",'bili_'|| REGEXP_REPLACE("parent_TComment->mid_TUserInfo"."user_name",'^(.)(.{0,2})(.*)$', '\\1**\\3', 'g'))`), 'uname'],
-                                                    [literal('COALESCE("parent_TComment->mid_TUserInfo->TUserDetail"."sign", \'\')'), 'sign'],
-                                                    [literal('COALESCE("parent_TComment->mid_TUserInfo->TUserDetail"."sex", \'\')'), 'sex']
-                                                ],
-                                        },
-                                    ]
-                                }
+                                    model: TUserDetail,
+                                    as: "TUserDetail",
+                                    required: false,
+                                    paranoid: false,
+                                    attributes:
+                                        [
+                                            [literal(`COALESCE("parent_TComment->mid_TUserInfo->TUserDetail"."mid", "parent_TComment->mid_TUserInfo"."uid")`), 'mid'],
+                                            [literal('COALESCE("parent_TComment->mid_TUserInfo->TUserDetail"."avatar", \'\')'), 'avatar'],
+                                            [literal(`COALESCE("parent_TComment->mid_TUserInfo->TUserDetail"."uname",'bili_'|| REGEXP_REPLACE("parent_TComment->mid_TUserInfo"."user_name",'^(.)(.{0,2})(.*)$', '\\1**\\3', 'g'))`), 'uname'],
+                                            [literal('COALESCE("parent_TComment->mid_TUserInfo->TUserDetail"."sign", \'\')'), 'sign'],
+                                            [literal('COALESCE("parent_TComment->mid_TUserInfo->TUserDetail"."sex", \'\')'), 'sex']
+                                        ],
+                                },
                             ]
-                        },
+                        }
+                    ]
+                },
                 {
                     model: TComment,
                     as: "root_TComments",
@@ -422,7 +422,7 @@ select 1 from "public"."TComment" as a, "public"."TPersonalizedContent" as b whe
                     ]
                 }
             ],
-            subQuery:false,
+            subQuery: false,
             replacements: {mid},
         }
         if (rpid) return await TComment.findOne(opts);
@@ -491,7 +491,7 @@ select 1 from "public"."TComment" as a, "public"."TPersonalizedContent" as b whe
         return {
             count,
             rows,
-            top_rows
+            top_rows,
         }
     }
 

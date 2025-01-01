@@ -34,12 +34,13 @@ class PersonalizedContentService {
             _.content.at_name_to_mid = {
                 [_.parent_TComment.mid_TUserInfo.uname]: _.parent_TComment.mid_TUserInfo.mid
             }
-            delete _.parent_TComment
+
         } else {
             _.content = {
                 message: _.content
             }
         }
+        delete _.parent_TComment
     }
 
     /**
@@ -131,7 +132,7 @@ class PersonalizedContentService {
         if (content_id) {
             return await UserPersonalContentDao.get_content_by_content_id({content_id})
         }
-        switch (type) {
+        switch (parseInt(type)) {
             case PersonalizedContentType.markdown_article.type:
                 return await UserPersonalContentDao.get_markdown_article({oid, type})
             default:
@@ -264,6 +265,11 @@ class PersonalizedContentService {
                                                page_num = 1,
                                                order_by = 'hot'
                                            }) {
+        let personal_content = await this.get_personalized_content_model({oid, type});
+        if (!personal_content) return new base_api_model({
+            code: -403,
+            msg: "访问权限不足",
+        })
         let {count, rows, top_rows} = await UserPersonalContentDao.get_comments_main_with_user_info_by_oid_type({
             mid,
             oid,
@@ -272,7 +278,6 @@ class PersonalizedContentService {
             page_num,
             order_by: order_by === 'hot' ? 'like' : 'ctime'
         });
-
         let process_rows = t.renameKeys(rows.map(el => this._process_ret_comment(el)), this.#CommentRespPropMap);
         let processed_top_rows = t.renameKeys(top_rows.map(el => this._process_ret_comment(el)), this.#CommentRespPropMap);
         return new base_api_model({
@@ -281,7 +286,10 @@ class PersonalizedContentService {
                 total_num: count,
                 cur_page: typeof page_num === "number" ? page_num : parseInt(page_num),
                 replies: process_rows,
-                top_replies: processed_top_rows
+                top_replies: processed_top_rows,
+                upper: {
+                    mid: personal_content.up_mid
+                }
             },
             msg: "获取评论成功！"
         })
@@ -380,12 +388,18 @@ class PersonalizedContentService {
             msg: "无效评论rpid，评论删除失败！",
             data: null
         });
-        if (String(comment.uid) !== String(uid)) return new base_api_model({
+        if (String(comment.mid) !== String(uid)) return new base_api_model({
             code: 4100029,
             msg: "非自己评论无法删除，评论删除失败！",
             data: null
         });
         await comment.destroy();
+        if (comment.root) {
+            let root_comment = await UserPersonalContentDao.get_single_comment_by_rpid({rpid: comment.root});
+            if (root_comment) {
+                await root_comment.decrement('rcount', {by: 1})
+            }
+        }
         return new base_api_model({
             code: 0,
             data: null,
