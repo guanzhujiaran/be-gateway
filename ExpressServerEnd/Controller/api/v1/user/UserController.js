@@ -3,15 +3,8 @@ const {check, validationResult} = require("express-validator");
 const router = express.Router();
 const cookParser = require("cookie-parser");
 const {UserService} = require("@/ExpressServerEnd/Service/user_module/user_service")
-const {CryptoJS} = require("crypto-js");
-
 const {t} = require("@/ExpressServerEnd/Tool/Utl");
-const {base_api_model} = require("@/ExpressServerEnd/Model/base_model/base_model");
 const {create_limiter} = require("@/ExpressServerEnd/MiddleWare");
-const ip = require('ip');
-const run_env_args = require("@/ExpressServerEnd/config/run_env");
-const {createGuard} = require("@/ExpressServerEnd/Service/user_permission_module/user_permission_service");
-const config = require("@/ExpressServerEnd/config");
 
 
 router.use(cookParser());
@@ -69,6 +62,69 @@ router.get("/nav", async (req, resp, next) => {
     }
 });
 
+router.get('/user_info', async (req, resp, next) => {
+    try {
+        let uid = req.auth.uid;
+        /**
+         * @type {RootObject<UserBaseInfo|null>}
+         */
+        let result = await UserService.get_user_info({uid})
+        return resp.json(result.toJSON())
+    } catch (e) {
+        next(e);
+    }
+})
+router.post('/refresh_token', async (req, resp, next) => {
+    try {
+        let uid = req.auth.uid;
+        /**
+         * @type {RootObject<UserBaseInfo|null>}
+         */
+        let result = await UserService.refresh_token({
+            uid,
+            req,
+            resp
+        })
+        return resp.json(result.toJSON())
+    } catch (e) {
+        next(e);
+    }
+})
+router.post('/user_info/update',
+    [
+        check('uname', '用户名需要在2-24个字！').notEmpty({ignore_whitespace: true}).isLength({min: 2, max: 24}),
+        check('usersign', '签名最多支持70个字').isLength({max: 70}),
+        check('sex', '性别不正确！').isIn(['男', '女', '保密', '武装直升机', '永雏塔菲']),
+        check("birthday", "生日必须是日期").isDate(),
+    ],
+    async (req, resp, next) => {
+        try {
+            let errors = validationResult(req);
+            if (!errors.isEmpty()) {
+                return next(errors.mapped());
+            }
+            let uid = req.auth.uid;
+            /**
+             * @type {RootObject<UserBaseInfo|null>}
+             */
+            let {
+                uname,
+                usersign,
+                sex,
+                birthday
+            } = req.body;
+            let result = await UserService.set_user_info({
+                uid,
+                uname,
+                usersign,
+                sex,
+                birthday
+            })
+            return resp.json(result.toJSON())
+        } catch (e) {
+            next(e);
+        }
+    })
 
 router.post(
     "/login",
@@ -96,7 +152,7 @@ router.post(
             let user_name = req.body.user_name;
             let pwd = req.body.pwd;
             let real_pwd = String(t.decrypt_frontend_enced_pwd(pwd))
-            let result = await UserService.check_login({user_name: user_name, pwd: real_pwd,req,resp})
+            let result = await UserService.check_login({user_name: user_name, pwd: real_pwd, req, resp})
             /**
              * @type {RootObject<UserCredentials|null>}
              */
@@ -175,7 +231,7 @@ router.post(
             let user_name = req.body.user_name;
             let pwd = req.body.pwd;
             let real_pwd = String(t.decrypt_frontend_enced_pwd(pwd))
-            let result = await UserService.register({user_name: user_name, pwd: real_pwd,req,resp});
+            let result = await UserService.register({user_name: user_name, pwd: real_pwd, req, resp});
             resp.response_data = result;
             return resp.json(result?.toJSON())
 
@@ -184,5 +240,6 @@ router.post(
         }
     },
 );
+
 
 module.exports = router;

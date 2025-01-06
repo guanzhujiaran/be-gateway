@@ -3,14 +3,54 @@ const md5 = require("md5");
 const {createToken} = require("@/ExpressServerEnd/Service/user_permission_module/JwtModule");
 const {base_api_model} = require("@/ExpressServerEnd/Model/base_model/base_model");
 const config = require('@/ExpressServerEnd/config/index');
-const {TUserDetail, TUserLevel, TUserVip, TUserInfo, TUserActInfoLog} = require("@/ExpressServerEnd/DAO/SqlHelper");
+const {
+    TUserDetail,
+    TUserLevel,
+    TUserVip,
+    TUserInfo,
+    TUserActInfoLog,
+    sequelize, TUserNameRecord
+} = require("@/ExpressServerEnd/DAO/SqlHelper");
 const {t, req_tool} = require("@/ExpressServerEnd/Tool/Utl");
-const {Op} = require("sequelize");
+const {Op, literal} = require("sequelize");
 const {UserActModel} = require("@/ExpressServerEnd/Model/api/v1/user/user_act_model");
+const {user_redis_dao} = require("@/ExpressServerEnd/DAO/UserRedisDao");
 
 const password_salt = config.common_config.salt.password_salt;
 
 class UserService {
+    //region 用户登录注册密码相关
+    static async change_user_pwd_when_login({uid, pwd, req, resp}) {
+        let user_info = await TUserInfo.findOne({uid})
+
+        if (!user_info) return new base_api_model({
+            code: -100,
+            msg: '账号不存在'
+        });
+
+
+        if (req) {
+            req.auth = {
+                uid: uid,
+            }
+            await UserService.add_user_act_ip_info({req, resp, act_info: UserActModel.try_to_change_pwd})
+        }
+        let parsed_pwd = md5(pwd + password_salt);
+        if (parsed_pwd === user_info.pwd) return new base_api_model({
+            code: -99,
+            msg: '新密码不能与旧密码相同'
+        });
+        user_info.pwd = parsed_pwd;
+        await user_info.save();
+        if (req) {
+            await UserService.add_user_act_ip_info({req, resp, act_info: UserActModel.change_pwd})
+        }
+        return new base_api_model({
+            code: 0,
+            msg: '修改成功，用新密码重新登录！'
+        })
+    }
+
     /**
      * 用户登录
      * @param uid
@@ -43,6 +83,27 @@ class UserService {
             await UserService.add_user_act_ip_info({req, resp, act_info: UserActModel.login_fail_pwd_err})
         }
         return new base_api_model({code: -1, msg: '密码错误或账号不存在', data: null})
+    }
+
+    static async refresh_token({uid, req, resp}) {
+        let user_model = new UserModel({uid: uid});
+        await user_model.get_uname_uid_pwd();
+        if (user_model.parsed_pwd) {
+            let jwt_token = createToken({
+                user_name: user_model.user_name, uid: user_model.uid, level: user_model.level
+            });
+            await Promise.all([
+                UserService.add_user_act_ip_info({req, resp, act_info: UserActModel.refresh_token}),
+                user_redis_dao.add_black_list_jwt_signature({signature: req.auth.signature, ttl:req.auth.exp - Date.now() / 1000})
+            ])
+
+            return new base_api_model({
+                data: {
+                    uid: user_model.uid, user_name: user_model.user_name, jwt_token: jwt_token,
+                }
+            })
+        }
+        return new base_api_model({code: -1, msg: '账号不存在', data: null})
     }
 
     /**
@@ -88,25 +149,36 @@ class UserService {
         }
         let parsed_pwd = md5(pwd + password_salt);
         let created_instance;
-        created_instance = await UserModel.add_user({
-            user_name: user_name, parsed_pwd: parsed_pwd
-        })
-        if (created_instance) {
-            req.auth = {
-                uid: created_instance.uid
-            }
-            let reg_ip_info = await UserService.add_user_act_ip_info({req, resp, act_info: UserActModel.reg})
-            created_instance.reg_ip_info_id = reg_ip_info.pk;
-            await created_instance.save();
-            return new base_api_model({
-                msg: "注册成功！",
+        return await sequelize.transaction(async t => {
+            created_instance = await UserModel.add_user({
+                user_name: user_name, parsed_pwd: parsed_pwd, transaction: t
             })
-        }
-        return new base_api_model({
-            msg: "发生未知错误，注册失败！",
+            if (created_instance) {
+                req.auth = {
+                    uid: created_instance.uid
+                }
+                let reg_ip_info = await UserService.add_user_act_ip_info({
+                    req,
+                    resp,
+                    act_info: UserActModel.reg,
+                    transaction: t
+                })
+                created_instance.reg_ip_info_id = reg_ip_info.pk;
+                await created_instance.save({transaction: t});
+                return new base_api_model({
+                    msg: "注册成功！",
+                })
+            }
+            return new base_api_model({
+                msg: "发生未知错误，注册失败！",
+            })
         })
+
     }
 
+    //endregion
+
+    //region 用户信息相关
     static async get_user_vip({uid}) {
         let user = new UserModel({uid})
         return new base_api_model({
@@ -240,44 +312,101 @@ class UserService {
      * @param req
      * @param resp
      * @param act_info {Object.<UserActModel>}
+     * @param transaction
      * @return {Promise<*>}
      */
-    static async add_user_act_ip_info({req, resp, act_info}) {
+    static async add_user_act_ip_info({req, resp, act_info, transaction = undefined}) {
         return await TUserActInfoLog.create({
             mid: req?.auth?.uid ?? null,
             ip: req_tool.get_ip(req, resp),
             ua: req_tool.get_ua(req, resp),
             headers: req_tool.get_headers(req, resp), act_info
+        }, {
+            transaction: transaction
         })
     }
 
-    static async change_user_pwd({uid, pwd, req, resp}) {
-        let user_info = await TUserInfo.findOne({uid})
 
-        if (!user_info) return new base_api_model({
-            code: -100,
-            msg: '账号不存在'
-        });
-        req.auth = {
-            uid: uid,
-        }
-        await UserService.add_user_act_ip_info({req, resp, act_info: UserActModel.try_to_change_pwd})
-
-        let parsed_pwd = md5(pwd + password_salt);
-        if (parsed_pwd === user_info.pwd) return new base_api_model({
-            code: -99,
-            msg: '新密码不能与旧密码相同'
-        });
-        user_info.pwd = parsed_pwd;
-        await user_info.save();
-
-        await UserService.add_user_act_ip_info({req, resp, act_info: UserActModel.change_pwd})
-
+    static async get_user_info({uid}) {
+        let user_info = await TUserInfo.findOne({
+            attributes: ['uid'],
+            where: {
+                uid: uid,
+            },
+            include: [
+                {
+                    attributes: {
+                        include: [
+                            [literal(`COALESCE("TUserDetail"."mid", "TUserInfo"."uid")`), 'mid'],
+                            [literal(`COALESCE("TUserInfo"."user_name")`), 'userid'],
+                            [literal(`COALESCE("TUserDetail"."uname","TUserInfo"."user_name")`), 'uname'],
+                            [literal('COALESCE("TUserDetail"."sign", \'\')'), 'usersign'],
+                            [literal('COALESCE("TUserDetail"."sex", \'保密\')'), 'sex'],
+                            [literal('COALESCE("TUserDetail"."birthday", \'1970-01-01 00:00:00+08\'::date)'), 'birthday']
+                        ],
+                        exclude: ['createdAt', 'updatedAt', 'deletedAt', 'avatar', 'sign']
+                    },
+                    as: 'TUserDetail',
+                    model: TUserDetail,
+                    required: false
+                }
+            ]
+        })
         return new base_api_model({
             code: 0,
-            msg: '修改成功，用新密码重新登录！'
+            data: user_info.toJSON().TUserDetail,
+            msg: ''
         })
     }
+
+    static async set_user_info({
+                                   uid,
+                                   uname,
+                                   usersign,
+                                   sex,
+                                   birthday
+                               }) {
+        let is_exist = await TUserDetail.findOne(
+            {
+                where: {
+                    uname: uname,
+                    [Op.not]: {
+                        mid: uid
+                    },
+                }
+            }
+        );
+        if (is_exist) return new base_api_model({
+            code: 40014,
+            msg: "该昵称已存在"
+        });
+        let origin_user_detail = await TUserDetail.findOne({
+            where: {
+                mid: uid
+            }
+        });
+        await sequelize.transaction(async t => {
+            await TUserDetail.upsert({
+                mid: uid,
+                uname,
+                sign: usersign,
+                sex,
+                birthday
+            }, {transaction: t})
+            if (origin_user_detail && origin_user_detail.uname !== uname) {
+                //更新了昵称的情况
+                await TUserNameRecord.create({
+                    mid: uid,
+                    prev_uname: uname
+                }, {transaction: t})
+            }
+        });
+        return new base_api_model({
+            msg: '0'
+        })
+    }
+
+    //endregion
 }
 
 module.exports = {UserService}

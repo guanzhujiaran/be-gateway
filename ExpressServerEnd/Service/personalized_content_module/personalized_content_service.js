@@ -295,6 +295,43 @@ class PersonalizedContentService {
         })
     }
 
+    async get_comment_replies_by_root({
+                                          mid,
+                                          oid,
+                                          type,
+                                          page_size,
+                                          page_num,
+                                          root,
+                                      }) {
+        let personal_content = await this.get_personalized_content_model({oid, type});
+        if (!personal_content) return new base_api_model({
+            code: -403,
+            msg: "访问权限不足",
+        })
+        let {count, rows} = await UserPersonalContentDao.get_comments_reply_with_user_info_by_oid_type({
+            mid,
+            oid,
+            type,
+            page_size,
+            page_num,
+            root,
+            order_by: 'ctime'
+        });
+        let process_rows = t.renameKeys(rows.map(el => this._process_ret_comment(el)), this.#CommentRespPropMap);
+        return new base_api_model({
+            code: 0,
+            data: {
+                total_num: count,
+                cur_page: typeof page_num === "number" ? page_num : parseInt(page_num),
+                replies: process_rows,
+                upper: {
+                    mid: personal_content.up_mid
+                }
+            },
+            msg: "获取评论成功！"
+        })
+    }
+
     /**
      * 执行点赞或者点踩的互动
      * @param rpid

@@ -1,7 +1,8 @@
 const {Op, fn, literal, col} = require("sequelize");
 const {
     TPersonalizedContent,
-    TPersonalizedContentType1, TComment, TCommentInteractRelation, TUserInfo, TUserDetail, TUserVip, TUserLevel
+    TPersonalizedContentType1, TComment, TCommentInteractRelation, TUserInfo, TUserDetail, TUserVip, TUserLevel,
+    sequelize
 } = require("@/ExpressServerEnd/DAO/SqlHelper");
 const {t} = require("@/ExpressServerEnd/Tool/Utl");
 
@@ -141,12 +142,15 @@ class UserPersonalContentDao {
                                                     page_size = 10,
                                                     page_num = 1,
                                                     order_by = 'like',
+                                                    desc = true,
                                                     is_topped = false,
-                                                    rpid = undefined
+                                                    rpid = undefined,
+                                                    root = undefined,
+                                                    parent = undefined
                                                 }) {
         let where_args = {
-            root: null,
-            parent: null,
+            root: root,
+            parent: parent,
             is_topped: is_topped,
         }
         if (rpid) {
@@ -216,7 +220,7 @@ OR A."parent" = "TComment"."rpid"
             offset: page_size * (page_num - 1),
             limit: page_size, // 每页显示的条数
             order: [
-                [order_by, 'DESC'],
+                [order_by, desc ? 'DESC' : 'ASC'],
             ],
             include: [
                 { //当前评论的父评论，也就是上一级评论
@@ -252,26 +256,27 @@ OR A."parent" = "TComment"."rpid"
                 {
                     model: TComment,
                     as: "root_TComments",
+                    limit: 3,
                     attributes: {
                         include: [
                             [literal(`(
-Select COALESCE((SELECT a."action" FROM public."TCommentInteractRelation" AS a WHERE a."mid"=:mid AND a."comment_rpid"="root_TComments"."rpid"),0)
+Select COALESCE((SELECT a."action" FROM public."TCommentInteractRelation" AS a WHERE a."mid"=:mid AND a."comment_rpid"="TComment"."rpid"),0)
 )`), 'action'],
                             [literal(`(
-COALESCE("root_TComments"."root",0)
+COALESCE("TComment"."root",0)
 )`), 'root'],
                             [literal(`(
-COALESCE("root_TComments"."parent",0)
+COALESCE("TComment"."parent",0)
 )`), 'parent'],
                             [literal(`(
 SELECT
 row_to_json(T)
 from (
 select exists(
-select 1 from "public"."TCommentInteractRelation" as a, "public"."TPersonalizedContent" as b where a."comment_rpid" = "root_TComments"."rpid" and a."mid" = b."up_mid" and b."content_id"="root_TComments"."rid"
+select 1 from "public"."TCommentInteractRelation" as a, "public"."TPersonalizedContent" as b where a."comment_rpid" = "TComment"."rpid" and a."mid" = b."up_mid" and b."content_id"="TComment"."rid"
 )as "like",
 exists(
-select 1 from "public"."TComment" as a, "public"."TPersonalizedContent" as b where (a."root" = "root_TComments"."rpid" or a."parent" = "root_TComments"."rpid") and a."mid" = b."up_mid"
+select 1 from "public"."TComment" as a, "public"."TPersonalizedContent" as b where (a."root" = "TComment"."rpid" or a."parent" = "TComment"."rpid") and a."mid" = b."up_mid"
 ) as "reply"
 ) as T
 ) `), 'up_action',],
@@ -299,11 +304,11 @@ select 1 from "public"."TComment" as a, "public"."TPersonalizedContent" as b whe
                                             paranoid: false,
                                             attributes:
                                                 [
-                                                    [literal(`COALESCE("root_TComments->parent_TComment->mid_TUserInfo->TUserDetail"."mid", "root_TComments->parent_TComment->mid_TUserInfo"."uid")`), 'mid'],
-                                                    [literal('COALESCE("root_TComments->parent_TComment->mid_TUserInfo->TUserDetail"."avatar", \'\')'), 'avatar'],
-                                                    [literal(`COALESCE("root_TComments->parent_TComment->mid_TUserInfo->TUserDetail"."uname",'bili_'|| REGEXP_REPLACE("root_TComments->parent_TComment->mid_TUserInfo"."user_name",'^(.)(.{0,2})(.*)$', '\\1**\\3', 'g'))`), 'uname'],
-                                                    [literal('COALESCE("root_TComments->parent_TComment->mid_TUserInfo->TUserDetail"."sign", \'\')'), 'sign'],
-                                                    [literal('COALESCE("root_TComments->parent_TComment->mid_TUserInfo->TUserDetail"."sex", \'\')'), 'sex']
+                                                    [literal(`COALESCE("mid_TUserInfo->TUserDetail"."mid", "mid_TUserInfo"."uid")`), 'mid'],
+                                                    [literal('COALESCE("mid_TUserInfo->TUserDetail"."avatar", \'\')'), 'avatar'],
+                                                    [literal(`COALESCE("mid_TUserInfo->TUserDetail"."uname",'bili_'|| REGEXP_REPLACE("mid_TUserInfo"."user_name",'^(.)(.{0,2})(.*)$', '\\1**\\3', 'g'))`), 'uname'],
+                                                    [literal('COALESCE("mid_TUserInfo->TUserDetail"."sign", \'\')'), 'sign'],
+                                                    [literal('COALESCE("mid_TUserInfo->TUserDetail"."sex", \'\')'), 'sex']
                                                 ],
                                         },
                                     ]
@@ -321,11 +326,11 @@ select 1 from "public"."TComment" as a, "public"."TPersonalizedContent" as b whe
                                     required: false,
                                     attributes:
                                         [
-                                            [literal(`COALESCE("root_TComments->mid_TUserInfo->TUserDetail"."mid", "root_TComments->mid_TUserInfo"."uid")`), 'mid'],
-                                            [literal('COALESCE("root_TComments->mid_TUserInfo->TUserDetail"."avatar", \'\')'), 'avatar'],
-                                            [literal(`COALESCE("root_TComments->mid_TUserInfo->TUserDetail"."uname",'bili_'|| REGEXP_REPLACE("root_TComments->mid_TUserInfo"."user_name",'^(.)(.{0,2})(.*)$', '\\1**\\3', 'g'))`), 'uname'],
-                                            [literal('COALESCE("root_TComments->mid_TUserInfo->TUserDetail"."sign", \'\')'), 'sign'],
-                                            [literal('COALESCE("root_TComments->mid_TUserInfo->TUserDetail"."sex", \'\')'), 'sex']
+                                            [literal(`COALESCE("mid_TUserInfo->TUserDetail"."mid", "mid_TUserInfo"."uid")`), 'mid'],
+                                            [literal('COALESCE("mid_TUserInfo->TUserDetail"."avatar", \'\')'), 'avatar'],
+                                            [literal(`COALESCE("mid_TUserInfo->TUserDetail"."uname",'bili_'|| REGEXP_REPLACE("mid_TUserInfo"."user_name",'^(.)(.{0,2})(.*)$', '\\1**\\3', 'g'))`), 'uname'],
+                                            [literal('COALESCE("mid_TUserInfo->TUserDetail"."sign", \'\')'), 'sign'],
+                                            [literal('COALESCE("mid_TUserInfo->TUserDetail"."sex", \'\')'), 'sex']
                                         ],
                                     include: [
                                         {
@@ -333,11 +338,11 @@ select 1 from "public"."TComment" as a, "public"."TPersonalizedContent" as b whe
                                             as: "TUserVip",
                                             attributes: {
                                                 include: [
-                                                    [literal(`COALESCE("root_TComments->mid_TUserInfo->TUserDetail->TUserVip"."mid", "TComment"."mid")`), 'mid'],
-                                                    [literal(`COALESCE("root_TComments->mid_TUserInfo->TUserDetail->TUserVip"."vip_due_date", 0)`), 'vip_due_date'],
-                                                    [literal('COALESCE("root_TComments->mid_TUserInfo->TUserDetail->TUserVip"."vip_pay_type", 0)'), 'vip_pay_type'],
-                                                    [literal('COALESCE("root_TComments->mid_TUserInfo->TUserDetail->TUserVip"."vip_status",0)'), 'vip_status'],
-                                                    [literal('COALESCE("root_TComments->mid_TUserInfo->TUserDetail->TUserVip"."vip_type", 0)'), 'vip_type'],
+                                                    [literal(`COALESCE("mid_TUserInfo->TUserDetail->TUserVip"."mid", "TComment"."mid")`), 'mid'],
+                                                    [literal(`COALESCE("mid_TUserInfo->TUserDetail->TUserVip"."vip_due_date", 0)`), 'vip_due_date'],
+                                                    [literal('COALESCE("mid_TUserInfo->TUserDetail->TUserVip"."vip_pay_type", 0)'), 'vip_pay_type'],
+                                                    [literal('COALESCE("mid_TUserInfo->TUserDetail->TUserVip"."vip_status",0)'), 'vip_status'],
+                                                    [literal('COALESCE("mid_TUserInfo->TUserDetail->TUserVip"."vip_type", 0)'), 'vip_type'],
                                                 ],
                                                 exclude: ['createdAt', 'ip_info_id', 'updatedAt', 'deletedAt', 'mid']
                                             },
@@ -348,10 +353,10 @@ select 1 from "public"."TComment" as a, "public"."TPersonalizedContent" as b whe
                                             as: "TUserLevel",
                                             attributes: {
                                                 include: [
-                                                    [literal(`COALESCE("root_TComments->mid_TUserInfo->TUserDetail->TUserLevel"."mid", "TComment"."mid")`), 'mid'],
-                                                    [literal(`COALESCE("root_TComments->mid_TUserInfo->TUserDetail->TUserLevel"."current_level", 0)`), 'current_level'],
-                                                    [literal('COALESCE("root_TComments->mid_TUserInfo->TUserDetail->TUserLevel"."current_exp", 0)'), 'current_exp'],
-                                                    [literal('COALESCE("root_TComments->mid_TUserInfo->TUserDetail->TUserLevel"."current_min",0)'), 'current_min'],
+                                                    [literal(`COALESCE("mid_TUserInfo->TUserDetail->TUserLevel"."mid", "TComment"."mid")`), 'mid'],
+                                                    [literal(`COALESCE("mid_TUserInfo->TUserDetail->TUserLevel"."current_level", 0)`), 'current_level'],
+                                                    [literal('COALESCE("mid_TUserInfo->TUserDetail->TUserLevel"."current_exp", 0)'), 'current_exp'],
+                                                    [literal('COALESCE("mid_TUserInfo->TUserDetail->TUserLevel"."current_min",0)'), 'current_min'],
                                                 ],
                                                 exclude: ['createdAt', 'updatedAt', 'ip_info_id', 'deletedAt', 'mid']
                                             },
@@ -422,7 +427,6 @@ select 1 from "public"."TComment" as a, "public"."TPersonalizedContent" as b whe
                     ]
                 }
             ],
-            subQuery: false,
             replacements: {mid},
         }
         if (rpid) return await TComment.findOne(opts);
@@ -476,6 +480,8 @@ select 1 from "public"."TComment" as a, "public"."TPersonalizedContent" as b whe
                 page_size,
                 page_num,
                 order_by,
+                root:null,
+                parent:null,
                 is_topped: false
             }),
             top_rows = String(page_num) === "1" ? await UserPersonalContentDao._get_comments_main_by_oid_type({
@@ -485,6 +491,8 @@ select 1 from "public"."TComment" as a, "public"."TPersonalizedContent" as b whe
                 page_size,
                 page_num,
                 order_by,
+                root:null,
+                parent:null,
                 is_topped: true
             }) : []
         ])
@@ -492,6 +500,52 @@ select 1 from "public"."TComment" as a, "public"."TPersonalizedContent" as b whe
             count,
             rows,
             top_rows,
+        }
+    }
+
+    static async get_comments_reply_with_user_info_by_oid_type({
+                                                                   mid = 0,
+                                                                   oid = 0,
+                                                                   type = 0,
+                                                                   page_size = 10,
+                                                                   page_num = 1,
+                                                                   order_by = 'ctime',
+                                                                   root = null
+                                                               }) {
+        let count;
+        let rows;
+        await Promise.all([
+            count = await TComment.count({
+                where: {
+                    root: root,
+                },
+                include: [
+                    {
+                        model: TPersonalizedContent,
+                        as: "rid_TPersonalizedContent",
+                        where: {
+                            oid: oid,
+                            type: type,
+                        },
+                        attributes: [],
+                    },
+                ]
+            }),
+            rows = await UserPersonalContentDao._get_comments_main_by_oid_type({
+                mid,
+                oid,
+                type,
+                page_size,
+                page_num,
+                order_by,
+                desc: false,
+                is_topped: false,
+                root,
+            }),
+        ])
+        return {
+            count,
+            rows,
         }
     }
 

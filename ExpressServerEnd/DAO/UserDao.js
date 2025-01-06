@@ -131,10 +131,12 @@ class UserDao {
      * @param pwd
      * @return {Promise<TUserInfo>}
      */
-    static add_user_info = async (user_name, pwd) => {
+    static add_user_info = async (user_name, pwd, transaction) => {
         return await TUserInfo.create({
             pwd: pwd,
             user_name: user_name,
+        }, {
+            transaction: transaction
         })
     };
     //#endregion
@@ -149,7 +151,7 @@ class UserDao {
             }
         }))?.toJSON();
     };
-    
+
 }
 
 module.exports = {

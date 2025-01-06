@@ -27,9 +27,15 @@ exports.UserModel = class UserModel {
         }
     }
 
-
-    static async add_user({user_name, parsed_pwd}) {
-        return await UserDao.add_user_info(user_name, parsed_pwd)
+    /**
+     *
+     * @param user_name
+     * @param parsed_pwd
+     * @param transaction
+     * @return {Promise<TUserInfo>}
+     */
+    static async add_user({user_name, parsed_pwd, transaction = undefined}) {
+        return await UserDao.add_user_info(user_name, parsed_pwd, transaction)
     }
 
     static async is_exists_by_user_name(user_name) {

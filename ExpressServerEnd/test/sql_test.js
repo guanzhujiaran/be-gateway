@@ -23,9 +23,9 @@ const {UserPersonalContentDao} = require('@/ExpressServerEnd/DAO/UserPersonalCon
 const { user_redis_dao} = require("@/ExpressServerEnd/DAO/UserRedisDao");
 const {sequelize} = require("@/ExpressServerEnd/DAO/SqlHelper");
 (async () => {
-    let resp = await personalized_content_service.get_content_comments_by_oid_type({
-        oid:2,
-        type:1
+    let resp = await UserService.change_user_pwd_when_login({
+        uid:11,
+        pwd:'qq29806233114514'
     })
     console.log(resp.toJSON())
     console.log(JSON.stringify(resp.rows.map(item => {

@@ -48,7 +48,8 @@ const jwtAuth = expressJwt
             "/api/admin/queues",
             {url: /api\/v1\/lottery_database\/bili\/.*/},
             {url: /api\/admin\/queues\/.*/},
-            {url: /api\/v1\/feedback\/comment\/reply_main/}
+            {url: /api\/v1\/feedback\/comment\/reply\/main/},
+            {url: /api\/v1\/feedback\/comment\/reply\/reply/}
         ], //不需要校验的路径
     });
 

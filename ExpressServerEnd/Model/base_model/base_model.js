@@ -22,7 +22,7 @@ class base_model{
  */
 class base_api_model extends base_model {
     code=0;
-    data;
+    data=null;
     msg='';
     ttl=1;
 

@@ -4,7 +4,7 @@ class UserRedisDao {
     /**
      *
      * @param signature
-     * @param ttl
+     * @param ttl 秒
      * @return {Promise<ResultTypes<"OK", Context>[Context["type"]]>}
      */
     add_black_list_jwt_signature({signature, ttl}) {

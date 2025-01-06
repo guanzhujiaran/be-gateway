@@ -14,7 +14,7 @@ router.post("/add", [
         check('type', 'type不正确！').notEmpty({ignore_whitespace: true}).isNumeric(),
         body('root', 'root不正确！').notEmpty({ignore_whitespace: true}).isNumeric(),
         body('parent', 'parent不正确！').notEmpty({ignore_whitespace: true}).isNumeric(),
-        body('content', 'content不正确！').notEmpty({ignore_whitespace: true}).isString(),
+        body('content', 'content不正确！').notEmpty({ignore_whitespace: true}).isString().withMessage('回复内容最大长度4096个字！').isLength({max: 4096}),
     ],
     async (req, resp, next) => {
         try {
@@ -48,12 +48,12 @@ router.post("/add", [
     }
 );
 
-router.get("/reply_main",
+router.get("/reply/main",
     [
         check('oid', 'oid不正确！').notEmpty({ignore_whitespace: true}).isNumeric(),
         check('type', 'type不正确！').notEmpty({ignore_whitespace: true}).isNumeric(),
-        check("page_num", "页数必须为数字").isNumeric(),
-        check("page_size", "页长必须为数字").isNumeric(),
+        check("page_num", "页数必须为数字").isInt({min: 1, max: 20}),
+        check("page_size", "页长必须为数字").isInt({min: 1, max: 20}),
         check('order_by').optional().isString().isIn(['hot', 'time']).withMessage('order_by 必须是 "hot" 或 "time"')
     ],
     jwtAuthGenerator({credentialsRequired: false}),
@@ -81,6 +81,50 @@ router.get("/reply_main",
                 page_size,
                 page_num,
                 order_by,
+            })
+            /**
+             * @type {RootObject<{oid:number}|null>}
+             */
+            let user_info_json = result.toJSON()
+            return resp.json(user_info_json)
+        } catch (e) {
+            next(e);
+        }
+    }
+)
+router.get("/reply/reply",
+    [
+        check('oid', 'oid不正确！').notEmpty({ignore_whitespace: true}).isNumeric(),
+        check('type', 'type不正确！').notEmpty({ignore_whitespace: true}).isNumeric(),
+        check('root', 'root不正确！').notEmpty({ignore_whitespace: true}).isNumeric(),
+        check("page_num", "页数必须为数字").isInt({min: 1, max: 20}),
+        check("page_size", "页长必须为数字").isInt({min: 1, max: 20}),
+    ],
+    jwtAuthGenerator({credentialsRequired: false}),
+    async (req, resp, next) => {
+        try {
+            let errors = validationResult(req);
+            if (!errors.isEmpty()) {
+                return next(errors.mapped());
+            }
+            let uid = req.auth?.uid ?? 0;
+            let user_act_info = await UserService.add_user_act_ip_info({
+                req, resp, act_info: UserActModel.get_comment_reply
+            })
+            let {
+                oid,
+                type,
+                page_num,
+                page_size,
+                root
+            } = req.query;
+            let result = await personalized_content_service.get_comment_replies_by_root({
+                mid: uid,
+                oid,
+                type,
+                page_size,
+                page_num,
+                root,
             })
             /**
              * @type {RootObject<{oid:number}|null>}

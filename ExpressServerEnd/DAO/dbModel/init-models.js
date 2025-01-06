@@ -24,6 +24,8 @@ var _TUserActInfoLog = require("./TUserActInfoLog");
 var _TUserDetail = require("./TUserDetail");
 var _TUserInfo = require("./TUserInfo");
 var _TUserLevel = require("./TUserLevel");
+var _TUserNameRecord = require("./TUserNameRecord");
+var _TUserPwdRecord = require("./TUserPwdRecord");
 var _TUserVip = require("./TUserVip");
 
 function initModels(sequelize) {
@@ -52,6 +54,8 @@ function initModels(sequelize) {
   var TUserDetail = _TUserDetail(sequelize, DataTypes);
   var TUserInfo = _TUserInfo(sequelize, DataTypes);
   var TUserLevel = _TUserLevel(sequelize, DataTypes);
+  var TUserNameRecord = _TUserNameRecord(sequelize, DataTypes);
+  var TUserPwdRecord = _TUserPwdRecord(sequelize, DataTypes);
   var TUserVip = _TUserVip(sequelize, DataTypes);
 
   TAccountBiliAtMsg.belongsTo(TAccountInfo, { as: "account", foreignKey: "account_id"});
@@ -128,6 +132,10 @@ function initModels(sequelize) {
   TUserInfo.hasMany(TUserActInfoLog, { as: "TUserActInfoLogs", foreignKey: "mid"});
   TUserDetail.belongsTo(TUserInfo, { as: "mid_TUserInfo", foreignKey: "mid"});
   TUserInfo.hasOne(TUserDetail, { as: "TUserDetail", foreignKey: "mid"});
+  TUserNameRecord.belongsTo(TUserInfo, { as: "mid_TUserInfo", foreignKey: "mid"});
+  TUserInfo.hasMany(TUserNameRecord, { as: "TUserNameRecords", foreignKey: "mid"});
+  TUserPwdRecord.belongsTo(TUserInfo, { as: "mid_TUserInfo", foreignKey: "mid"});
+  TUserInfo.hasMany(TUserPwdRecord, { as: "TUserPwdRecords", foreignKey: "mid"});
 
   return {
     TAccountBiliAtMsg,
@@ -155,6 +163,8 @@ function initModels(sequelize) {
     TUserDetail,
     TUserInfo,
     TUserLevel,
+    TUserNameRecord,
+    TUserPwdRecord,
     TUserVip,
   };
 }

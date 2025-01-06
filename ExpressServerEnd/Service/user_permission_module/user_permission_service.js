@@ -1,7 +1,7 @@
 const {permissionMap} = require("@/ExpressServerEnd/Service/CONST");
 const guard = require('express-jwt-permissions')({
     requestProperty: 'auth',
-    permissionsProperty: 'role'
+    permissionsProperty: 'level'
 })
 
 class TrieNode {
@@ -78,15 +78,14 @@ function createGuard() {
 
         const permissions = matchPath(trieRoot, req.path);
         if (permissions) {
-            const permission_name = permissions.name;
+            let permission_name = permissions.name;
             guard.check(permissions.permissions)(req, resp,
                 (err) => {
                     if (err) {
                         return resp.json({
                             code: 4000009,
                             "data": {},
-                            "message": `用户无权限`,
-                            "msg": "用户无权限"
+                            "msg": `用户无权限，至少需要${permission_name}等级！`
                         })
                     } else {
                         next();

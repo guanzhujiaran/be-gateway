@@ -101,7 +101,7 @@ app.use((err, req, resp, next) => {
             ttl: 1,
         });
     }
-    console.error(err)
+    console.error(err.stack)
     if (run_env_args['env'] === 'prod') {
         system_mq_task_manager.add_system_pushme_task({
             title: 'nodejs服务器错误！',

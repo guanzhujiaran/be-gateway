@@ -21,6 +21,40 @@ sequelize
         console.error(`数据库【${DB}】连接失败！${e}`);
     });
 const {
+  TAccountBiliAtMsg,
+    TAccountBiliReplyMsg,
+    TAccountBiliWhisperMsg,
+    TAccountDetailInfo,
+    TAccountInfo,
+    TAccountInfo_DashBoardInfo,
+    TAccountInfo_LotteryLog,
+    TAccountInfo_ReserveLog,
+    TAtariInfo,
+    TBiliUser,
+    TBiliUserDetail,
+    TComment,
+    TCommentInteractRelation,
+    TCommonLog,
+    TDynamicInfo,
+    TLiveLotteryLog,
+    TLogBiliDailyTask,
+    TLotteryLogInfo,
+    TPersonalizedContent,
+    TPersonalizedContentType1,
+    TReserveLotteryInfo,
+    TUserActInfoLog,
+    TUserDetail,
+    TUserInfo,
+    TUserLevel,
+    TUserNameRecord,
+    TUserPwdRecord,
+    TUserVip,
+} = require("./dbModel/init-models")(sequelize);
+
+
+
+
+module.exports = {
    TAccountBiliAtMsg,
     TAccountBiliReplyMsg,
     TAccountBiliWhisperMsg,
@@ -46,38 +80,8 @@ const {
     TUserDetail,
     TUserInfo,
     TUserLevel,
-    TUserVip,
-} = require("./dbModel/init-models")(sequelize);
-
-
-
-
-module.exports = {
-    TAccountBiliAtMsg,
-    TAccountBiliReplyMsg,
-    TAccountBiliWhisperMsg,
-    TAccountDetailInfo,
-    TAccountInfo,
-    TAccountInfo_DashBoardInfo,
-    TAccountInfo_LotteryLog,
-    TAccountInfo_ReserveLog,
-    TAtariInfo,
-    TBiliUser,
-    TBiliUserDetail,
-    TComment,
-    TCommentInteractRelation,
-    TCommonLog,
-    TDynamicInfo,
-    TLiveLotteryLog,
-    TLogBiliDailyTask,
-    TLotteryLogInfo,
-    TPersonalizedContent,
-    TPersonalizedContentType1,
-    TReserveLotteryInfo,
-    TUserActInfoLog,
-    TUserDetail,
-    TUserInfo,
-    TUserLevel,
+    TUserNameRecord,
+    TUserPwdRecord,
     TUserVip,
     sequelize
 };

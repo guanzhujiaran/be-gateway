@@ -1,29 +1,23 @@
 const Sequelize = require('sequelize');
 module.exports = function(sequelize, DataTypes) {
-  return sequelize.define('TUserDetail', {
-    mid: {
+  return sequelize.define('TUserPwdRecord', {
+    pk: {
+      autoIncrement: true,
+      autoIncrementIdentity: true,
       type: DataTypes.BIGINT,
       allowNull: false,
-      primaryKey: true,
+      primaryKey: true
+    },
+    mid: {
+      type: DataTypes.BIGINT,
+      allowNull: true,
       references: {
         model: 'TUserInfo',
         key: 'uid'
       }
     },
-    avatar: {
-      type: DataTypes.STRING(1024),
-      allowNull: true
-    },
-    uname: {
-      type: DataTypes.STRING(50),
-      allowNull: true
-    },
-    sign: {
-      type: DataTypes.STRING(1024),
-      allowNull: true
-    },
-    sex: {
-      type: DataTypes.STRING(50),
+    prev_pwd: {
+      type: DataTypes.STRING(255),
       allowNull: true
     },
     createdAt: {
@@ -39,15 +33,10 @@ module.exports = function(sequelize, DataTypes) {
     deletedAt: {
       type: DataTypes.DATE,
       allowNull: true
-    },
-    birthday: {
-      type: DataTypes.DATE,
-      allowNull: true,
-      defaultValue: "1969-12-31 16:00:00+00"
     }
   }, {
     sequelize,
-    tableName: 'TUserDetail',
+    tableName: 'TUserPwdRecord',
     schema: 'public',
     timestamps: true,
     paranoid: true,
@@ -56,10 +45,10 @@ module.exports = function(sequelize, DataTypes) {
     deletedAt: true,
     indexes: [
       {
-        name: "TUserDetail_pkey",
+        name: "TUserPwdRecord_pkey",
         unique: true,
         fields: [
-          { name: "mid" },
+          { name: "pk" },
         ]
       },
     ]
