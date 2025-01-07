@@ -1,6 +1,6 @@
 const {UserModel} = require("@/ExpressServerEnd/Model/api/v1/user/user_model");
 const md5 = require("md5");
-const {createToken} = require("@/ExpressServerEnd/Service/user_permission_module/JwtModule");
+const {createToken, jwtAuth} = require("@/ExpressServerEnd/Service/user_permission_module/JwtModule");
 const {base_api_model} = require("@/ExpressServerEnd/Model/base_model/base_model");
 const config = require('@/ExpressServerEnd/config/index');
 const {
@@ -94,13 +94,17 @@ class UserService {
             });
             await Promise.all([
                 UserService.add_user_act_ip_info({req, resp, act_info: UserActModel.refresh_token}),
-                user_redis_dao.add_black_list_jwt_signature({signature: req.auth.signature, ttl:req.auth.exp - Date.now() / 1000})
+                user_redis_dao.add_black_list_jwt_signature({
+                    signature: req.headers.authorization.split('.').pop(),
+                    ttl: Math.ceil(req.auth.exp - Date.now() / 1000)
+                })
             ])
 
             return new base_api_model({
                 data: {
                     uid: user_model.uid, user_name: user_model.user_name, jwt_token: jwt_token,
-                }
+                },
+                msg: '刷新成功！'
             })
         }
         return new base_api_model({code: -1, msg: '账号不存在', data: null})

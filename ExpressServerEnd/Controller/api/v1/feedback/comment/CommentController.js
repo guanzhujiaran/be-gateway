@@ -14,7 +14,7 @@ router.post("/add", [
         check('type', 'type不正确！').notEmpty({ignore_whitespace: true}).isNumeric(),
         body('root', 'root不正确！').notEmpty({ignore_whitespace: true}).isNumeric(),
         body('parent', 'parent不正确！').notEmpty({ignore_whitespace: true}).isNumeric(),
-        body('content', 'content不正确！').notEmpty({ignore_whitespace: true}).isString().withMessage('回复内容最大长度4096个字！').isLength({max: 4096}),
+        body('content', 'content不正确！').notEmpty({ignore_whitespace: true}).isString().isLength({max: 4096}).withMessage('回复内容最大长度4096个字！'),
     ],
     async (req, resp, next) => {
         try {

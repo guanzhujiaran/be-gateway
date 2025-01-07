@@ -4,7 +4,7 @@ const router = express.Router();
 const cookParser = require("cookie-parser");
 const {UserService} = require("@/ExpressServerEnd/Service/user_module/user_service")
 const {t} = require("@/ExpressServerEnd/Tool/Utl");
-const {create_limiter} = require("@/ExpressServerEnd/MiddleWare");
+const {create_limiter} = require("@/ExpressServerEnd/MiddleWare/Limiter");
 
 
 router.use(cookParser());

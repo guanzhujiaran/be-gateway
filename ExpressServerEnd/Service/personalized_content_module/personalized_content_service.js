@@ -425,7 +425,7 @@ class PersonalizedContentService {
             msg: "无效评论rpid，评论删除失败！",
             data: null
         });
-        if (String(comment.mid) !== String(uid)) return new base_api_model({
+        if (String(comment.mid) !== String(uid) && String(data.up_mid) !==String(uid)) return new base_api_model({
             code: 4100029,
             msg: "非自己评论无法删除，评论删除失败！",
             data: null

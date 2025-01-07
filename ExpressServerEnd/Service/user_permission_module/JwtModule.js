@@ -12,6 +12,12 @@ const secretKey = config.common_config.salt.jwt_secret;
 const jwt = require("jsonwebtoken");
 const expressJwt = require("express-jwt");
 const {user_redis_dao} = require("@/ExpressServerEnd/DAO/UserRedisDao");
+const on_expired = async (req, err) => {
+    throw (err);
+};
+const is_revoked = async (req, token) => {
+    return !!(await user_redis_dao.is_jwt_signature_in_black_list({signature: token.signature}));
+}
 //生成 token
 /**
  *
@@ -32,13 +38,8 @@ const jwtAuth = expressJwt
         secret: secretKey,
         algorithms: ["HS256"],
         credentialsRequired: true, //  false：不校验
-        onExpired: async (req, err) => {
-            throw (err);
-        },
-        isRevoked: async (req, token) => {
-            return user_redis_dao.is_jwt_signature_in_black_list({signature: token.signature}
-            );
-        }
+        onExpired: on_expired,
+        isRevoked: is_revoked
     })
     .unless({
         path: [
@@ -61,7 +62,8 @@ const jwtAuthGenerator = ({
             secret: secretKey,
             algorithms: ["HS256"],
             credentialsRequired: credentialsRequired, //  false：不校验
-
+            onExpired: on_expired,
+            isRevoked: is_revoked
         })
 }
 

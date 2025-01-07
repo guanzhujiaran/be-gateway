@@ -5,14 +5,19 @@ class UserRedisDao {
      *
      * @param signature
      * @param ttl 秒
-     * @return {Promise<ResultTypes<"OK", Context>[Context["type"]]>}
+     * @return {Promise<awaited ResultTypes<"OK", Context>[Context["type"]]>}
      */
-    add_black_list_jwt_signature({signature, ttl}) {
-        return redis_manager.connection.setex(`jwt_black_list:${signature}`, ttl, 1);
+    async add_black_list_jwt_signature({signature, ttl}) {
+        return await redis_manager.connection.setex(`jwt_black_list:${signature}`, ttl, 1);
     }
 
-    is_jwt_signature_in_black_list({signature}) {
-        return redis_manager.connection.get(`jwt_black_list:${signature}`);
+    /**
+     *
+     * @param signature
+     * @return {Promise<awaited ResultTypes<string, Context>[Context["type"]]>}
+     */
+    async is_jwt_signature_in_black_list({signature}) {
+        return await redis_manager.connection.get(`jwt_black_list:${signature}`);
     }
 }
 
