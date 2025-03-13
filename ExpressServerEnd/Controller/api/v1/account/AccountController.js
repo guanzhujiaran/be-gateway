@@ -13,7 +13,6 @@ router.use(cookParser());
 
 //region 获取所有账号列表
 router.get("/all_accounts",
-    createGuard(),
     /**
      *
      * @param req

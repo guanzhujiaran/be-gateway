@@ -150,4 +150,67 @@ router.post(
     },
 );
 
+router.get("/GetAllScrapyStatus",
+    async (req, resp, next) => {
+        try {
+            let errors = validationResult(req);
+            if (!errors.isEmpty()) {
+                return next(errors.mapped());
+            }
+            // let uid = req.auth?.uid ?? 0
+            let result_json = await LotteryDatabaseBiliService.get_all_scrapy_status();
+            return resp.json(result_json);
+        } catch (e) {
+            next(e);
+        }
+    },
+)
+router.get("/rank/lottery_hof/:lot_type",
+    [
+        check("lot_type").isIn(['official', 'reserve', 'charge', 'total']),
+        check('date').isIn(['month', 'pre_month', 'year', 'pre_year', 'total']),
+        check("rank_type").isIn(['first', 'second', 'third', 'total']),
+        check("offset").isNumeric(),
+        check("limit").isNumeric(),
+    ],
+    async (req, resp, next) => {
+        try {
+            let errors = validationResult(req);
+            if (!errors.isEmpty()) {
+                return next(errors.mapped());
+            }
+            let {lot_type} = req.params;
+            let {date, rank_type, offset, limit} = req.query;
+            let result_json = await LotteryDatabaseBiliService.get_lottery_rank({date,lot_type, rank_type, offset, limit});
+            return resp.json(result_json);
+        } catch (e) {
+            next(e);
+        }
+    }
+)
+router.get("/lottery_result",
+    [
+        check('uid').isString(),
+        check('date').isIn(['month', 'pre_month', 'year', 'pre_year', 'total']),
+        check("lot_type").isIn(['official', 'reserve', 'charge', 'total']),
+        check("rank_type").isIn(['first', 'second', 'third', 'total']),
+        check("offset").isNumeric(),
+        check("limit").isNumeric(),
+    ],
+    async (req, resp, next) => {
+        try {
+            let errors = validationResult(req);
+            if (!errors.isEmpty()) {
+                return next(errors.mapped());
+            }
+            let {date, uid, lot_type, rank_type, offset, limit} = req.query;
+            let result_json = await LotteryDatabaseBiliService.get_lottery_result(
+                {date,uid, lot_type, rank_type, offset, limit});
+            return resp.json(result_json);
+        } catch (e) {
+            next(e);
+        }
+    }
+)
+
 module.exports = router;

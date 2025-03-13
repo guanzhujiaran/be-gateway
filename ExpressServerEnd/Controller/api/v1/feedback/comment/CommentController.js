@@ -7,7 +7,29 @@ const {jwtAuthGenerator} = require("@/ExpressServerEnd/Service/user_permission_m
 const {UserService} = require("@/ExpressServerEnd/Service/user_module/user_service");
 const {req_tool} = require("@/ExpressServerEnd/Tool/Utl");
 const {UserActModel} = require("@/ExpressServerEnd/Model/api/v1/user/user_act_model");
+const {create_limiter} = require("@/ExpressServerEnd/MiddleWare/Limiter");
 router.use(cookParser());
+const add_comment_same_content_limiter = create_limiter({
+    windowMs: 10e3,
+    custom_radis_key: "same_comment",
+    limit: 3,
+    ret_message: {code: -12001, data: null, msg: "不可多次评论重复内容喵~"},
+    skipSuccessfulRequests: false,
+    skipFailedRequests: true,
+    requestWasSuccessful: (req, resp) => {
+        let {response_data} = resp// 如果是undefined就表示已经被拦截在处理请求之前了
+        if (response_data === undefined) {
+            return false
+        }
+        if (response_data.code !== 0) {
+            return false
+        }
+        return true
+    },
+    keyGenerator: (req, resp) => {
+        return `${req.auth?.uid}_${req.body?.content}`
+    }
+})
 
 router.post("/add", [
         check('oid', 'oid不正确！').notEmpty({ignore_whitespace: true}).isNumeric(),
@@ -16,6 +38,7 @@ router.post("/add", [
         body('parent', 'parent不正确！').notEmpty({ignore_whitespace: true}).isNumeric(),
         body('content', 'content不正确！').notEmpty({ignore_whitespace: true}).isString().isLength({max: 4096}).withMessage('回复内容最大长度4096个字！'),
     ],
+    add_comment_same_content_limiter,
     async (req, resp, next) => {
         try {
             let errors = validationResult(req);
@@ -41,6 +64,7 @@ router.post("/add", [
              * @type {RootObject<{oid:number}|null>}
              */
             let user_info_json = result.toJSON()
+            resp.response_data = user_info_json;
             return resp.json(user_info_json)
         } catch (e) {
             next(e);

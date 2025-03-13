@@ -53,7 +53,7 @@ const PermissionName = {
 }
 
 const permissionMap = new Map([
-    ['/api/v1/account/*', PermissionName.level6],
+    ['/api/v1/account/add_account', PermissionName.level6],
     ['/api/v1/do_lottery/*', PermissionName.level6]
 ])
 module.exports = {

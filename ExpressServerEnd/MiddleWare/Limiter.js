@@ -14,6 +14,7 @@ const {req_tool} = require("@/ExpressServerEnd/Tool/Utl");
  * @param requestWasSuccessful
  * @param skipSuccessfulRequests
  * @param skipFailedRequests
+ * @param keyGenerator
  * @return {RateLimitRequestHandler}
  */
 const create_limiter = ({
@@ -25,6 +26,7 @@ const create_limiter = ({
                             requestWasSuccessful,
                             skipSuccessfulRequests,
                             skipFailedRequests,
+                            keyGenerator
                         }) => {
     return rateLimit({
         windowMs: windowMs, // 15 minutes
@@ -36,7 +38,7 @@ const create_limiter = ({
             windowMs: windowMs,
             prefix: `limiter:${custom_radis_key}:`
         }),
-        keyGenerator: (req, res) => {
+        keyGenerator:keyGenerator?keyGenerator: (req, res) => {
             return req_tool.get_ip(req, res)
         },
         skip: typeof skip === 'function' ? skip : undefined,

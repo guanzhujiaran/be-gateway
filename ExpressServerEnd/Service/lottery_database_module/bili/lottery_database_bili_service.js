@@ -81,6 +81,18 @@ class LotteryDatabaseBiliService {
             }
         )
     }
+
+    static async get_all_scrapy_status() {
+        return await utils.MYAPI.get_all_scrapy_status()
+    }
+
+    static async get_lottery_rank({date,lot_type, rank_type, offset, limit}) {
+        return await utils.MYAPI.get_lottery_rank({date,lot_type, rank_type, offset, limit})
+    }
+
+    static async get_lottery_result({date,uid, lot_type, rank_type, offset, limit}) {
+        return await utils.MYAPI.get_lottery_result({date,uid, lot_type, rank_type, offset, limit})
+    }
 }
 
 module.exports = {LotteryDatabaseBiliService}
