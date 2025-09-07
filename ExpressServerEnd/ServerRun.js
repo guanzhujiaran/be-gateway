@@ -10,9 +10,6 @@ const {addAliases} = require("module-alias");
 addAliases({
     "@": "K:/BiliPPTRVerDEV/",
 });
-// const longjohn = require("longjohn");
-// longjohn.async_trace_limit = 1000;
-// Error.stackTraceLimit = 1000;
 const express = require("express");
 const bodyParser = require("body-parser");
 const UserRouter = require("@/ExpressServerEnd/Controller/api/v1/user/UserController");
@@ -21,13 +18,12 @@ const DoLotteryRouter = require("@/ExpressServerEnd/Controller/api/v1/do_lottery
 const LotteryDatabaseBiliRouter = require("@/ExpressServerEnd/Controller/api/v1/lottery_database/bili/LotteryDatabaseBiliController");
 const FeedbackCommentRouter = require("@/ExpressServerEnd/Controller/api/v1/feedback/comment/CommentController");
 const FeedbackContentRouter = require("@/ExpressServerEnd/Controller/api/v1/feedback/content/ContentController");
-
+const ProxyEndPort = require("@/ExpressServerEnd/Controller/ProxyEndPort");
 const {bullRouter} = require("@/ExpressServerEnd/Controller/api/admin/queues");
 const {
     jwtAuth,
 } = require("@/ExpressServerEnd/Service/user_permission_module/JwtModule");
 const run_env_args = require("@/ExpressServerEnd/config/run_env");
-
 const port = run_env_args["port"] || 9923;
 const hostname = "0.0.0.0";
 const app = express();
@@ -36,10 +32,12 @@ const {createGuard} = require("@/ExpressServerEnd/Service/user_permission_module
 const {restrictToLocalhost} = require("@/ExpressServerEnd/MiddleWare/Limiter");
 const timeout = require('connect-timeout')
 const {system_mq_task_manager} = require("@/ExpressServerEnd/Service/background_task_module/system_mq_task_service");
+
 app.use((req, res, next) => {
     const start = new Date().getTime();
     next();
-    console.log(`请求【${req.path}】【${JSON.stringify(req.body)}】【${JSON.stringify(req.query)}】耗时${new Date().getTime() - start}ms`);
+    const now = new Date()
+    console.log(`${now} 请求【${req.path}】【${JSON.stringify(req.body)}】【${JSON.stringify(req.query)}】耗时${now.getTime() - start}ms`);
 })
 app.use(timeout('15s'))
 app.use(helmet({
@@ -61,6 +59,7 @@ app.use("/api/v1/lottery_database/bili", LotteryDatabaseBiliRouter);
 app.use("/api/v1/feedback/comment", FeedbackCommentRouter);
 app.use("/api/v1/feedback/content", FeedbackContentRouter);
 app.use("/api/admin/queues", restrictToLocalhost, bullRouter);
+app.use('', ProxyEndPort);
 
 // 错误处理中间
 
@@ -74,23 +73,13 @@ app.use((err, req, resp, next) => {
             ttl: 1,
         });
     }
-    if (err.status === 401) {
-        let isExistPath = app._router.stack.some(
-            (route) => route && req.path.includes(route.path),
-        );
-        if (!isExistPath) {
+    switch (err.status) {
+        case 401 :
             return resp.json({
-                code: -404,
-                data: null,
-                msg: "不存在的路径",
+                code: -101,
+                msg: "账号未登录",
                 ttl: 1,
             });
-        }
-        return resp.json({
-            code: -101,
-            msg: "账号未登录",
-            ttl: 1,
-        });
     }
     if (!err.name) {
         let err_entries = Object.entries(err);
@@ -101,20 +90,22 @@ app.use((err, req, resp, next) => {
             ttl: 1,
         });
     }
+
     console.error(err.stack)
     if (run_env_args['env'] === 'prod') {
         system_mq_task_manager.add_system_pushme_task({
             title: 'nodejs服务器错误！',
-            msg: `${req.url}\n${req.body()}\n${req.headers}\n${err.message}\n${err.stack}`
+            msg: `${req.url}\n${req.body}\n${req.headers}\n${err.message}\n${err.stack}`
         }).then(r => {
         })
     }
     return resp.json({
         code: 500,
         data: null,
-        msg: `服务器错误喵！别尝试了，喊我修复先`,
+        msg: `服务器错误喵！别尝试了，喊我修复先！${err.message}`,
         ttl: 1,
     }).status(500);
+
 });
 
 app.listen(port, hostname, () => {

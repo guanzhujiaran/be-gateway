@@ -10,8 +10,9 @@ const config = require("dotenv").config();
 const {Sequelize} = require("sequelize");
 const run_env_args = require("@/ExpressServerEnd/config/run_env");
 
-const DB =run_env_args['env']=== 'prod'? config.parsed.DB:config.parsed.ENV_DB;
-const sequelize = new Sequelize(DB, {dialect: "postgres"});
+const DB = run_env_args['env'] === 'prod' ? config.parsed.DB : config.parsed.ENV_DB;
+const sequelize = new Sequelize(DB, {dialect: "postgres",
+    logging: run_env_args['env'] !== 'prod'});
 sequelize
     .authenticate()
     .then(() => {
@@ -21,7 +22,7 @@ sequelize
         console.error(`数据库【${DB}】连接失败！${e}`);
     });
 const {
-  TAccountBiliAtMsg,
+    TAccountBiliAtMsg,
     TAccountBiliReplyMsg,
     TAccountBiliWhisperMsg,
     TAccountDetailInfo,
@@ -52,10 +53,8 @@ const {
 } = require("./dbModel/init-models")(sequelize);
 
 
-
-
 module.exports = {
-   TAccountBiliAtMsg,
+    TAccountBiliAtMsg,
     TAccountBiliReplyMsg,
     TAccountBiliWhisperMsg,
     TAccountDetailInfo,

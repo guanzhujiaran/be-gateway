@@ -3,8 +3,9 @@ const QueryWbiEnc = require("@/lib/helper/encbiliWbiQuery");
 const superagent = require("superagent");
 const {AccountService} = require("@/ExpressServerEnd/Service/account_module/account_service");
 const axios = require("axios");
-const path = require('path');
 const {BiliElementMap} = require("@/ExpressServerEnd/BiliPPTR/utils/element_map");
+const run_env_args = require("@/ExpressServerEnd/config/run_env");
+const config = require("dotenv").config();
 
 function sleep(ms) {
     return new Promise(resolve => setTimeout(() => resolve(sleep), ms));
@@ -1094,7 +1095,7 @@ const utils = {
     ,
 
     MYAPI: {
-        base_url: "http://127.0.0.1:23333",
+        base_url: run_env_args['env'] === 'prod' ? config.parsed.FASTAPI_URI : config.parsed.FASTAPI_DEV_URI,
         /**
          * API发送请求
          * @param {String} url
@@ -1230,6 +1231,10 @@ const utils = {
         get_lottery_result: async ({date, uid, lot_type, rank_type, offset, limit}) => {
             let url = utils.MYAPI.base_url + `/api/v1/lottery_database/bili/lottery_result`
             return await utils.MYAPI.ajax(url, "get", {date, uid, lot_type, rank_type, offset, limit})
+        },
+        search_lottery_by_keyword: async ({keyword}) => {
+            let url = utils.MYAPI.base_url + `/api/v1/lottery_database/bili/SearchLotteryByKeyword`
+            return await utils.MYAPI.ajax(url, "get", {keyword})
         }
     }
 }

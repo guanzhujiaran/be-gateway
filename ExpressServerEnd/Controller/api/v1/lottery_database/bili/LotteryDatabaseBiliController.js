@@ -181,7 +181,13 @@ router.get("/rank/lottery_hof/:lot_type",
             }
             let {lot_type} = req.params;
             let {date, rank_type, offset, limit} = req.query;
-            let result_json = await LotteryDatabaseBiliService.get_lottery_rank({date,lot_type, rank_type, offset, limit});
+            let result_json = await LotteryDatabaseBiliService.get_lottery_rank({
+                date,
+                lot_type,
+                rank_type,
+                offset,
+                limit
+            });
             return resp.json(result_json);
         } catch (e) {
             next(e);
@@ -205,7 +211,25 @@ router.get("/lottery_result",
             }
             let {date, uid, lot_type, rank_type, offset, limit} = req.query;
             let result_json = await LotteryDatabaseBiliService.get_lottery_result(
-                {date,uid, lot_type, rank_type, offset, limit});
+                {date, uid, lot_type, rank_type, offset, limit});
+            return resp.json(result_json);
+        } catch (e) {
+            next(e);
+        }
+    }
+)
+router.get("/SearchLotteryByKeyword",
+    [
+        check('keyword').isString(),
+    ],
+    async (req, resp, next) => {
+        try {
+            let errors = validationResult(req);
+            if (!errors.isEmpty()) {
+                return next(errors.mapped());
+            }
+            let {keyword} = req.query;
+            let result_json = await LotteryDatabaseBiliService.search_lottery_by_keyword({keyword});
             return resp.json(result_json);
         } catch (e) {
             next(e);

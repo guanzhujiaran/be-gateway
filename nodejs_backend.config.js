@@ -10,6 +10,18 @@ module.exports = {
         watch: false,
         // out_file: "/dev/null",
         // error_file: "/dev/null"
+    },
+    	{
+        name: 'dev_nodejs_express_backend_nginx',
+        script: './ExpressServerEnd/ServerRun.js',
+        cwd: 'K:/BiliPPTRVerDEV',
+        args:'--env=dev --port=9926',
+        wait_ready: true,
+        exec_mode: "fork",
+        autorestart: true,
+        watch: false,
+        out_file: "/dev/null",
+        error_file: "/dev/null"
     }
     ]
 };

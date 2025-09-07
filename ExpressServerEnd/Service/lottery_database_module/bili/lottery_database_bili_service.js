@@ -93,6 +93,12 @@ class LotteryDatabaseBiliService {
     static async get_lottery_result({date,uid, lot_type, rank_type, offset, limit}) {
         return await utils.MYAPI.get_lottery_result({date,uid, lot_type, rank_type, offset, limit})
     }
+    static async search_lottery_by_keyword({keyword}) {
+        return await utils.MYAPI.search_lottery_by_keyword({
+        keyword
+    })
+    }
+
 }
 
 module.exports = {LotteryDatabaseBiliService}

@@ -50,7 +50,8 @@ const jwtAuth = expressJwt
             {url: /api\/v1\/lottery_database\/bili\/.*/},
             {url: /api\/admin\/queues\/.*/},
             {url: /api\/v1\/feedback\/comment\/reply\/main/},
-            {url: /api\/v1\/feedback\/comment\/reply\/reply/}
+            {url: /api\/v1\/feedback\/comment\/reply\/reply/},
+            {url:/api\/v1\/samsClub\/.*/}
         ], //不需要校验的路径
     });
 
