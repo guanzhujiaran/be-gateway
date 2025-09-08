@@ -2,7 +2,7 @@ module.exports = {
     apps: [{
         name: 'nodejs_express_backend_nginx',
         script: './ExpressServerEnd/ServerRun.js',
-        cwd: 'K:/BiliPPTRVerDEV',
+        cwd: __dirname,
         args:'--env=prod',
         wait_ready: true,
         exec_mode: "fork",
@@ -14,7 +14,7 @@ module.exports = {
     	{
         name: 'dev_nodejs_express_backend_nginx',
         script: './ExpressServerEnd/ServerRun.js',
-        cwd: 'K:/BiliPPTRVerDEV',
+        cwd: __dirname,
         args:'--env=dev --port=9926',
         wait_ready: true,
         exec_mode: "fork",

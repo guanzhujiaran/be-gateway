@@ -2,7 +2,7 @@ const {rateLimit} = require('express-rate-limit');
 const {redis_manager} = require('@/ExpressServerEnd/DAO/Redis/RedisManager');
 const {RedisStore} = require("rate-limit-redis");
 const ip = require('ip');
-const run_env_args = require("@/ExpressServerEnd/config/run_env");
+const run_env_args = require("@/ExpressServerEnd/config/run_arg");
 const {req_tool} = require("@/ExpressServerEnd/Tool/Utl");
 /**
  *

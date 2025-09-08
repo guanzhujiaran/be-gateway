@@ -14,7 +14,7 @@ const {
 const {AccountLogDao} = require("@/ExpressServerEnd/DAO/AccountLogDao");
 const config = require("@/ExpressServerEnd/config");
 const {BaseTasks} = require("@/ExpressServerEnd/Service/background_task_module/base_task");
-const run_env_args = require("@/ExpressServerEnd/config/run_env");
+const run_env_args = require("@/ExpressServerEnd/config/run_arg");
 
 
 class TaskManager extends BaseTasks {

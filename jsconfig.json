@@ -1,11 +1,15 @@
 {
-  "compilerOptions": {
-    "paths":{
-      "@/*": ["K:/BiliPPTRVerDEV/*"]
+    "compilerOptions": {
+        "paths": {
+            "@/*": [
+                "./*"
+            ]
+        }
     },
-    "experimentalDecorators": true
-  },
-  "include": ["./**/*"],
-  "resolveExtensions": [".js", ".vue", ".ts"],
-  "exclude": ["node_modules", "dist"]
+    "include": [
+        "./**/*"
+    ],
+    "exclude": [
+        "node_modules"
+    ]
 }

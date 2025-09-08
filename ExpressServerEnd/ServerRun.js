@@ -6,10 +6,8 @@
  * @FilePath: \tampermonkey\ExpressServerEnd\ServerRun.js
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
-const {addAliases} = require("module-alias");
-addAliases({
-    "@": "K:/BiliPPTRVerDEV/",
-});
+require("module-alias/register");
+require('dotenv').config();
 const express = require("express");
 const bodyParser = require("body-parser");
 const UserRouter = require("@/ExpressServerEnd/Controller/api/v1/user/UserController");
@@ -23,7 +21,7 @@ const {bullRouter} = require("@/ExpressServerEnd/Controller/api/admin/queues");
 const {
     jwtAuth,
 } = require("@/ExpressServerEnd/Service/user_permission_module/JwtModule");
-const run_env_args = require("@/ExpressServerEnd/config/run_env");
+const run_env_args = require("@/ExpressServerEnd/config/run_arg");
 const port = run_env_args["port"] || 9923;
 const hostname = "0.0.0.0";
 const app = express();

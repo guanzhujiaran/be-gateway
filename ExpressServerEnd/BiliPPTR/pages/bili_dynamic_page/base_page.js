@@ -7,8 +7,6 @@ stealth.enabledEvasions.delete("user-agent-override");
 puppeteer.use(StealthPlugin());
 const {GLOBAL_CONFIG} = require("@/ExpressServerEnd/BiliPPTR/config/global_config");
 const {AccountLogService} = require("@/ExpressServerEnd/Service/account_log_module/account_log_service");
-const {AccountDao} = require("@/ExpressServerEnd/DAO/AccountDao");
-const {UserDao} = require("@/ExpressServerEnd/DAO/UserDao");
 const {AccountService} = require("@/ExpressServerEnd/Service/account_module/account_service");
 const {resolve, join} = require('path')
 const {BiliLotterySetting} = require("@/ExpressServerEnd/Model/api/v1/account/account_model");

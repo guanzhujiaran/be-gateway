@@ -4,8 +4,7 @@ const superagent = require("superagent");
 const {AccountService} = require("@/ExpressServerEnd/Service/account_module/account_service");
 const axios = require("axios");
 const {BiliElementMap} = require("@/ExpressServerEnd/BiliPPTR/utils/element_map");
-const run_env_args = require("@/ExpressServerEnd/config/run_env");
-const config = require("dotenv").config();
+const run_env_args = require("@/ExpressServerEnd/config/run_arg");
 
 function sleep(ms) {
     return new Promise(resolve => setTimeout(() => resolve(sleep), ms));
@@ -1095,7 +1094,7 @@ const utils = {
     ,
 
     MYAPI: {
-        base_url: run_env_args['env'] === 'prod' ? config.parsed.FASTAPI_URI : config.parsed.FASTAPI_DEV_URI,
+        base_url: run_env_args['env'] === 'prod' ? process.env.FASTAPI_URI : process.env.FASTAPI_DEV_URI,
         /**
          * API发送请求
          * @param {String} url

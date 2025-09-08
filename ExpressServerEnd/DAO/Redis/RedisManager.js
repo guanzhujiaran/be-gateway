@@ -1,13 +1,12 @@
-const config = require("dotenv").config();
-const RedisClient  = require('ioredis');
+const RedisClient = require('ioredis');
 
 class RedisManager {
     constructor() {
-        this.port = config.parsed.REDIS_PORT
-        this.host = config.parsed.REDIS_HOST
-        this.db = config.parsed.REDIS_DB
-        this.pwd = config.parsed.REDIS_PWD
-        this.redis_url = `redis://:${this.pwd}@${this.host}:${this.port}/${this.db}`
+        this.port = process.env.REDIS_PORT
+        this.host = process.env.REDIS_HOST
+        this.db = process.env.REDIS_DB ?? 0
+        this.pwd = process.env.REDIS_PWD
+        this.redis_url = `redis://:${this.pwd ?? ''}@${this.host}:${this.port}/${this.db}`
         this.connection = new RedisClient(
             this.redis_url,
             {maxRetriesPerRequest: null}

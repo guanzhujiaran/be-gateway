@@ -6,13 +6,11 @@
  * @FilePath: \tampermonkey\ExpressServerEnd\SqlHelper\SqlHelper.js
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
-const config = require("dotenv").config();
 const {Sequelize} = require("sequelize");
-const run_env_args = require("@/ExpressServerEnd/config/run_env");
-
-const DB = run_env_args['env'] === 'prod' ? config.parsed.DB : config.parsed.ENV_DB;
+const run_env_args = require("@/ExpressServerEnd/config/run_arg");
+const DB = run_env_args['env'] === 'prod' ? process.env.DB : process.env.DEV_DB;
 const sequelize = new Sequelize(DB, {dialect: "postgres",
-    logging: run_env_args['env'] !== 'prod'});
+    logging: run_env_args['env'] === 'prod'?false:console.log});
 sequelize
     .authenticate()
     .then(() => {
