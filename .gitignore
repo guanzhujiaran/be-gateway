@@ -11,14 +11,13 @@ users.yaml
 *.svg
 *.txt
 .idea/
-github/
 .vscode
 *.log
 *.zip
 .git/
 *.png
 UserData/
-log/
 *.jpg
 .history/
 BrowserData/
+/ExpressServerEnd/LOG/
