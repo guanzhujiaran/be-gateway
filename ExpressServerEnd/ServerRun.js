@@ -93,7 +93,7 @@ app.use((err, req, resp, next) => {
     if (run_env_args['env'] === 'prod') {
         system_mq_task_manager.add_system_pushme_task({
             title: 'nodejs服务器错误！',
-            msg: `${req.url}\n${req.body}\n${req.headers}\n${err.message}\n${err.stack}`
+            msg: `${req.url}\n${JSON.stringify(req.body)}\n${JSON.stringify(req.headers)}\n${err.message}\n${err.stack}`
         }).then(r => {
         })
     }

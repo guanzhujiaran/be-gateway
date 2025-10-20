@@ -1235,6 +1235,9 @@ const utils = {
             let url = utils.MYAPI.base_url + `/api/v1/lottery_database/bili/SearchLotteryByKeyword`
             return await utils.MYAPI.ajax(url, "get", {keyword})
         }
+    },
+    RPA: {
+        base_url: run_env_args['env'] === 'prod' ? process.env.FASTAPI_RPA_URI : process.env.FASTAPI_RPA_DEV_URI,
     }
 }
 const pptr_op = {

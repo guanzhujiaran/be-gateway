@@ -13,5 +13,14 @@ router.use('/api/v1/samsClub/graphql',
         }
     )
 )
-
+router.use('/*rpa/',
+    proxy(
+        utils.RPA.base_url,
+        {
+            proxyReqPathResolver: (req) => {
+                return req.baseUrl
+            }
+        }
+    )
+)
 module.exports = router;

@@ -199,7 +199,7 @@ class TaskManager extends BaseTasks {
         event_bus.on(EVENT_NAME_MAP.ALL_LIVE_LOT, async () => {
                 while (1) {
                     let lottery_infos = await utils.MYAPI.get_live_lottery({get_all: false}).catch(e => {
-                        console.error(`获取直播信息失败！`, e);
+                        console.error(`获取直播信息失败！`, e.message);
                         return []
                     });
                     // console.debug(`获取到直播抽奖信息：${JSON.stringify(lottery_infos, undefined, '\t')}`)
@@ -400,12 +400,13 @@ class TaskManager extends BaseTasks {
     }
 
     //region Serivce 接口可以直接调用的服务
-    async add_user_account_read_msg({uid,account_name}){
-        await this.add_read_account_msg({uid,account_name});
-         return new base_api_model({
-             msg:"读取私信任务添加成功！"
-         })
+    async add_user_account_read_msg({uid, account_name}) {
+        await this.add_read_account_msg({uid, account_name});
+        return new base_api_model({
+            msg: "读取私信任务添加成功！"
+        })
     }
+
     /**
      * 将账号添加到任务队列
      * @param uid {number}
@@ -542,7 +543,7 @@ class TaskManager extends BaseTasks {
             )
         }
         let opus = await this.get_user_account_opus(uid, account_name);
-        if (!opus)return new base_api_model(({
+        if (!opus) return new base_api_model(({
             code: 1000,
             msg: "账号不存在，无法应用设置！"
         }))
@@ -582,6 +583,7 @@ class TaskManager extends BaseTasks {
             }
         )
     }
+
     //endregion
 }
 
