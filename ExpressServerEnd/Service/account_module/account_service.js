@@ -7,6 +7,7 @@ const yaml = require('js-yaml');
 const fs = require("fs");
 const config = require('@/ExpressServerEnd/config/index');
 const {t} = require("@/ExpressServerEnd/Tool/Utl");
+const {RESPONSE_CODES} = require("../response_constants");
 
 
 class AccountService {
@@ -28,7 +29,11 @@ class AccountService {
         let acc_model = new AccountModel(uid);
 
         let result = await acc_model.get_all_account_info_by_uid();
-        return new base_api_model({data: result})
+        return new base_api_model({
+            code: RESPONSE_CODES.SUCCESS.code,
+            data: result,
+            msg: RESPONSE_CODES.SUCCESS.msg
+        })
     }
 
     /**
@@ -42,9 +47,9 @@ class AccountService {
         let is_exist = await acc_model.get_account_info_by_account_name(account_name);
         if (is_exist) {
             return new base_api_model({
-                code: 40014,
+                code: RESPONSE_CODES.ERRORS.ACCOUNT_NAME_EXISTS.code,
                 data: null,
-                msg: "该昵称已存在",
+                msg: RESPONSE_CODES.ERRORS.ACCOUNT_NAME_EXISTS.msg,
             })
         }
 
@@ -54,16 +59,16 @@ class AccountService {
              * @type {UserAccount}
              */
             return new base_api_model({
-                    data: result,
-                    msg: "账号账号创建成功！"
-                }
-            )
+                code: RESPONSE_CODES.ACCOUNT_CREATE_SUCCESS.code,
+                data: result,
+                msg: RESPONSE_CODES.ACCOUNT_CREATE_SUCCESS.msg
+            })
         }
 
         return new base_api_model({
-            code: 40015,
+            code: RESPONSE_CODES.ERRORS.ACCOUNT_CREATION_FAILED.code,
             data: null,
-            msg: `账号账号创建失败！\t${result}`
+            msg: `${RESPONSE_CODES.ERRORS.ACCOUNT_CREATION_FAILED.msg}\t${result}`
         })
 
     }
@@ -77,14 +82,14 @@ class AccountService {
      */
     static async get_account_info(uid, {account_name, account_id}) {
         if (!uid) return new base_api_model({
-            code: -1,
+            code: RESPONSE_CODES.ERRORS.UNAUTHORIZED.code,
             data: null,
-            msg: "未登录！"
+            msg: RESPONSE_CODES.ERRORS.UNAUTHORIZED.msg
         })
         if (!(account_name || account_id)) return new base_api_model({
-            code: 40013,
+            code: RESPONSE_CODES.ERRORS.ACCOUNT_INFO_MISSING.code,
             data: null,
-            msg: "请输入账号名称或账号ID！"
+            msg: RESPONSE_CODES.ERRORS.ACCOUNT_INFO_MISSING.msg
         })
         let acc_model = new AccountModel(uid);
         let ret_model = null;
@@ -94,16 +99,16 @@ class AccountService {
             ret_model = await acc_model.get_account_info_by_account_name(account_name)
         }
         if (ret_model) {
-            return new base_api_model(
-                {
-                    data: ret_model
-                }
-            )
+            return new base_api_model({
+                code: RESPONSE_CODES.SUCCESS.code,
+                data: ret_model,
+                msg: RESPONSE_CODES.SUCCESS.msg
+            })
         }
         return new base_api_model({
-            code: 40016,
+            code: RESPONSE_CODES.ERRORS.ACCOUNT_NOT_FOUND.code,
             data: null,
-            msg: "该账号不存在！"
+            msg: RESPONSE_CODES.ERRORS.ACCOUNT_NOT_FOUND.msg
         })
 
     }
@@ -137,15 +142,17 @@ class AccountService {
     static async save_lottery_setting_by_account_name_and_uid(account_name, uid, settings) {
         if (account_name !== settings.lottery_setting.CONFIG.COOKIENAME) {
             return new base_api_model({
-                code: 40018,
+                code: RESPONSE_CODES.ERRORS.ACCOUNT_NAME_MISMATCH.code,
                 data: null,
-                msg: "账号名称和COOKIENAME不一致！"
+                msg: RESPONSE_CODES.ERRORS.ACCOUNT_NAME_MISMATCH.msg
             })
         }
         let acc_model = new AccountModel(uid);
         let ret_model = await acc_model.save_lottery_setting_by_account_name_and_uid(account_name, settings);
         return new base_api_model({
-            data: ret_model
+            code: RESPONSE_CODES.SUCCESS.code,
+            data: ret_model,
+            msg: RESPONSE_CODES.SUCCESS.msg
         })
     }
 
@@ -155,12 +162,13 @@ class AccountService {
         try {
             await AccountDao.save_account_detail_info_by_account_id(arguments[0])
             return new base_api_model({
-                data: '保存账号详情成功！'
+                code: RESPONSE_CODES.ACCOUNT_DETAIL_SAVE_SUCCESS.code,
+                data: RESPONSE_CODES.ACCOUNT_DETAIL_SAVE_SUCCESS.msg
             })
         } catch (e) {
             return new base_api_model({
-                code: 40019,
-                msg: `保存账号详情失败！${e.message}`
+                code: RESPONSE_CODES.ERRORS.ACCOUNT_SAVE_FAILED.code,
+                msg: `${RESPONSE_CODES.ERRORS.ACCOUNT_SAVE_FAILED.msg}${e.message}`
             })
         }
     }

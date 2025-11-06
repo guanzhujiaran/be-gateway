@@ -256,17 +256,6 @@ async function main() {
 	}
 	if (unfollow_mode) return;
 
-	if (live_mode) {
-		if (!event_bus.event_list.includes(EVENT_NAME_MAP.ALL_LIVE_LOT)) {
-			let ALL_DO_Lottery = MYLOTLIST.map((el) => el.lot);
-			let ALL_LIVE_LOT = new LIVE_LOT_Service(ALL_DO_Lottery);
-			event_bus.on(EVENT_NAME_MAP.ALL_LIVE_LOT, async () => {
-				await ALL_LIVE_LOT.main();
-			});
-			event_bus.emit(EVENT_NAME_MAP.ALL_LIVE_LOT);
-		}
-	}
-
 	if (!event_bus.event_list.includes(EVENT_NAME_MAP.LIVE_SEND_DM_SERVICE)) {
 		console.log(`注册了直播刷弹幕事件！`);
 		let ALL_DO_Lottery = MYLOTLIST.map((el) => el.lot);

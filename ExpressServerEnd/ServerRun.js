@@ -27,6 +27,7 @@ const hostname = "0.0.0.0";
 const app = express();
 const helmet = require('helmet');
 const {createGuard} = require("@/ExpressServerEnd/Service/user_permission_module/user_permission_service");
+const {RESPONSE_CODES} = require("@/ExpressServerEnd/Service/response_constants");
 const {restrictToLocalhost} = require("@/ExpressServerEnd/MiddleWare/Limiter");
 const timeout = require('connect-timeout')
 const {system_mq_task_manager} = require("@/ExpressServerEnd/Service/background_task_module/system_mq_task_service");
@@ -66,25 +67,25 @@ app.use((err, req, resp, next) => {
     // console.error(err);
     if (err.code === 'permission_denied') {
         return resp.json({
-            code: -403,
-            msg: "账号无权限",
+            code: RESPONSE_CODES.ERRORS.PERMISSION_DENIED.code,
+            msg: RESPONSE_CODES.ERRORS.PERMISSION_DENIED.msg,
             ttl: 1,
         });
     }
     switch (err.status) {
         case 401 :
             return resp.json({
-                code: -101,
-                msg: "账号未登录",
+                code: RESPONSE_CODES.ERRORS.UNAUTHORIZED.code,
+                msg: RESPONSE_CODES.ERRORS.UNAUTHORIZED.msg,
                 ttl: 1,
             });
     }
     if (!err.name) {
         let err_entries = Object.entries(err);
         return resp.json({
-            code: 400,
+            code: RESPONSE_CODES.ERRORS.INVALID_REQUEST.code,
             data: null,
-            msg: `请求错误：${err_entries.map((el) => el[1].msg).join(";")}`,
+            msg: `${RESPONSE_CODES.ERRORS.INVALID_REQUEST.msg}：${err_entries.map((el) => el[1].msg).join(";")}`,
             ttl: 1,
         });
     }
@@ -93,14 +94,18 @@ app.use((err, req, resp, next) => {
     if (run_env_args['env'] === 'prod') {
         system_mq_task_manager.add_system_pushme_task({
             title: 'nodejs服务器错误！',
-            msg: `${req.url}\n${JSON.stringify(req.body)}\n${JSON.stringify(req.headers)}\n${err.message}\n${err.stack}`
+            msg: `${req.url}
+${JSON.stringify(req.body)}
+${JSON.stringify(req.headers)}
+${err.message}
+${err.stack}`
         }).then(r => {
         })
     }
     return resp.json({
-        code: 500,
+        code: RESPONSE_CODES.ERRORS.UNKNOWN_ERROR.code,
         data: null,
-        msg: `服务器错误喵！别尝试了，喊我修复先！${err.message}`,
+        msg: `${RESPONSE_CODES.ERRORS.UNKNOWN_ERROR.msg}${err.message}`,
         ttl: 1,
     }).status(500);
 

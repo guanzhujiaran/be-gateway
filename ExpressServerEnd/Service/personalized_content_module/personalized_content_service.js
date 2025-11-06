@@ -109,11 +109,11 @@ class PersonalizedContentService {
                     ip_info_id: ip_act_info.pk,
                 });
                 return new base_api_model({
-                    code: 0,
+                    code: RESPONSE_CODES.SUCCESS.code,
                     data: {
                         rid: result.rid
                     },
-                    msg: '创建成功'
+                    msg: RESPONSE_CODES.SUCCESS.msg
                 })
             default:
                 return new base_api_model({
@@ -147,13 +147,14 @@ class PersonalizedContentService {
                                    }) {
         let data = await this.get_personalized_content_model({content_id, oid, type});
         if (!data) return new base_api_model({
-            code: 4100024,
-            msg: "无内容！",
+            code: RESPONSE_CODES.ERRORS.CONTENT_NOT_FOUND.code,
+            msg: RESPONSE_CODES.ERRORS.CONTENT_NOT_FOUND.msg,
             data: null
         })
         return new base_api_model({
-            code: 0,
+            code: RESPONSE_CODES.PERSONALIZED_CONTENT_GET_SUCCESS.code,
             data: this.replace_key_name(data, data.type),
+            msg: RESPONSE_CODES.PERSONALIZED_CONTENT_GET_SUCCESS.msg
         })
     }
 
@@ -173,8 +174,8 @@ class PersonalizedContentService {
         root = String(root) === '0' ? null : root;
         parent = String(parent) === '0' ? null : parent;
         if (!data) return new base_api_model({
-            code: 4100023,
-            msg: "待回复的资源不存在！",
+            code: RESPONSE_CODES.ERRORS.CONTENT_RESOURCE_NOT_FOUND.code,
+            msg: RESPONSE_CODES.ERRORS.CONTENT_RESOURCE_NOT_FOUND.msg,
             data: null
         })
         let root_comment;
@@ -183,14 +184,14 @@ class PersonalizedContentService {
             root_comment = await UserPersonalContentDao.get_single_comment_by_rpid({rpid: root});
             parent_comment = root === parent ? root_comment : await UserPersonalContentDao.get_single_comment_by_rpid({rpid: parent});
             if (!(root_comment || parent_comment)) return new base_api_model({
-                code: 4100025,
-                msg: "待回复的评论不存在！",
+                code: RESPONSE_CODES.ERRORS.CONTENT_REPLY_NOT_FOUND.code,
+                msg: RESPONSE_CODES.ERRORS.CONTENT_REPLY_NOT_FOUND.msg,
                 data: null
             })
             if (parent_comment && parent_comment.root !== root_comment.rpid) {
                 return new base_api_model({
-                    code: 4100026,
-                    msg: "评论层级错误！",
+                    code: RESPONSE_CODES.ERRORS.CONTENT_REPLY_LEVEL_ERROR.code,
+                    msg: RESPONSE_CODES.ERRORS.CONTENT_REPLY_LEVEL_ERROR.msg,
                     data: null
                 })
             }
@@ -205,9 +206,9 @@ class PersonalizedContentService {
         let created_comment_all_data = await UserPersonalContentDao.get_content_comment_by_rpid({rpid: created_comment.rpid});
         let created_comment_json = t.renameKeys(this._process_ret_comment(created_comment_all_data), this.#CommentRespPropMap)
         return new base_api_model({
-            code: 0,
+            code: RESPONSE_CODES.COMMENT_ADD_SUCCESS.code,
             data: created_comment_json,
-            msg: "评论成功！"
+            msg: RESPONSE_CODES.COMMENT_ADD_SUCCESS.msg
         })
     }
 
@@ -267,8 +268,8 @@ class PersonalizedContentService {
                                            }) {
         let personal_content = await this.get_personalized_content_model({oid, type});
         if (!personal_content) return new base_api_model({
-            code: -403,
-            msg: "访问权限不足",
+            code: RESPONSE_CODES.ERRORS.PERMISSION_DENIED.code,
+            msg: RESPONSE_CODES.ERRORS.PERMISSION_DENIED.msg,
         })
         let {count, rows, top_rows} = await UserPersonalContentDao.get_comments_main_with_user_info_by_oid_type({
             mid,
@@ -281,7 +282,7 @@ class PersonalizedContentService {
         let process_rows = t.renameKeys(rows.map(el => this._process_ret_comment(el)), this.#CommentRespPropMap);
         let processed_top_rows = t.renameKeys(top_rows.map(el => this._process_ret_comment(el)), this.#CommentRespPropMap);
         return new base_api_model({
-            code: 0,
+            code: RESPONSE_CODES.COMMENT_GET_SUCCESS.code,
             data: {
                 total_num: count,
                 cur_page: typeof page_num === "number" ? page_num : parseInt(page_num),
@@ -291,7 +292,7 @@ class PersonalizedContentService {
                     mid: personal_content.up_mid
                 }
             },
-            msg: "获取评论成功！"
+            msg: RESPONSE_CODES.COMMENT_GET_SUCCESS.msg
         })
     }
 
@@ -305,8 +306,8 @@ class PersonalizedContentService {
                                       }) {
         let personal_content = await this.get_personalized_content_model({oid, type});
         if (!personal_content) return new base_api_model({
-            code: -403,
-            msg: "访问权限不足",
+            code: RESPONSE_CODES.ERRORS.PERMISSION_DENIED.code,
+            msg: RESPONSE_CODES.ERRORS.PERMISSION_DENIED.msg,
         })
         let {count, rows} = await UserPersonalContentDao.get_comments_reply_with_user_info_by_oid_type({
             mid,
@@ -319,7 +320,7 @@ class PersonalizedContentService {
         });
         let process_rows = t.renameKeys(rows.map(el => this._process_ret_comment(el)), this.#CommentRespPropMap);
         return new base_api_model({
-            code: 0,
+            code: RESPONSE_CODES.COMMENT_GET_SUCCESS.code,
             data: {
                 total_num: count,
                 cur_page: typeof page_num === "number" ? page_num : parseInt(page_num),
@@ -328,7 +329,7 @@ class PersonalizedContentService {
                     mid: personal_content.up_mid
                 }
             },
-            msg: "获取评论成功！"
+            msg: RESPONSE_CODES.COMMENT_GET_SUCCESS.msg
         })
     }
 
@@ -348,16 +349,16 @@ class PersonalizedContentService {
                                    }) {
         if (![0, 1, 2].includes(action)) {
             return new base_api_model({
-                code: 400,
+                code: RESPONSE_CODES.ERRORS.INVALID_REQUEST.code,
                 data: null,
-                msg: "未知action类型",
+                msg: RESPONSE_CODES.ERRORS.INVALID_REQUEST.msg,
             })
         }
         let comment = await UserPersonalContentDao.get_single_comment_by_rpid({rpid})
         if (!comment) {
             return new base_api_model({
-                code: 4100024,
-                msg: "无内容！",
+                code: RESPONSE_CODES.ERRORS.CONTENT_NOT_FOUND.code,
+                msg: RESPONSE_CODES.ERRORS.CONTENT_NOT_FOUND.msg,
                 data: null
             })
         }
@@ -402,7 +403,7 @@ class PersonalizedContentService {
             }
         }
         return new base_api_model({
-            code: 0,
+            code: RESPONSE_CODES.SUCCESS.code,
             data: null,
             msg: `${action === 1 ? "点赞" : action === 0 ? "取消" : "点踩"}成功！`
         })
@@ -415,19 +416,19 @@ class PersonalizedContentService {
             oid, type
         });
         if (!data) return new base_api_model({
-            code: 4100027,
-            msg: "无效oid和type，评论删除失败！",
+            code: RESPONSE_CODES.ERRORS.CONTENT_RESOURCE_NOT_FOUND.code,
+            msg: `无效oid和type，评论删除失败！`,
             data: null
         })
         let comment = await UserPersonalContentDao.get_single_comment_by_rpid({rpid})
         if (!comment) return new base_api_model({
-            code: 4100028,
-            msg: "无效评论rpid，评论删除失败！",
+            code: RESPONSE_CODES.ERRORS.CONTENT_NOT_FOUND.code,
+            msg: `无效评论rpid，评论删除失败！`,
             data: null
         });
         if (String(comment.mid) !== String(uid) && String(data.up_mid) !==String(uid)) return new base_api_model({
-            code: 4100029,
-            msg: "非自己评论无法删除，评论删除失败！",
+            code: RESPONSE_CODES.ERRORS.PERMISSION_DENIED.code,
+            msg: `非自己评论无法删除，评论删除失败！`,
             data: null
         });
         await comment.destroy();
@@ -438,7 +439,7 @@ class PersonalizedContentService {
             }
         }
         return new base_api_model({
-            code: 0,
+            code: RESPONSE_CODES.SUCCESS.code,
             data: null,
             msg: "评论删除成功！"
         });

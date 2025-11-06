@@ -123,7 +123,8 @@ class UserService {
                 data: {
                     uid: user_model.uid,
                     user_name: user_model.user_name,
-                    level: user_model.level
+                    level: user_model.level ?? '0',
+                    role: user_model.role,
                 },
                 msg: "账号已登录！"
             })
