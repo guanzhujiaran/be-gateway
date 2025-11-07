@@ -196,31 +196,6 @@ class TaskManager extends BaseTasks {
             live_lottery_worker.run()
             read_msg_worker.run();
         }
-        event_bus.on(EVENT_NAME_MAP.ALL_LIVE_LOT, async () => {
-                while (1) {
-                    let lottery_infos = await utils.MYAPI.get_live_lottery({get_all: false}).catch(e => {
-                        console.error(`获取直播信息失败！`, e.message);
-                        return []
-                    });
-                    // console.debug(`获取到直播抽奖信息：${JSON.stringify(lottery_infos, undefined, '\t')}`)
-                    lottery_infos.map(async lottery_info => {
-                        for (let [user_name, account_infos] of Object.entries(this.user_account_hash_map)) {
-                            for (let [account_name, opus] of Object.entries(account_infos)) {
-                                let BiliDynamicPage = await opus.GetBiliDynamicPage()
-                                await this.add_user_account_live_lot_task({
-                                        uid: BiliDynamicPage.user_id,
-                                        account_name: account_name,
-                                        lottery_info: lottery_info
-                                    }
-                                )
-                            }
-                        }
-                    })
-                    await sleep(10e3); // 10秒后重新获取
-                }
-            }
-        )
-        event_bus.emit(EVENT_NAME_MAP.ALL_LIVE_LOT) // 将直播任务丢到event里面执行
         event_bus.on(EVENT_NAME_MAP.log, async () => {
             while (1) {
                 //n^2的复杂度？进行轮询

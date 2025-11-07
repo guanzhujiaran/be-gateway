@@ -6,7 +6,8 @@ exports.UserModel = class UserModel {
     uid;
     user_name;
     parsed_pwd;
-    level;
+    level; // 这个是用户的等级，可以提升，等级越高，权限越高
+    role; // 这个是用户的角色，无法提升，只能后台修改
 
     constructor({uid, user_name}) {
         this.uid = uid
@@ -24,6 +25,7 @@ exports.UserModel = class UserModel {
             this.parsed_pwd = user_info.pwd;
             this.user_name = user_info.user_name;
             this.level = user_info.TUserDetail.TUserLevel.current_level;
+            this.role = user_info.role;
         }
     }
 
@@ -44,10 +46,12 @@ exports.UserModel = class UserModel {
     }
 
     async get_user_vip() {
-        this.TUserInfo = await UserDao.get_whole_user_info({
-            user_name: this.user_name,
-            uid: this.uid
-        });
+        if (!this.TUserInfo) {
+            this.TUserInfo = await UserDao.get_whole_user_info({
+                user_name: this.user_name,
+                uid: this.uid
+            });
+        }
         return this.TUserInfo.TUserDetail.TUserVip
     }
 

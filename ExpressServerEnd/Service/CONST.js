@@ -10,7 +10,7 @@ const PermissionName = {
     level0: {
         name: 'level0',
         permissions: [
-             ['6'], ['5'], ['4'], ['3'], ['2'], ['1'], ['0']
+            ['6'], ['5'], ['4'], ['3'], ['2'], ['1'], ['0']
         ]
     },
     level1: {
@@ -28,13 +28,13 @@ const PermissionName = {
     level3: {
         name: 'level3',
         permissions: [
-          ['6'], ['5'], ['4'], ['3']
+            ['6'], ['5'], ['4'], ['3']
         ]
     },
     level4: {
         name: 'level4',
         permissions: [
-             ['6'], ['5'], ['4']
+            ['6'], ['5'], ['4']
         ]
     },
     level5: {
@@ -46,10 +46,15 @@ const PermissionName = {
     level6: {
         name: 'level6',
         permissions: [
-             ['6']
+            ['6']
         ]
     },
-
+    root: {
+        name: "root",
+        permissions: [
+            ['6']
+        ]
+    }
 }
 
 const permissionMap = new Map([

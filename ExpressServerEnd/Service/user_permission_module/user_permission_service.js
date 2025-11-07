@@ -85,7 +85,7 @@ function createGuard() {
                         return resp.json({
                             code: 4000009,
                             "data": {},
-                            "msg": `用户无权限，至少需要${permission_name}等级！`
+                            "msg": `用户无权限，至少需要${permission_name}的权限！`
                         })
                     } else {
                         next();
