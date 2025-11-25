@@ -5,6 +5,7 @@ const {UserPersonalContentDao} = require("@/ExpressServerEnd/DAO/UserPersonalCon
 const {UserService} = require("@/ExpressServerEnd/Service/user_module/user_service");
 const {t} = require("@/ExpressServerEnd/Tool/Utl");
 const {UserActModel} = require("@/ExpressServerEnd/Model/api/v1/user/user_act_model");
+const {RESPONSE_CODES} = require("@/ExpressServerEnd/Service/response_constants");
 
 const type_arr = [1] //目前允许创建的内容type
 const PersonalizedContentType = {
