@@ -94,10 +94,10 @@ class UserService {
             });
             await Promise.all([
                 UserService.add_user_act_ip_info({req, resp, act_info: UserActModel.refresh_token}),
-                user_redis_dao.add_black_list_jwt_signature({
-                    signature: req.headers.authorization.split('.').pop(),
-                    ttl: Math.ceil(req.auth.exp - Date.now() / 1000)
-                })
+                // user_redis_dao.add_black_list_jwt_signature({
+                //     signature: req.headers.authorization.split('.').pop(),
+                //     ttl: Math.ceil(req.auth.exp - Date.now() / 1000)
+                // })
             ])
 
             return new base_api_model({

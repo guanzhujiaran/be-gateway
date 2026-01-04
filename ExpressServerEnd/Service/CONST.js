@@ -10,56 +10,57 @@ const PermissionName = {
     level0: {
         name: 'level0',
         permissions: [
-            ['6'], ['5'], ['4'], ['3'], ['2'], ['1'], ['0']
+            [6], [5], [4], [3], [2], [1], [0]
         ]
     },
     level1: {
         name: 'level1',
         permissions: [
-            ['6'], ['5'], ['4'], ['3'], ['2'], ['1']
+            [6], [5], [4], [3], [2], [1]
         ]
     },
     level2: {
         name: 'level2',
         permissions: [
-            ['6'], ['5'], ['4'], ['3'], ['2']
+            [6], [5], [4], [3], [2]
         ]
     },
     level3: {
         name: 'level3',
         permissions: [
-            ['6'], ['5'], ['4'], ['3']
+            [6], [5], [4], [3]
         ]
     },
     level4: {
         name: 'level4',
         permissions: [
-            ['6'], ['5'], ['4']
+            [6], [5], [4]
         ]
     },
     level5: {
         name: 'level5',
         permissions: [
-            ['6'], ['5']
+            [6], [5]
         ]
     },
     level6: {
         name: 'level6',
         permissions: [
-            ['6']
+            [6]
         ]
     },
     root: {
         name: "root",
         permissions: [
-            ['6']
+            [6]
         ]
     }
 }
 
 const permissionMap = new Map([
     ['/api/v1/account/add_account', PermissionName.level6],
-    ['/api/v1/do_lottery/*', PermissionName.level6]
+    ['/api/v1/do_lottery/*', PermissionName.level6],
+    ['/api/v1/rpa/*',PermissionName.level3]
 ])
 module.exports = {
     LOTTERY_DATA_VIP_ACCESS_OFFSET,

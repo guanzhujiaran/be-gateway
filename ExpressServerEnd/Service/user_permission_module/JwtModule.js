@@ -46,12 +46,15 @@ const jwtAuth = expressJwt
             "/api/v1/user/login",
             "/api/v1/user/reg",
             "/api/v1/user/pwd_salt",
+            "/api/v1/casdoor/login",
+            "/api/v1/casdoor/callback",
+            "/api/v1/casdoor/status",
             "/api/admin/queues",
             {url: /api\/v1\/lottery_database\/bili\/.*/},
             {url: /api\/admin\/queues\/.*/},
             {url: /api\/v1\/feedback\/comment\/reply\/main/},
             {url: /api\/v1\/feedback\/comment\/reply\/reply/},
-            {url:/api\/v1\/samsClub\/.*/}
+            {url: /api\/v1\/samsClub\/.*/}
         ], //不需要校验的路径
     });
 

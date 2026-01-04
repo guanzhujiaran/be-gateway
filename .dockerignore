@@ -1,35 +1,62 @@
-# Include any files or directories that you don't want to be copied to your
-# container here (e.g., local build artifacts, temporary files, etc.).
-#
-# For more help, visit the .dockerignore file reference guide at
-# https://docs.docker.com/go/build-context-dockerignore/
+# 依赖
+node_modules
+npm-debug.log
 
-**/.classpath
-**/.dockerignore
-**/.env
-**/.git
-**/.gitignore
-**/.project
-**/.settings
-**/.toolstarget
-**/.vs
-**/.vscode
-**/.next
-**/.cache
-**/*.*proj.user
-**/*.dbmdl
-**/*.jfm
-**/charts
-**/docker-compose*
-**/compose.y*ml
-**/Dockerfile*
-**/node_modules
-**/npm-debug.log
-**/obj
-**/secrets.dev.yaml
-**/values.dev.yaml
-**/build
-**/dist
-LICENSE
-README.md
-**/BrowserData
+# Git
+.git
+.gitignore
+
+# Docker
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# 文档
+README*.md
+*.md
+
+# 测试
+test
+tests
+__tests__
+*.test.js
+*.spec.js
+coverage
+
+# 日志
+*.log
+logs
+LOG/
+
+# 数据
+*.sqlite
+*.db
+
+# 临时文件
+tmp
+temp
+*.tmp
+
+# 环境变量（.env.docker除外）
+.env
+.env.*
+!.env.docker
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# 操作系统
+.DS_Store
+Thumbs.db
+
+# 备份
+backups
+*.backup
+*.bak
+
+# 构建产物
+dist
+build
