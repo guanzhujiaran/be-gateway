@@ -15,6 +15,7 @@ const {t, req_tool} = require("@/ExpressServerEnd/Tool/Utl");
 const {Op, literal} = require("sequelize");
 const {UserActModel} = require("@/ExpressServerEnd/Model/api/v1/user/user_act_model");
 const {user_redis_dao} = require("@/ExpressServerEnd/DAO/UserRedisDao");
+const {UserLevelService} = require("@/ExpressServerEnd/Service/user_module/user_level_service");
 
 const password_salt = config.common_config.salt.password_salt;
 
@@ -116,25 +117,7 @@ class UserService {
      * @return {Promise<base_api_model>}
      */
     static async get_user_nav(uid) {
-        let user_model = new UserModel({uid: uid})
-        await user_model.get_uname_uid_pwd()
-        if (user_model.uid && user_model.user_name) {
-            return new base_api_model({
-                data: {
-                    uid: user_model.uid,
-                    user_name: user_model.user_name,
-                    level: user_model.level ?? '0',
-                    role: user_model.role,
-                },
-                msg: "账号已登录！"
-            })
-        } else {
-            return new base_api_model({
-                code: -1, msg: "用户不存在",
-            })
-        }
-
-
+        return await UserLevelService.get_user_nav_with_level(uid);
     }
 
     /**
@@ -409,6 +392,92 @@ class UserService {
         return new base_api_model({
             msg: '0'
         })
+    }
+
+    /**
+     * 用户退出登录
+     * @param req
+     * @param resp
+     * @return {Promise<base_api_model>}
+     */
+    static async logout({req, resp}) {
+        try {
+            let uid = req.auth?.uid;
+            if (!uid) {
+                return new base_api_model({
+                    code: -1,
+                    msg: '用户未登录'
+                });
+            }
+
+            // 将当前JWT token加入黑名单
+            const authHeader = req.headers.authorization;
+            if (authHeader && authHeader.startsWith('Bearer ')) {
+                const token = authHeader.substring(7);
+                // 从token中获取过期时间
+                const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+                const ttl = Math.ceil(payload.exp - Date.now() / 1000);
+
+                if (ttl > 0) {
+                    await user_redis_dao.add_black_list_jwt_signature({
+                        signature: token.split('.').pop(),
+                        ttl: ttl
+                    });
+                }
+            }
+
+            // 记录退出日志
+            await UserService.add_user_act_ip_info({
+                req,
+                resp,
+                act_info: UserActModel.logout
+            });
+
+            return new base_api_model({
+                code: 0,
+                msg: '退出登录成功'
+            });
+        } catch (error) {
+            console.error('退出登录失败:', error);
+            return new base_api_model({
+                code: -1,
+                msg: '退出登录失败: ' + error.message
+            });
+        }
+    }
+
+    /**
+     * 无密码登录（用于SSO登录）
+     * @param user_name
+     * @param req
+     * @param resp
+     * @return {Promise<base_api_model>}
+     */
+    static async check_login_without_password({user_name, req, resp}) {
+        let user_model = new UserModel({user_name: user_name});
+        await user_model.get_uname_uid_pwd();
+        if (user_model.parsed_pwd) {
+            req.auth = {
+                uid: user_model.uid
+            }
+            let jwt_token = createToken({
+                user_name: user_model.user_name, uid: user_model.uid, level: user_model.level
+            });
+
+            await UserService.add_user_act_ip_info({req, resp, act_info: UserActModel.login_succ})
+            return new base_api_model({
+                data: {
+                    uid: user_model.uid, user_name: user_model.user_name, jwt_token: jwt_token,
+                    level: user_model.level, role: user_model.role
+                }
+            })
+        }
+        return new base_api_model({code: -1, msg: '用户不存在', data: null})
+    }
+
+    static async is_user_exists({user_name}) {
+        let is_user_name_exist = await UserModel.is_exists_by_user_name(user_name);
+        return is_user_name_exist
     }
 
     //endregion

@@ -13,8 +13,13 @@ const {
 router.use(
   "/api/v1/samsClub/graphql",
   createProxyMiddleware({
-    target: utils.MYAPI.base_url + "/api/v1/samsClub/graphql",
-    changeOrigin: true,
+    target: utils.MYAPI.base_url,
+    pathRewrite: { "/": "/api/v1/samsClub/graphql" },
+    on: {
+      proxyReq: (proxyReq, req, res) => {
+        fixRequestBody(proxyReq, req); // 这一行不能删，不然无法代理请求。
+      },
+    },
   })
 );
 router.use(

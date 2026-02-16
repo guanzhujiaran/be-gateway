@@ -1,6 +1,8 @@
 # 依赖
 node_modules
 npm-debug.log
+pnpm-debug.log
+# 不要排除 .pnpm-store，保留它以确保构建一致性
 
 # Git
 .git

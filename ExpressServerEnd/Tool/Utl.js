@@ -48,14 +48,6 @@ const t = {
     now_ms: () => {
         return Date.now()
     },
-    //region 前端密码加密
-    get_frontend_enc_pwd_salt: () => {
-        return SHA256(config.common_config.salt.password_aes_salt).toString()
-    },
-    decrypt_frontend_enced_pwd: (enced_pwd) => {
-        let bytes = CryptoJS.AES.decrypt(enced_pwd, t.get_frontend_enc_pwd_salt());
-        return bytes.toString(CryptoJS.enc.Utf8);
-    },
     delete_attr_from_obj: (obj, delete_attr = ['createdAt', 'updatedAt', 'deletedAt']) => {
         delete_attr.map(attr => delete obj[attr])
     },

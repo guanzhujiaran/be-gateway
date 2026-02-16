@@ -58,14 +58,26 @@ app.use(helmet({
     referrerPolicy: {
         policy: "no-referrer"
     },
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            imgSrc: ["'self'", "data:", "https:"],
+            connectSrc: ["'self'", "https:", "http:"],
+            fontSrc: ["'self'", "data:"],
+            objectSrc: ["'none'"],
+            mediaSrc: ["'self'"],
+            frameSrc: ["'self'"],
+            manifestSrc: ["'self'", "http://localhost:*", "https:"],
+        }
+    }
 }));
 app.use(cors()); // 解决跨域问题
 
 // 解析中间件
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({extended: false}));
-
-// 认证中间件
 app.use(jwtAuth);
 
 // 路由注册

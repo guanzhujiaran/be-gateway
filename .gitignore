@@ -21,3 +21,6 @@ UserData/
 .history/
 BrowserData/
 /ExpressServerEnd/LOG/
+.pnpm-store
+.lh
+.history

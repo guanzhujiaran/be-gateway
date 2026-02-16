@@ -6,6 +6,16 @@ common_config:
     snow_flake_worker_id: 1 # 雪花算法的机器id，不同机器尽量配置成不同的值
     keys:
         system_pushplus_key: "044b3325295b47228409452e0e7aeef7" # 推送系统消息用的key
+    level_config:
+        max_level: 6 # 最高等级
+        daily_exp_bonus: 3 # 每日首次登录奖励经验值
+        level_exp_requirements: # 各等级升级所需累积经验值
+            level_1: 1000
+            level_2: 5000
+            level_3: 20000
+            level_4: 80000
+            level_5: 288000
+            level_6: 999999999
 
 cron_config:
     daily_task: "0 4 * * *" # 每日任务执行时间
