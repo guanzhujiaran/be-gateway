@@ -4,7 +4,8 @@
     "description": "<!--\r  * @Author: 星瞳 1944637830@qq.com\r  * @Date: 2023-11-02 01:07:29\r  * @LastEditors: 星瞳 1944637830@qq.com\r  * @LastEditTime: 2024-01-10 14:18:56\r  * @FilePath: \\tampermonkey\\README.md\r  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE\r -->",
     "main": "index.js",
     "scripts": {
-        "prod": "node ./ExpressServerEnd/ServerRun.js --port=9923 --env=prod"
+        "prod": "node ./ExpressServerEnd/ServerRun.js --port=9923 --env=prod",
+        "dev": "node ./ExpressServerEnd/ServerRun.js --port=9923 --env=dev"
     },
     "_moduleAliases": {
         "@": "."

@@ -24,3 +24,4 @@ BrowserData/
 .pnpm-store
 .lh
 .history
+.env

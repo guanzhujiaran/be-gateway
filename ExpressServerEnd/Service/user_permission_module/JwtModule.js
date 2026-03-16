@@ -48,6 +48,7 @@ const jwtAuth = expressJwt
       "/api/v1/user/login",
       "/api/v1/user/reg",
       "/api/admin/queues",
+      "/api/v1/ping",
       { url: /api\/v1\/lottery_database\/bili\/.*/ },
       { url: /api\/admin\/queues\/.*/ },
       { url: /api\/v1\/feedback\/comment\/reply\/main/ },
