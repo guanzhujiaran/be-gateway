@@ -39,4 +39,15 @@ router.use(
     ws: true,
   })
 );
+router.use('/api/v1/casdoor/backend', // 配置在前端的.env文件里面  
+  createProxyMiddleware({
+    target: process.env.CASDOOR_ENDPOINT,
+    pathRewrite: { "/": "/api/v1/casdoor/backend" },
+    on: {
+      proxyReq: (proxyReq, req, res) => {
+        fixRequestBody(proxyReq, req); // 这一行不能删，不然无法代理请求。
+      },
+    },
+  })
+)
 module.exports = router;
