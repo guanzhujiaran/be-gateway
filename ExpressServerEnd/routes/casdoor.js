@@ -25,7 +25,7 @@ router.get("/callback", async (req, res) => {
     const frontendUrl = process.env.FRONTEND_URL;
     if (result.code === 0 && result.data?.jwt_token) {
       // 登录成功，重定向到前端并带上 token
-      res.redirect(
+      return res.redirect(
         `${frontendUrl}/app/casdoor-callback?token=${encodeURIComponent(
           result.data.jwt_token
         )}&uid=${result.data.uid}&user_name=${encodeURIComponent(
@@ -34,7 +34,7 @@ router.get("/callback", async (req, res) => {
       );
     } else {
       // 登录失败，直接返回错误信息
-      res.status(400).json({
+      return res.status(400).json({
         code: result.code || -1,
         msg: result.msg || "登录失败",
         data: null,

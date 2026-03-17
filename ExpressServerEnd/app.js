@@ -142,7 +142,7 @@ ${JSON.stringify(req.headers)}
 ${err.message}
 ${err.stack}`,
       })
-      .then((r) => {});
+      .then((r) => { });
   }
   return resp
     .json({
