@@ -26,7 +26,7 @@ router.get("/callback", async (req, res) => {
   if (result.code === 0 && result.data?.jwt_token) {
     // 登录成功，重定向到前端并带上 token
     res.redirect(
-      `${frontendUrl}/casdoor-callback?token=${encodeURIComponent(
+      `${frontendUrl}/app/casdoor-callback?token=${encodeURIComponent(
         result.data.jwt_token
       )}&uid=${result.data.uid}&user_name=${encodeURIComponent(
         result.data.user_name

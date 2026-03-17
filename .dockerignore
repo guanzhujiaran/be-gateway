@@ -39,11 +39,6 @@ tmp
 temp
 *.tmp
 
-# 环境变量（.env.docker除外）
-.env
-.env.*
-!.env.docker
-
 # IDE
 .vscode
 .idea
