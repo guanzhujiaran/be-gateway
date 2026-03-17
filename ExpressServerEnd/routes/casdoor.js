@@ -16,30 +16,39 @@ router.get("/callback", async (req, res) => {
   }
 
   // 处理Casdoor登录
-  const result = await CasdoorService.handleCasdoorCallback({
-    code,
-    req,
-    res,
-  });
-  const frontendUrl = process.env.FRONTEND_URL;
-
-  if (result.code === 0 && result.data?.jwt_token) {
-    // 登录成功，重定向到前端并带上 token
-    res.redirect(
-      `${frontendUrl}/app/casdoor-callback?token=${encodeURIComponent(
-        result.data.jwt_token
-      )}&uid=${result.data.uid}&user_name=${encodeURIComponent(
-        result.data.user_name
-      )}`
-    );
-  } else {
-    // 登录失败，直接返回错误信息
+  try {
+    const result = await CasdoorService.handleCasdoorCallback({
+      code,
+      req,
+      res,
+    });
+    const frontendUrl = process.env.FRONTEND_URL;
+    if (result.code === 0 && result.data?.jwt_token) {
+      // 登录成功，重定向到前端并带上 token
+      res.redirect(
+        `${frontendUrl}/app/casdoor-callback?token=${encodeURIComponent(
+          result.data.jwt_token
+        )}&uid=${result.data.uid}&user_name=${encodeURIComponent(
+          result.data.user_name
+        )}`
+      );
+    } else {
+      // 登录失败，直接返回错误信息
+      res.status(400).json({
+        code: result.code || -1,
+        msg: result.msg || "登录失败",
+        data: null,
+      });
+    }
+  }
+  catch (e) {
     res.status(400).json({
-      code: result.code || -1,
-      msg: result.msg || "登录失败",
+      code: -400,
+      msg: "登录鉴权失败！\n" + e.message,
       data: null,
     });
   }
+
 });
 
 module.exports = router;
