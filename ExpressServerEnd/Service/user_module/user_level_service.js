@@ -33,20 +33,43 @@ class UserLevelService {
     const level_config = config.common_config.level_config;
     const exp_requirements = level_config.level_exp_requirements;
 
+    // 使用 BigInt 处理大数值，避免精度丢失
+    const current_exp = BigInt(level_info.current_exp || 0);
+
+    // 根据经验值重新计算等级，完全基于配置文件
+    // level_0 默认为 0
+    let current_level = 0n;
+    let current_min = 0n;
+
+    for (let level = 1n; level <= BigInt(level_config.max_level); level++) {
+      const level_key = `level_${level}`;
+      const required_exp = BigInt(exp_requirements[level_key] || 0);
+
+      if (current_exp >= required_exp) {
+        current_level = level;
+        current_min = required_exp;
+      } else {
+        break;
+      }
+    }
+
     // 计算下一级所需经验值
     let next_exp = "--";
-    const current_level = level_info.current_level;
-
-    if (current_level < level_config.max_level) {
-      const level_key = `level_${current_level + 1}`;
-      next_exp = exp_requirements[level_key] || "--";
+    if (current_level < BigInt(level_config.max_level)) {
+      const level_key = `level_${current_level + 1n}`;
+      const next_level_exp = exp_requirements[level_key];
+      if (next_level_exp !== undefined && next_level_exp !== null) {
+        next_exp = String(next_level_exp);
+      } else {
+        next_exp = "--";
+      }
     }
 
     return new base_api_model({
       data: {
-        current_level: current_level,
-        current_min: level_info.current_min,
-        current_exp: level_info.current_exp,
+        current_level: Number(current_level),
+        current_min: String(current_min),
+        current_exp: String(current_exp),
         next_exp: next_exp,
       },
     });
@@ -78,45 +101,44 @@ class UserLevelService {
         );
       }
 
-      const old_exp = level_info.current_exp;
-      const new_exp = old_exp + exp;
-      level_info.current_exp = new_exp;
+      // 使用 BigInt 处理大数值，避免精度丢失
+      const old_exp = BigInt(level_info.current_exp || 0);
+      const new_exp = old_exp + BigInt(exp);
+      level_info.current_exp = String(new_exp);
 
       const level_config = config.common_config.level_config;
       const exp_requirements = level_config.level_exp_requirements;
 
-      // 计算新等级
-      let new_level = level_info.current_level;
+      // 根据经验值计算新等级，完全基于配置文件
+      // level_0 默认为 0
+      let new_level = 0n;
+      let new_min = 0n;
 
-      if (new_level < level_config.max_level) {
-        for (
-          let level = new_level + 1;
-          level <= level_config.max_level;
-          level++
-        ) {
-          const level_key = `level_${level}`;
-          const required_exp = exp_requirements[level_key];
+      for (let level = 1n; level <= BigInt(level_config.max_level); level++) {
+        const level_key = `level_${level}`;
+        const required_exp = BigInt(exp_requirements[level_key] || 0);
 
-          if (required_exp && new_exp >= required_exp) {
-            new_level = level;
-          } else {
-            break;
-          }
+        if (new_exp >= required_exp) {
+          new_level = level;
+          new_min = required_exp;
+        } else {
+          break;
         }
       }
 
-      const old_level = level_info.current_level;
-      level_info.current_level = new_level;
-      level_info.current_min = exp_requirements[`level_${new_level}`] || 0;
+      const old_level = BigInt(level_info.current_level || 0);
+      level_info.current_level = Number(new_level);
+      // current_min 完全根据配置计算，是当前等级的起始经验值
+      level_info.current_min = String(new_min);
 
       await level_info.save({ transaction: t });
 
       return new base_api_model({
         data: {
-          old_exp: old_exp,
-          new_exp: new_exp,
-          old_level: old_level,
-          new_level: new_level,
+          old_exp: String(old_exp),
+          new_exp: String(new_exp),
+          old_level: Number(old_level),
+          new_level: Number(new_level),
           leveled_up: new_level > old_level,
         },
         msg: new_level > old_level ? "升级了！" : "经验值增加成功",
@@ -131,6 +153,8 @@ class UserLevelService {
    */
   static async add_daily_login_exp(mid) {
     return await TUserLevel.sequelize.transaction(async (t) => {
+      const exp_config = config.common_config.level_config;
+      const daily_exp = exp_config.daily_exp_bonus;
       let level_info = await TUserLevel.findOne({
         where: { mid },
         transaction: t,
@@ -142,7 +166,7 @@ class UserLevelService {
           {
             mid: mid,
             current_level: 0,
-            current_exp: 0,
+            current_exp: daily_exp || 0,
             current_min: 0,
           },
           { transaction: t }
@@ -165,58 +189,54 @@ class UserLevelService {
           msg: "今天已经领取过经验值了",
           data: {
             can_add_exp: false,
-            current_level: level_info.current_level,
+            current_level: Number(BigInt(level_info.current_level || 0)),
             current_exp: level_info.current_exp,
           },
         });
       }
 
       // 增加每日经验值
-      const exp_config = config.common_config.level_config;
-      const daily_exp = exp_config.daily_exp_bonus;
 
-      const old_exp = level_info.current_exp;
-      const new_exp = old_exp + daily_exp;
-      level_info.current_exp = new_exp;
+      const old_exp = BigInt(level_info.current_exp || 0);
+      const new_exp = old_exp + BigInt(daily_exp);
+      level_info.current_exp = String(new_exp);
 
       const exp_requirements = exp_config.level_exp_requirements;
 
-      // 计算新等级
-      let new_level = level_info.current_level;
+      // 根据经验值计算新等级，完全基于配置文件
+      // level_0 默认为 0
+      let new_level = 0n;
+      let new_min = 0n;
 
-      if (new_level < exp_config.max_level) {
-        for (
-          let level = new_level + 1;
-          level <= exp_config.max_level;
-          level++
-        ) {
-          const level_key = `level_${level}`;
-          const required_exp = exp_requirements[level_key];
+      for (let level = 1n; level <= BigInt(exp_config.max_level); level++) {
+        const level_key = `level_${level}`;
+        const required_exp = BigInt(exp_requirements[level_key] || 0);
 
-          if (required_exp && new_exp >= required_exp) {
-            new_level = level;
-          } else {
-            break;
-          }
+        if (new_exp >= required_exp) {
+          new_level = level;
+          new_min = required_exp;
+        } else {
+          break;
         }
       }
 
-      const old_level = level_info.current_level;
-      level_info.current_level = new_level;
-      level_info.current_min = exp_requirements[`level_${new_level}`] || 0;
+      const old_level = BigInt(level_info.current_level || 0);
+      level_info.current_level = Number(new_level);
+      // current_min 完全根据配置计算，是当前等级的起始经验值
+      level_info.current_min = String(new_min);
 
       await level_info.save({ transaction: t });
 
       return new base_api_model({
         data: {
           can_add_exp: true,
-          old_exp: old_exp,
-          new_exp: new_exp,
-          old_level: old_level,
-          new_level: new_level,
+          old_exp: String(old_exp),
+          new_exp: String(new_exp),
+          old_level: Number(old_level),
+          new_level: Number(new_level),
           leveled_up: new_level > old_level,
-          current_level: new_level,
-          current_exp: new_exp,
+          current_level: Number(new_level),
+          current_exp: String(new_exp),
         },
         msg:
           new_level > old_level
@@ -241,25 +261,25 @@ class UserLevelService {
     }
 
     const result = await TUserInfo.findOne({
-        where: { uid },
-        attributes: ["uid", "user_name", "role"],
-        include: [
-          {
-            model: TUserDetail,
-            as: "TUserDetail",
-            required: false,
-            attributes: ["avatar"],
-            include: [
-              {
-                model: TUserLevel,
-                as: "TUserLevel",
-                required: false,
-                attributes: ["current_level", "current_exp", "current_min"],
-              },
-            ],
-          },
-        ],
-      });
+      where: { uid },
+      attributes: ["uid", "user_name", "role"],
+      include: [
+        {
+          model: TUserDetail,
+          as: "TUserDetail",
+          required: false,
+          attributes: ["avatar"],
+          include: [
+            {
+              model: TUserLevel,
+              as: "TUserLevel",
+              required: false,
+              attributes: ["current_level", "current_exp", "current_min"],
+            },
+          ],
+        },
+      ],
+    });
 
     if (!result) {
       return new base_api_model({
@@ -279,16 +299,34 @@ class UserLevelService {
       current_min: 0,
     };
 
-    // 确保等级是数字类型
-    const current_level = parseInt(level_info.current_level) || 0;
+    // 使用 BigInt 处理大数值，避免精度丢失
+    const current_exp = BigInt(level_info.current_exp || 0);
+
+    // 根据经验值重新计算等级，完全基于配置文件
+    // level_0 默认为 0
+    let current_level = 0n;
+    let current_min = 0n;
+
+    for (let level = 1n; level <= BigInt(level_config.max_level); level++) {
+      const level_key = `level_${level}`;
+      const required_exp = BigInt(exp_requirements[level_key] || 0);
+
+      if (current_exp >= required_exp) {
+        current_level = level;
+        current_min = required_exp;
+      } else {
+        break;
+      }
+    }
+
     // 计算下一级所需经验值
     let next_exp = "--";
-    if (current_level >= level_config.max_level) {
+    if (current_level >= BigInt(level_config.max_level)) {
       // 已达到最高等级
       next_exp = "--";
     } else {
       // 获取下一级所需的累积经验值
-      const level_key = `level_${current_level + 1}`;
+      const level_key = `level_${current_level + 1n}`;
       const next_level_exp = exp_requirements[level_key];
       if (next_level_exp !== undefined && next_level_exp !== null) {
         next_exp = String(next_level_exp);
@@ -304,9 +342,9 @@ class UserLevelService {
         level: user_data.role,
         face: user_data.TUserDetail?.avatar || "",
         level_info: {
-          current_level: current_level,
-          current_min: level_info.current_min,
-          current_exp: level_info.current_exp,
+          current_level: Number(current_level),
+          current_min: String(current_min),
+          current_exp: String(current_exp),
           next_exp: next_exp,
         },
       },
