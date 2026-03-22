@@ -5,11 +5,53 @@ const {
   createProxyMiddleware,
   fixRequestBody,
 } = require("http-proxy-middleware");
-
+const {
+  userInfoPreFetchMiddleware
+} = require("@/ExpressServerEnd/MiddleWare/PrefetchUserInfo");
 const {
   createGuard,
 } = require("@/ExpressServerEnd/Service/user_permission_module/user_permission_service");
+const { jwtAuthOptional } = require("@/ExpressServerEnd/Service/user_permission_module/JwtModule");
 
+
+/**
+ * 设置用户信息到代理请求头
+ * @param {Object} proxyReq - Proxy request object
+ * @param {Object} req - Original request object
+ */
+function setUserHeaders(proxyReq, req) {
+  const userInfo = req.userInfoForHeader || {};
+
+  proxyReq.setHeader("x-bili-user-name", encodeURIComponent(userInfo.user_name || ""));
+  proxyReq.setHeader("x-bili-level", userInfo.level || "");
+  proxyReq.setHeader("x-bili-mid", userInfo.mid || "");
+  proxyReq.setHeader("x-bili-uname", encodeURIComponent(userInfo.uname || ""));
+  proxyReq.setHeader("x-bili-sign", encodeURIComponent(userInfo.sign || ""));
+  proxyReq.setHeader("x-bili-sex", encodeURIComponent(userInfo.sex) || "");
+  proxyReq.setHeader("x-bili-vip-status", userInfo.vip_status || "");
+  proxyReq.setHeader("x-bili-vip-type", userInfo.vip_type || "");
+}
+
+router.use( // fastapi 的数据库反向代理
+  "/api/v1/lottery_database/bili/",
+  jwtAuthOptional, // 可登录也可不登陆
+  userInfoPreFetchMiddleware(), // 预查询用户信息
+  createProxyMiddleware({
+    target: utils.MYAPI.base_url,
+    pathRewrite: { "^/": "/api/v1/lottery_database/bili/" },
+    on: {
+      proxyReq: (proxyReq, req, res) => {
+        // 以同步方式设置用户信息到 header
+        setUserHeaders(proxyReq, req);
+        // 保留原有的 header 设置（兼容性）
+        proxyReq.setHeader("x-bili-mid", proxyReq.getHeader("x-bili-mid") || req.auth?.uid || "");
+        proxyReq.setHeader("x-bili-level", proxyReq.getHeader("x-bili-level") || req.auth?.level || "");
+
+        fixRequestBody(proxyReq, req);
+      },
+    },
+  })
+);
 router.use(
   "/api/v1/samsClub/graphql",
   createProxyMiddleware({
@@ -25,13 +67,18 @@ router.use(
 router.use(
   "/api/v1/rpa",
   createGuard(),
+  userInfoPreFetchMiddleware(), // 预查询用户信息
   createProxyMiddleware({
     target: utils.RPA.base_url,
-    pathRewrite: { "/": "/api/v1/rpa/" },
+    pathRewrite: { "^/": "/api/v1/rpa/" },
     on: {
       proxyReq: (proxyReq, req, res) => {
-        proxyReq.setHeader("x-bili-mid", req.auth.uid);
-        proxyReq.setHeader("x-bili-level", req.auth.level);
+        // 以同步方式设置用户信息到 header
+        setUserHeaders(proxyReq, req);
+        // 保留原有的 header 设置（兼容性）
+        proxyReq.setHeader("x-bili-mid", proxyReq.getHeader("x-bili-mid") || req.auth?.uid || "");
+        proxyReq.setHeader("x-bili-level", proxyReq.getHeader("x-bili-level") || req.auth?.level || "");
+
         fixRequestBody(proxyReq, req);
       },
     },

@@ -34,12 +34,12 @@ const createToken = (payload) =>
     algorithm: "HS256",
   });
 
-// 验证 token
+// 验证 token（必须登录）
 const jwtAuth = expressJwt
   .expressjwt({
     secret: secretKey,
     algorithms: ["HS256"],
-    credentialsRequired: true, //  false：不校验
+    credentialsRequired: true, // true：必须校验
     onExpired: on_expired,
     isRevoked: is_revoked,
   })
@@ -49,15 +49,23 @@ const jwtAuth = expressJwt
       "/api/v1/user/reg",
       "/api/admin/queues",
       "/api/v1/ping",
-      { url: /api\/v1\/lottery_database\/bili\/.*/ },
       { url: /api\/admin\/queues\/.*/ },
       { url: /api\/v1\/feedback\/comment\/reply\/main/ },
       { url: /api\/v1\/feedback\/comment\/reply\/reply/ },
       { url: /api\/v1\/samsClub\/.*/ },
       { url: /api\/v1\/casdoor\/.*/ },
+      { url: /api\/v1\/lottery_database\/bili\/.*/ },
     ], //不需要校验的路径
   });
 
+// 可选登录的 JWT 验证中间件
+const jwtAuthOptional = expressJwt.expressjwt({
+  secret: secretKey,
+  algorithms: ["HS256"],
+  credentialsRequired: false, // false：可选校验，有token就解析，没有也不报错
+  onExpired: on_expired,
+  isRevoked: is_revoked,
+});
 const jwtAuthGenerator = ({ credentialsRequired = true }) => {
   return expressJwt.expressjwt({
     secret: secretKey,
@@ -68,4 +76,5 @@ const jwtAuthGenerator = ({ credentialsRequired = true }) => {
   });
 };
 
-module.exports = { jwtAuth, createToken, jwtAuthGenerator };
+module.exports = { jwtAuth, createToken, jwtAuthGenerator, jwtAuthOptional };
+
