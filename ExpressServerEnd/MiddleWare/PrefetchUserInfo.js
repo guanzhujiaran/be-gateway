@@ -20,6 +20,7 @@ function userInfoPreFetchMiddleware() {
           uname: userInfo?.uname || "",
           sign: userInfo?.sign || "",
           sex: userInfo?.sex || "",
+          email: userInfo?.email || "", // 添加邮箱字段
           vip_status: String(userInfo?.vip?.vip_status ?? "0"),
           vip_type: String(userInfo?.vip?.vip_type ?? "0")
         };
@@ -32,6 +33,7 @@ function userInfoPreFetchMiddleware() {
           uname: "",
           sign: "",
           sex: "",
+          email: "", // 添加邮箱字段默认值
           vip_status: "",
           vip_type: ""
         };
@@ -46,6 +48,7 @@ function userInfoPreFetchMiddleware() {
         uname: "",
         sign: "",
         sex: "",
+        email: "", // 添加邮箱字段默认值
         vip_status: "",
         vip_type: ""
       };

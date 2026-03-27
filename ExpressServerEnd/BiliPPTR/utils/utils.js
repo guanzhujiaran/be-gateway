@@ -1,9 +1,9 @@
 const fs = require("fs");
 const QueryWbiEnc = require("@/lib/helper/encbiliWbiQuery");
 const superagent = require("superagent");
-const {AccountService} = require("@/ExpressServerEnd/Service/account_module/account_service");
+const { AccountService } = require("@/ExpressServerEnd/Service/account_module/account_service");
 const axios = require("axios");
-const {BiliElementMap} = require("@/ExpressServerEnd/BiliPPTR/utils/element_map");
+const { BiliElementMap } = require("@/ExpressServerEnd/BiliPPTR/utils/element_map");
 const run_env_args = require("@/ExpressServerEnd/config/run_arg");
 
 function sleep(ms) {
@@ -281,7 +281,7 @@ const utils = {
          * @returns {String}
          */
         remove_emoji_topic_at:
-            (origin_str, dynamic_content = "", {uname, lottery_setting}) => {
+            (origin_str, dynamic_content = "", { uname, lottery_setting }) => {
                 //移除表情包和话题和@
                 if (origin_str) {
                     origin_str = origin_str.replaceAll(/＠/gim, "@");
@@ -348,7 +348,7 @@ const utils = {
                                 }
                             });
                         } else {
-                            weight_list.push({content: e, count: 1});
+                            weight_list.push({ content: e, count: 1 });
                             havedone_list.push(e);
                         }
                     });
@@ -359,13 +359,13 @@ const utils = {
                         }; //用遇见次数的5次幂决定权重
                     }); //加完权重了
                     let totalWeight = weight_list.reduce(function (
-                            pre,
-                            cur,
-                            index
-                        ) {
-                            cur.startW = pre;
-                            return (cur.endW = pre + cur.weight);
-                        },
+                        pre,
+                        cur,
+                        index
+                    ) {
+                        cur.startW = pre;
+                        return (cur.endW = pre + cur.weight);
+                    },
                         0);
                     let random = Math.ceil(Math.random() * totalWeight);
                     let selectElement = weight_list.find(
@@ -449,19 +449,19 @@ const utils = {
                                 }
                             }
                             polymer_detail_data.item.modules.module_dynamic.desc =
-                                {
-                                    rich_text_nodes: m.module_content.paragraphs
-                                        .filter((el) => {
-                                            return el?.text;
-                                        })
-                                        .map((el) => {
-                                            return el.text.nodes;
-                                        })
-                                        .reduce((acc, curr) =>
-                                            acc.concat(curr)
-                                        ),
-                                    text: text.join(""),
-                                };
+                            {
+                                rich_text_nodes: m.module_content.paragraphs
+                                    .filter((el) => {
+                                        return el?.text;
+                                    })
+                                    .map((el) => {
+                                        return el.text.nodes;
+                                    })
+                                    .reduce((acc, curr) =>
+                                        acc.concat(curr)
+                                    ),
+                                text: text.join(""),
+                            };
 
                             break;
                         }
@@ -527,7 +527,7 @@ const utils = {
                     const value = pair
                         .trim()
                         .slice(pair.trim().indexOf("=") + 1);
-                    return {name, value, domain};
+                    return { name, value, domain };
                 });
             }, getUserId:
                 (cookie) => {
@@ -785,7 +785,7 @@ const utils = {
                 !pg.url().includes("bilibili.com") &&
                 url.includes("bilibili.com")
             ) {
-                await pg.goto(BiliElementMap.url_path.live.all, {waitUntil: "networkidle0"});
+                await pg.goto(BiliElementMap.url_path.live.all, { waitUntil: "networkidle0" });
             }
             await pptr_op.check_page_is_front(pg);
 
@@ -853,7 +853,7 @@ const utils = {
         IsUserFollow:
             async (pg, uid) => {
                 let url = "https://api.live.bilibili.com/relation/v1/Feed/IsUserFollow";
-                let params = {follow: uid};
+                let params = { follow: uid };
                 return await utils.BAPI.ajax(pg, url, "get", params);
             },
         /**
@@ -1013,7 +1013,7 @@ const utils = {
                     "https://api.live.bilibili.com/xlive/lottery-interface/v1/Anchor/Join";
                 let data = {
                     id: id,
-                    statistics: {platform: 0, pc_client: "pink"},
+                    statistics: { platform: 0, pc_client: "pink" },
                     platform: "pc",
                     room_id: room_id,
                     jump_from_str: "",
@@ -1035,17 +1035,17 @@ const utils = {
                 return await utils.BAPI.ajax(pg, url, "post", new URLSearchParams(data).toString(), headers);
             },
         gold_box:
-            {
-                draw: async ({pg, aid, number}) => {
-                    let url = "https://api.live.bilibili.com/xlive/lottery-interface/v2/Box/draw"
-                    let data = {
-                        aid: aid,
-                        number: number
-                    };
-                    return await utils.BAPI.ajax(pg, url, "post", data)
-                }
-
+        {
+            draw: async ({ pg, aid, number }) => {
+                let url = "https://api.live.bilibili.com/xlive/lottery-interface/v2/Box/draw"
+                let data = {
+                    aid: aid,
+                    number: number
+                };
+                return await utils.BAPI.ajax(pg, url, "post", data)
             }
+
+        }
         ,
         gift: {
             bag_list: async (pg, room_id) => {
@@ -1150,9 +1150,9 @@ const utils = {
          * @return {Promise<LiveAnchorType[]|LiveRedPackType[]|LiveGoldBoxType[]>}
          */
         get_live_lottery:
-            async ({get_all} = {get_all: false}) => {
+            async ({ get_all } = { get_all: false }) => {
                 let url = utils.MYAPI.base_url + "/v1/get/live_lots";
-                return await utils.MYAPI.ajax(url, "get", {get_all: get_all});
+                return await utils.MYAPI.ajax(url, "get", { get_all: get_all });
             },
         get_text_select_pos:
             async (pic_url) => {
@@ -1169,71 +1169,71 @@ const utils = {
                 round_num: 2
             });
         },
-        get_topic_lottery_by_page: async ({page_num, page_size} = {page_num: 0, page_size: 0}) => {
+        get_topic_lottery_by_page: async ({ page_num, page_size } = { page_num: 0, page_size: 0 }) => {
             let url = utils.MYAPI.base_url + "/api/v1/lottery_database/bili/GetTopicLottery";
-            return await utils.MYAPI.ajax(url, "get", {page_num, page_size});
+            return await utils.MYAPI.ajax(url, "get", { page_num, page_size });
         },
-        get_live_lottery_by_page: async ({page_num, page_size} = {page_num: 0, page_size: 0}) => {
+        get_live_lottery_by_page: async ({ page_num, page_size } = { page_num: 0, page_size: 0 }) => {
             let url = utils.MYAPI.base_url + "/api/v1/lottery_database/bili/GetLiveLottery";
-            return await utils.MYAPI.ajax(url, "get", {page_num, page_size});
+            return await utils.MYAPI.ajax(url, "get", { page_num, page_size });
         },
         get_official_lottery_by_page: async ({
-                                                 limit_time,
-                                                 page_num,
-                                                 page_size
-                                             } = {
-            limit_time: 3 * 3600 * 24,
-            page_num: 0,
-            page_size: 0
-        }) => {
+            limit_time,
+            page_num,
+            page_size
+        } = {
+                limit_time: 3 * 3600 * 24,
+                page_num: 0,
+                page_size: 0
+            }) => {
             let url = utils.MYAPI.base_url + "/api/v1/lottery_database/bili/GetOfficialLottery";
-            return await utils.MYAPI.ajax(url, "get", {limit_time, page_num, page_size});
+            return await utils.MYAPI.ajax(url, "get", { limit_time, page_num, page_size });
         },
         get_charge_lottery_by_page: async ({
-                                               limit_time,
-                                               page_num,
-                                               page_size
-                                           } = {
-            limit_time: 3 * 3600 * 24,
-            page_num: 0,
-            page_size: 0
-        }) => {
+            limit_time,
+            page_num,
+            page_size
+        } = {
+                limit_time: 3 * 3600 * 24,
+                page_num: 0,
+                page_size: 0
+            }) => {
             let url = utils.MYAPI.base_url + "/api/v1/lottery_database/bili/GetChargeLottery";
-            return await utils.MYAPI.ajax(url, "get", {limit_time, page_num, page_size});
+            return await utils.MYAPI.ajax(url, "get", { limit_time, page_num, page_size });
         },
         get_reserve_lottery_by_page: async ({
-                                                limit_time,
-                                                page_num,
-                                                page_size
-                                            } = {
-            limit_time: 3 * 3600 * 24,
-            page_num: 0,
-            page_size: 0
-        }) => {
+            limit_time,
+            page_num,
+            page_size
+        } = {
+                limit_time: 3 * 3600 * 24,
+                page_num: 0,
+                page_size: 0
+            }) => {
             let url = utils.MYAPI.base_url + "/api/v1/lottery_database/bili/GetReserveLottery";
-            return await utils.MYAPI.ajax(url, "get", {limit_time, page_num, page_size});
+            return await utils.MYAPI.ajax(url, "get", { limit_time, page_num, page_size });
         },
         add_dynamic_lottery: async ({
-                                        dynamic_id_or_url
-                                    }) => {
+            dynamic_id_or_url
+        }) => {
             let url = utils.MYAPI.base_url + "/api/v1/lottery_database/bili/AddDynamicLottery";
-            return await utils.MYAPI.ajax(url, "post", {dynamic_id_or_url});
+            return await utils.MYAPI.ajax(url, "post", { dynamic_id_or_url });
         },
         get_all_scrapy_status: async () => {
             let url = utils.MYAPI.base_url + "/api/v1/background_service/GetAllLotScrapyStatus";
             return await utils.MYAPI.ajax(url, "get");
         },
-        get_lottery_rank: async ({date, lot_type, rank_type, offset, limit}) => {
+        get_lottery_rank: async ({ date, lot_type, rank_type, offset, limit }) => {
             let url = utils.MYAPI.base_url + `/api/v1/lottery_database/bili/lottery_hof/${lot_type}`
-            return await utils.MYAPI.ajax(url, "get", {date, rank_type, offset, limit})
+            return await utils.MYAPI.ajax(url, "get", { date, rank_type, offset, limit })
         },
-        get_lottery_result: async ({date, uid, lot_type, rank_type, offset, limit}) => {
+        get_lottery_result: async ({ date, uid, lot_type, rank_type, offset, limit }) => {
             let url = utils.MYAPI.base_url + `/api/v1/lottery_database/bili/lottery_result`
-            return await utils.MYAPI.ajax(url, "get", {date, uid, lot_type, rank_type, offset, limit})
+            return await utils.MYAPI.ajax(url, "get", { date, uid, lot_type, rank_type, offset, limit })
         },
-        search_lottery_by_keyword: async ({keyword}) => {
+        search_lottery_by_keyword: async ({ keyword }) => {
             let url = utils.MYAPI.base_url + `/api/v1/lottery_database/bili/SearchLotteryByKeyword`
-            return await utils.MYAPI.ajax(url, "get", {keyword})
+            return await utils.MYAPI.ajax(url, "get", { keyword })
         }
     },
     RPA: {
@@ -1492,4 +1492,4 @@ const pptr_op = {
 };
 
 
-module.exports = {utils, pptr_op, sleep};
+module.exports = { utils, pptr_op, sleep };

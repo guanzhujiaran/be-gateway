@@ -19,11 +19,11 @@ const database = {
   // 数据库密码
   pass: '114514',
   // 数据库端口号
-  port: 5432,
+  port: 10004,
   // Sequelize的构造函数“options”标记对象的JSON文件路径
   config: '',
   // 输出文件路径
-  output: './dbModel',
+  output: './ExpressServerEnd/DAO/dbModel',
   // 数据库类型：postgres, mysql, sqlite
   dialect: 'postgres',
   // 表名,多个表名逗号分隔
@@ -42,7 +42,7 @@ const database = {
   additional:"./table_additional_setting.json"
 };
  
-let connectShell = 'sequelize-auto';
+let connectShell = './node_modules/.bin/sequelize-auto';
 for (const i in database) {
   const value = database[i];
   if (value) {

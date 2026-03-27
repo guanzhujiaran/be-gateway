@@ -44,6 +44,10 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.DATE,
       allowNull: true,
       defaultValue: "1969-12-31 16:00:00+00"
+    },
+    email: {
+      type: DataTypes.STRING(255),
+      allowNull: true
     }
   }, {
     sequelize,

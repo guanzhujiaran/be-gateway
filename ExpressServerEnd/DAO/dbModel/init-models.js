@@ -8,6 +8,7 @@ var _TAccountInfo_DashBoardInfo = require("./TAccountInfo_DashBoardInfo");
 var _TAccountInfo_LotteryLog = require("./TAccountInfo_LotteryLog");
 var _TAccountInfo_ReserveLog = require("./TAccountInfo_ReserveLog");
 var _TAtariInfo = require("./TAtariInfo");
+var _TBiliLotteryInfoRecord = require("./TBiliLotteryInfoRecord");
 var _TBiliUser = require("./TBiliUser");
 var _TBiliUserDetail = require("./TBiliUserDetail");
 var _TComment = require("./TComment");
@@ -38,6 +39,7 @@ function initModels(sequelize) {
   var TAccountInfo_LotteryLog = _TAccountInfo_LotteryLog(sequelize, DataTypes);
   var TAccountInfo_ReserveLog = _TAccountInfo_ReserveLog(sequelize, DataTypes);
   var TAtariInfo = _TAtariInfo(sequelize, DataTypes);
+  var TBiliLotteryInfoRecord = _TBiliLotteryInfoRecord(sequelize, DataTypes);
   var TBiliUser = _TBiliUser(sequelize, DataTypes);
   var TBiliUserDetail = _TBiliUserDetail(sequelize, DataTypes);
   var TComment = _TComment(sequelize, DataTypes);
@@ -122,6 +124,8 @@ function initModels(sequelize) {
   TUserDetail.hasOne(TUserVip, { as: "TUserVip", foreignKey: "mid"});
   TAccountInfo.belongsTo(TUserInfo, { as: "uid_TUserInfo", foreignKey: "uid"});
   TUserInfo.hasMany(TAccountInfo, { as: "TAccountInfos", foreignKey: "uid"});
+  TBiliLotteryInfoRecord.belongsTo(TUserInfo, { as: "mid_TUserInfo", foreignKey: "mid"});
+  TUserInfo.hasMany(TBiliLotteryInfoRecord, { as: "TBiliLotteryInfoRecords", foreignKey: "mid"});
   TComment.belongsTo(TUserInfo, { as: "mid_TUserInfo", foreignKey: "mid"});
   TUserInfo.hasMany(TComment, { as: "TComments", foreignKey: "mid"});
   TCommentInteractRelation.belongsTo(TUserInfo, { as: "mid_TUserInfo", foreignKey: "mid"});
@@ -147,6 +151,7 @@ function initModels(sequelize) {
     TAccountInfo_LotteryLog,
     TAccountInfo_ReserveLog,
     TAtariInfo,
+    TBiliLotteryInfoRecord,
     TBiliUser,
     TBiliUserDetail,
     TComment,

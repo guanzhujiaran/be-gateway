@@ -268,14 +268,14 @@ class UserLevelService {
           model: TUserDetail,
           as: "TUserDetail",
           required: false,
-          attributes: ["avatar"],
+          attributes: ["uname", "avatar", "email"],
           include: [
             {
               model: TUserLevel,
               as: "TUserLevel",
               required: false,
               attributes: ["current_level", "current_exp", "current_min"],
-            },
+            }
           ],
         },
       ],
@@ -338,7 +338,7 @@ class UserLevelService {
     return new base_api_model({
       data: {
         uid: user_data.uid,
-        user_name: user_data.user_name,
+        user_name: user_data.TUserDetail?.uname || user_data.user_name,
         level: user_data.role,
         face: user_data.TUserDetail?.avatar || "",
         level_info: {
@@ -347,6 +347,7 @@ class UserLevelService {
           current_exp: String(current_exp),
           next_exp: next_exp,
         },
+        email: user_data.TUserDetail?.email || "",
       },
       msg: "获取成功",
     });

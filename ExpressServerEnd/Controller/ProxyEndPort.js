@@ -28,10 +28,10 @@ function setUserHeaders(proxyReq, req) {
   proxyReq.setHeader("x-bili-uname", encodeURIComponent(userInfo.uname || ""));
   proxyReq.setHeader("x-bili-sign", encodeURIComponent(userInfo.sign || ""));
   proxyReq.setHeader("x-bili-sex", encodeURIComponent(userInfo.sex) || "");
+  proxyReq.setHeader("x-bili-email", encodeURIComponent(userInfo.email || "")); // 添加邮箱字段
   proxyReq.setHeader("x-bili-vip-status", userInfo.vip_status || "");
   proxyReq.setHeader("x-bili-vip-type", userInfo.vip_type || "");
 }
-
 router.use( // fastapi 的数据库反向代理
   "/api/v1/lottery_database/bili/",
   jwtAuthOptional, // 可登录也可不登陆
@@ -97,4 +97,5 @@ router.use('/api/v1/casdoor/backend', // 配置在前端的.env文件里面
     },
   })
 )
+
 module.exports = router;

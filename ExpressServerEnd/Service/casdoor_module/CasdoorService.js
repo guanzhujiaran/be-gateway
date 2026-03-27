@@ -79,7 +79,7 @@ class CasdoorService {
 
     // 3. 检查用户是否已存在于本地数据库
     const username = casdoorUserInfo.name || casdoorUserInfo.email;
-    let localUser = await TUserInfo.findOne({
+    let localUser = await TUserInfo.findOne({ 
       where: {
         user_name: username,
       },
@@ -196,10 +196,10 @@ class CasdoorService {
   }
 
   /**
-   * 将Casdoor用户信息同步到本地数据库
+   * 将 Casdoor 用户信息同步到本地数据库
    * @param {Object} localUser - 本地用户对象
-   * @param {Object} casdoorUser - Casdoor用户信息
-   * @param {Object} transaction - Sequelize事务对象（可选）
+   * @param {Object} casdoorUser - Casdoor 用户信息
+   * @param {Object} transaction - Sequelize 事务对象（可选）
    * @returns {Promise<void>}
    */
   static async syncCasdoorUserInfoToDatabase(
@@ -214,15 +214,17 @@ class CasdoorService {
         // 使用显示名称作为昵称，如果没有则使用用户名
         uname:
           casdoorUser.displayName || casdoorUser.name || localUser.user_name,
-        // 头像URL
+        // 头像 URL
         avatar: casdoorUser.avatar || "",
         // 个人简介/签名
         sign: casdoorUser.homepage || casdoorUser.bio || "",
-        // 性别（Casdoor可能不提供这个信息，默认为"保密"）
+        // 性别（Casdoor 可能不提供这个信息，默认为"保密"）
         sex: "保密",
+        // 邮箱地址
+        email: casdoorUser.email || "",
       };
 
-      // 尝试从Casdoor属性中提取更多信息
+      // 尝试从 Casdoor 属性中提取更多信息
       if (casdoorUser.attributes) {
         // 提取生日信息
         if (casdoorUser.attributes.birthday) {
@@ -243,7 +245,7 @@ class CasdoorService {
         }
       }
 
-      // upsert用户详细信息（存在则更新，不存在则创建）
+      // upsert 用户详细信息（存在则更新，不存在则创建）
       await TUserDetail.upsert(userDetailData, {
         transaction: transaction,
       });
@@ -392,13 +394,14 @@ class CasdoorService {
         );
       }
 
-      // 同步用户详细信息到TUserDetail表
+      // 同步用户详细信息到 TUserDetail 表
       const userDetailData = {
         mid: localUser.uid,
         uname: displayName || username,
         avatar: avatar || "",
         sign: `${provider}用户`,
         sex: "保密",
+        email: email || "", // 保存邮箱地址
       };
 
       await TUserDetail.upsert(userDetailData);
