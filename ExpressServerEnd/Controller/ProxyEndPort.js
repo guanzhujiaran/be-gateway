@@ -13,6 +13,11 @@ const {
 } = require("@/ExpressServerEnd/Service/user_permission_module/user_permission_service");
 const { jwtAuthOptional } = require("@/ExpressServerEnd/Service/user_permission_module/JwtModule");
 
+function proxyErrorHandler(err, req, res) {
+  // 将代理错误传递给 Express 的错误处理中间件
+  console.error(`代理错误 (${req.path}):`, err);
+  
+}
 
 /**
  * 设置用户信息到代理请求头
@@ -27,7 +32,7 @@ function setUserHeaders(proxyReq, req) {
   proxyReq.setHeader("x-bili-mid", userInfo.mid || "");
   proxyReq.setHeader("x-bili-uname", encodeURIComponent(userInfo.uname || ""));
   proxyReq.setHeader("x-bili-sign", encodeURIComponent(userInfo.sign || ""));
-  proxyReq.setHeader("x-bili-sex", encodeURIComponent(userInfo.sex) || "");
+  proxyReq.setHeader("x-bili-sex", encodeURIComponent(userInfo.sex || ""));
   proxyReq.setHeader("x-bili-email", encodeURIComponent(userInfo.email || "")); // 添加邮箱字段
   proxyReq.setHeader("x-bili-vip-status", userInfo.vip_status || "");
   proxyReq.setHeader("x-bili-vip-type", userInfo.vip_type || "");
@@ -46,9 +51,9 @@ router.use( // fastapi 的数据库反向代理
         // 保留原有的 header 设置（兼容性）
         proxyReq.setHeader("x-bili-mid", proxyReq.getHeader("x-bili-mid") || req.auth?.uid || "");
         proxyReq.setHeader("x-bili-level", proxyReq.getHeader("x-bili-level") || req.auth?.level || "");
-
         fixRequestBody(proxyReq, req);
       },
+      error: proxyErrorHandler
     },
   })
 );
@@ -61,6 +66,7 @@ router.use(
       proxyReq: (proxyReq, req, res) => {
         fixRequestBody(proxyReq, req); // 这一行不能删，不然无法代理请求。
       },
+      error: proxyErrorHandler
     },
   })
 );
@@ -81,12 +87,13 @@ router.use(
 
         fixRequestBody(proxyReq, req);
       },
+      error: proxyErrorHandler
     },
     changeOrigin: true,
     ws: true,
   })
 );
-router.use('/api/v1/casdoor/backend', // 配置在前端的.env文件里面  
+router.use('/api/v1/casdoor/backend', // 配置在前端的.env 文件里面  
   createProxyMiddleware({
     target: process.env.CASDOOR_ENDPOINT,
     pathRewrite: { "/": "/api/v1/casdoor/backend" },
@@ -94,8 +101,9 @@ router.use('/api/v1/casdoor/backend', // 配置在前端的.env文件里面
       proxyReq: (proxyReq, req, res) => {
         fixRequestBody(proxyReq, req); // 这一行不能删，不然无法代理请求。
       },
+      error: proxyErrorHandler
     },
   })
-)
+);
 
 module.exports = router;

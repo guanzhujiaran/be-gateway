@@ -1,7 +1,7 @@
-const {BaseTasks} = require("@/ExpressServerEnd/Service/background_task_module/base_task");
-const {Worker} = require('bullmq');
-const {t} = require("@/ExpressServerEnd/Tool/Utl");
-const {redis_manager} = require('@/ExpressServerEnd/DAO/Redis/RedisManager');
+const { BaseTasks } = require("@/ExpressServerEnd/Service/background_task_module/base_task");
+const { Worker } = require('bullmq');
+const { t } = require("@/ExpressServerEnd/Tool/Utl");
+const { redis_manager } = require('@/ExpressServerEnd/DAO/Redis/RedisManager');
 
 class SystemMqTaskManager extends BaseTasks {
     constructor() {
@@ -22,11 +22,11 @@ class SystemMqTaskManager extends BaseTasks {
         system_pushme_worker.run();
     };
 
-    async add_system_pushme_task({title, msg}) {
-        return await this.system_pushme_queue.add(this.SystemQueueName.system_pushme_queue, {title, msg});
+    async add_system_pushme_task({ title, msg }) {
+        return await this.system_pushme_queue.add(this.SystemQueueName.system_pushme_queue, { title, msg });
     }
 }
 
 system_mq_task_manager = new SystemMqTaskManager();
 
-module.exports = {system_mq_task_manager};
+module.exports = { system_mq_task_manager };
