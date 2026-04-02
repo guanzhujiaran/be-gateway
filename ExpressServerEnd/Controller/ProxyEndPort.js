@@ -16,17 +16,34 @@ const { jwtAuthOptional } = require("@/ExpressServerEnd/Service/user_permission_
 function proxyErrorHandler(err, req, res) {
   // 将代理错误传递给 Express 的错误处理中间件
   console.error(`代理错误 (${req.path}):`, err);
-  
 }
 
 /**
- * 设置用户信息到代理请求头
+ * 清空用户传入的不可信头信息并设置用户信息到代理请求头
  * @param {Object} proxyReq - Proxy request object
  * @param {Object} req - Original request object
  */
 function setUserHeaders(proxyReq, req) {
+  // 先清空用户可能传入的不可信头信息
+  const headersToRemove = [
+    "x-bili-user-name",
+    "x-bili-level",
+    "x-bili-mid",
+    "x-bili-uname",
+    "x-bili-sign",
+    "x-bili-sex",
+    "x-bili-email",
+    "x-bili-vip-status",
+    "x-bili-vip-type"
+  ];
+
+  headersToRemove.forEach(header => {
+    proxyReq.removeHeader(header);
+  });
+
   const userInfo = req.userInfoForHeader || {};
 
+  // 设置可信的用户信息头
   proxyReq.setHeader("x-bili-user-name", encodeURIComponent(userInfo.user_name || ""));
   proxyReq.setHeader("x-bili-level", userInfo.level || "");
   proxyReq.setHeader("x-bili-mid", userInfo.mid || "");
@@ -48,9 +65,6 @@ router.use( // fastapi 的数据库反向代理
       proxyReq: (proxyReq, req, res) => {
         // 以同步方式设置用户信息到 header
         setUserHeaders(proxyReq, req);
-        // 保留原有的 header 设置（兼容性）
-        proxyReq.setHeader("x-bili-mid", proxyReq.getHeader("x-bili-mid") || req.auth?.uid || "");
-        proxyReq.setHeader("x-bili-level", proxyReq.getHeader("x-bili-level") || req.auth?.level || "");
         fixRequestBody(proxyReq, req);
       },
       error: proxyErrorHandler
@@ -81,10 +95,6 @@ router.use(
       proxyReq: (proxyReq, req, res) => {
         // 以同步方式设置用户信息到 header
         setUserHeaders(proxyReq, req);
-        // 保留原有的 header 设置（兼容性）
-        proxyReq.setHeader("x-bili-mid", proxyReq.getHeader("x-bili-mid") || req.auth?.uid || "");
-        proxyReq.setHeader("x-bili-level", proxyReq.getHeader("x-bili-level") || req.auth?.level || "");
-
         fixRequestBody(proxyReq, req);
       },
       error: proxyErrorHandler

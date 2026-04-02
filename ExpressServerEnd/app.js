@@ -59,7 +59,7 @@ if (run_env_args["env"] === "dev") {
 }
 
 // 安全中间件
-app.use(timeout("15s"));
+app.use(timeout("30s"));
 app.use(
   helmet({
     referrerPolicy: {
