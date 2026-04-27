@@ -3,6 +3,7 @@ const {
   TUserDetail,
   TUserInfo,
 } = require("@/ExpressServerEnd/DAO/SqlHelper");
+const { UserDao } = require("@/ExpressServerEnd/DAO/UserDao");
 const {
   base_api_model,
 } = require("@/ExpressServerEnd/Model/base_model/base_model");
@@ -245,60 +246,25 @@ class UserLevelService {
       });
     });
   }
-
   /**
-   * 获取用户的完整导航信息（包含头像和等级）
-   * @param uid
-   * @return {Promise<base_api_model>}
-   */
-  static async get_user_nav_with_level(uid) {
-    // 每日首次调用增加经验值
-    try {
-      await UserLevelService.add_daily_login_exp(uid);
-    } catch (e) {
-      console.error('添加每日经验值失败:', e);
-      // 不影响导航信息获取，继续执行
-    }
-
-    const result = await TUserInfo.findOne({
-      where: { uid },
-      attributes: ["uid", "user_name", "role"],
-      include: [
-        {
-          model: TUserDetail,
-          as: "TUserDetail",
-          required: false,
-          attributes: ["uname", "avatar", "email"],
-          include: [
-            {
-              model: TUserLevel,
-              as: "TUserLevel",
-              required: false,
-              attributes: ["current_level", "current_exp", "current_min"],
-            }
-          ],
-        },
-      ],
-    });
-
-    if (!result) {
-      return new base_api_model({
-        code: -1,
-        msg: "用户不存在",
-      });
-    }
-
-    const user_data = result.toJSON();
+ * 根据用户经验值计算等级信息
+ * @param {Object} level_info - 用户等级信息对象
+ * @param {number} [level_info.current_level=0] - 当前等级
+ * @param {number|string} [level_info.current_exp=0] - 当前经验值
+ * @param {number|string} [level_info.current_min=0] - 当前等级最低经验值
+ * @returns {Object} 计算后的等级信息
+ * @returns {number} current_level - 根据经验值重新计算的当前等级
+ * @returns {string} current_min - 当前等级所需的最低累积经验值（字符串格式）
+ * @returns {string} current_exp - 当前经验值（字符串格式，使用BigInt处理避免精度丢失）
+ * @returns {string} next_exp - 下一级所需累积经验值，已达到最高等级时返回"--"
+ */
+  static level_calc(level_info = {
+    current_level: 0,
+    current_exp: 0,
+    current_min: 0
+  }) {
     const level_config = config.common_config.level_config;
     const exp_requirements = level_config.level_exp_requirements;
-
-    // 获取或初始化等级信息（现在从 TUserDetail.TUserLevel 获取）
-    let level_info = user_data.TUserDetail?.TUserLevel || {
-      current_level: 0,
-      current_exp: 0,
-      current_min: 0,
-    };
-
     // 使用 BigInt 处理大数值，避免精度丢失
     const current_exp = BigInt(level_info.current_exp || 0);
 
@@ -334,6 +300,44 @@ class UserLevelService {
         next_exp = "--";
       }
     }
+    return {
+      current_level: Number(current_level),
+      current_min: String(current_min),
+      current_exp: String(current_exp),
+      next_exp: next_exp,
+    }
+  }
+
+  /**
+ * 获取用户导航信息（包含等级信息）
+ * 每日首次调用时会自动增加用户的登录经验值
+ * @param {string} uid - 用户ID
+ * @returns {Promise<base_api_model>} 返回包含用户导航信息的API响应对象
+ * @returns {string} data.uid - 用户ID
+ * @returns {string} data.user_name - 用户昵称（优先使用详情中的昵称，否则使用用户名）
+ * @returns {string} data.level - 用户角色等级
+ * @returns {string} data.face - 用户头像URL
+ * @returns {Object} data.level_info - 用户等级详细信息（经计算后的等级数据）
+ * @returns {string} data.email - 用户邮箱
+ * @returns {string} msg - 操作消息
+ * @returns {number} code - 响应状态码（-1表示用户不存在）
+ */
+  static async get_user_nav_with_level(uid) {
+    // 每日首次调用增加经验值
+    try {
+      await UserLevelService.add_daily_login_exp(uid);
+    } catch (e) {
+      console.error('添加每日经验值失败:', e);
+      // 不影响导航信息获取，继续执行
+    }
+
+    const user_data = await UserDao.get_user_whole_info({ uid });
+    if (!user_data) {
+      return new base_api_model({
+        code: -1,
+        msg: "用户不存在",
+      });
+    }
 
     return new base_api_model({
       data: {
@@ -341,16 +345,18 @@ class UserLevelService {
         user_name: user_data.TUserDetail?.uname || user_data.user_name,
         level: user_data.role,
         face: user_data.TUserDetail?.avatar || "",
-        level_info: {
-          current_level: Number(current_level),
-          current_min: String(current_min),
-          current_exp: String(current_exp),
-          next_exp: next_exp,
-        },
+        level_info: this.level_calc(user_data.TUserDetail?.TUserLevel),
         email: user_data.TUserDetail?.email || "",
       },
       msg: "获取成功",
     });
+  }
+
+
+  static async get_user_whole_info(uid) {
+    const resp = await UserDao.get_user_whole_info({ uid });
+    resp.level_info = this.level_calc(resp.TUserDetail?.TUserLevel)
+    return resp
   }
 }
 

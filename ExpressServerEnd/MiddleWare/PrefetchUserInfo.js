@@ -1,4 +1,4 @@
-const { UserService } = require("@/ExpressServerEnd/Service/user_module/user_service");
+const { UserLevelService } = require("../Service/user_module/user_level_service");
 
 /**
  * 前置中间件：查询用户详细信息并挂载到 req.userInfoForHeader
@@ -11,18 +11,18 @@ function userInfoPreFetchMiddleware() {
 
       if (uid) {
         // 调用已有的 UserService 获取用户详细信息
-        const userInfo = await UserService.get_user_detail_info({ uid, is_own_uid: false });
-
+        const userWholeInfo = await UserLevelService.get_user_whole_info(uid);
         req.userInfoForHeader = {
-          user_name: userInfo?.user_name || "",
-          level: String(userInfo?.level_info?.current_level ?? "0"),
-          mid: String(userInfo?.mid || ""),
-          uname: userInfo?.uname || "",
-          sign: userInfo?.sign || "",
-          sex: userInfo?.sex || "",
-          email: userInfo?.email || "", // 添加邮箱字段
-          vip_status: String(userInfo?.vip?.vip_status ?? "0"),
-          vip_type: String(userInfo?.vip?.vip_type ?? "0")
+          user_name: userWholeInfo?.user_name || "",
+          role: userWholeInfo?.role || "",
+          level: String(userWholeInfo?.level_info?.current_level ?? "0"),
+          mid: String(userWholeInfo?.uid || ""),
+          uname: userWholeInfo?.TUserDetail?.uname || "",
+          sign: userWholeInfo?.TUserDetail?.sign || "",
+          sex: userWholeInfo?.TUserDetail?.sex || "",
+          email: userWholeInfo?.TUserDetail?.email || "", // 添加邮箱字段
+          vip_status: String(userWholeInfo?.TUserDetail?.TUserVip?.vip_status ?? "0"),
+          vip_type: String(userWholeInfo?.TUserDetail?.TUserVip?.vip_type ?? "0")
         };
       } else {
         // 无用户信息时设置默认值

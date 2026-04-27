@@ -1,6 +1,6 @@
-const {TUserInfo, TUserVip, TUserLevel, TUserDetail} = require("@/ExpressServerEnd/DAO/SqlHelper");
+const { TUserInfo, TUserVip, TUserLevel, TUserDetail } = require("@/ExpressServerEnd/DAO/SqlHelper");
 
-const {Op, literal} = require("sequelize");
+const { Op, literal } = require("sequelize");
 
 class UserDao {
     constructor() {
@@ -67,7 +67,7 @@ class UserDao {
      * @param uid
      * @return {Promise<*>}
      */
-    static async get_whole_user_info({user_name, uid}) {
+    static async get_whole_user_info({ user_name, uid }) {
         return await TUserInfo.findOne({
             attributes: {
                 exclude: ['createdAt', 'updatedAt', 'deletedAt']
@@ -141,7 +141,7 @@ class UserDao {
     };
     //#endregion
 
-    static get_user_vip = async ({uid}) => {
+    static get_user_vip = async ({ uid }) => {
         return (await TUserVip.findOne({
             attributes: {
                 exclude: ['createdAt', 'updatedAt', 'deletedAt']
@@ -152,6 +152,32 @@ class UserDao {
         }))?.toJSON();
     };
 
+    static get_user_whole_info = async ({ uid }) => {
+        return (await TUserInfo.findOne({
+            where: { uid },
+            attributes: ["uid", "user_name", "role"],
+            include: [
+                {
+                    model: TUserDetail,
+                    as: "TUserDetail",
+                    required: false,
+                    include: [
+                        {
+                            model: TUserLevel,
+                            as: "TUserLevel",
+                            required: false,
+                        },
+                        {
+                            model: TUserVip,
+                            as: "TUserVip",
+                            required: false,
+                        }
+                    ],
+                },
+
+            ],
+        })).toJSON();
+    }
 }
 
 module.exports = {

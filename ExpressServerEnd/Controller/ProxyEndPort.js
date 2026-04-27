@@ -28,6 +28,7 @@ function setUserHeaders(proxyReq, req) {
   const headersToRemove = [
     "x-bili-user-name",
     "x-bili-level",
+    "x-bili-role",
     "x-bili-mid",
     "x-bili-uname",
     "x-bili-sign",
@@ -46,6 +47,7 @@ function setUserHeaders(proxyReq, req) {
   // 设置可信的用户信息头
   proxyReq.setHeader("x-bili-user-name", encodeURIComponent(userInfo.user_name || ""));
   proxyReq.setHeader("x-bili-level", userInfo.level || "");
+  proxyReq.setHeader("x-bili-role", userInfo.role || "");
   proxyReq.setHeader("x-bili-mid", userInfo.mid || "");
   proxyReq.setHeader("x-bili-uname", encodeURIComponent(userInfo.uname || ""));
   proxyReq.setHeader("x-bili-sign", encodeURIComponent(userInfo.sign || ""));

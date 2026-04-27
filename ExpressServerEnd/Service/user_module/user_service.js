@@ -1,7 +1,7 @@
-const {UserModel} = require("@/ExpressServerEnd/Model/api/v1/user/user_model");
+const { UserModel } = require("@/ExpressServerEnd/Model/api/v1/user/user_model");
 const md5 = require("md5");
-const {createToken, jwtAuth} = require("@/ExpressServerEnd/Service/user_permission_module/JwtModule");
-const {base_api_model} = require("@/ExpressServerEnd/Model/base_model/base_model");
+const { createToken, jwtAuth } = require("@/ExpressServerEnd/Service/user_permission_module/JwtModule");
+const { base_api_model } = require("@/ExpressServerEnd/Model/base_model/base_model");
 const config = require('@/ExpressServerEnd/config/index');
 const {
     TUserDetail,
@@ -11,18 +11,18 @@ const {
     TUserActInfoLog,
     sequelize, TUserNameRecord
 } = require("@/ExpressServerEnd/DAO/SqlHelper");
-const {t, req_tool} = require("@/ExpressServerEnd/Tool/Utl");
-const {Op, literal} = require("sequelize");
-const {UserActModel} = require("@/ExpressServerEnd/Model/api/v1/user/user_act_model");
-const {user_redis_dao} = require("@/ExpressServerEnd/DAO/UserRedisDao");
-const {UserLevelService} = require("@/ExpressServerEnd/Service/user_module/user_level_service");
+const { t, req_tool } = require("@/ExpressServerEnd/Tool/Utl");
+const { Op, literal } = require("sequelize");
+const { UserActModel } = require("@/ExpressServerEnd/Model/api/v1/user/user_act_model");
+const { user_redis_dao } = require("@/ExpressServerEnd/DAO/UserRedisDao");
+const { UserLevelService } = require("@/ExpressServerEnd/Service/user_module/user_level_service");
 
 const password_salt = config.common_config.salt.password_salt;
 
 class UserService {
     //region 用户登录注册密码相关
-    static async change_user_pwd_when_login({uid, pwd, req, resp}) {
-        let user_info = await TUserInfo.findOne({uid})
+    static async change_user_pwd_when_login({ uid, pwd, req, resp }) {
+        let user_info = await TUserInfo.findOne({ uid })
 
         if (!user_info) return new base_api_model({
             code: -100,
@@ -34,7 +34,7 @@ class UserService {
             req.auth = {
                 uid: uid,
             }
-            await UserService.add_user_act_ip_info({req, resp, act_info: UserActModel.try_to_change_pwd})
+            await UserService.add_user_act_ip_info({ req, resp, act_info: UserActModel.try_to_change_pwd })
         }
         let parsed_pwd = md5(pwd + password_salt);
         if (parsed_pwd === user_info.pwd) return new base_api_model({
@@ -44,7 +44,7 @@ class UserService {
         user_info.pwd = parsed_pwd;
         await user_info.save();
         if (req) {
-            await UserService.add_user_act_ip_info({req, resp, act_info: UserActModel.change_pwd})
+            await UserService.add_user_act_ip_info({ req, resp, act_info: UserActModel.change_pwd })
         }
         return new base_api_model({
             code: 0,
@@ -61,8 +61,8 @@ class UserService {
      * @param resp
      * @return {Promise<base_api_model>}
      */
-    static async check_login({uid, user_name, pwd, req, resp}) {
-        let user_model = new UserModel({uid: uid, user_name: user_name});
+    static async check_login({ uid, user_name, pwd, req, resp }) {
+        let user_model = new UserModel({ uid: uid, user_name: user_name });
         await user_model.get_uname_uid_pwd();
         if (user_model.parsed_pwd) {
             req.auth = {
@@ -74,27 +74,27 @@ class UserService {
                     user_name: user_model.user_name, uid: user_model.uid, level: user_model.level
                 });
 
-                await UserService.add_user_act_ip_info({req, resp, act_info: UserActModel.login_succ})
+                await UserService.add_user_act_ip_info({ req, resp, act_info: UserActModel.login_succ })
                 return new base_api_model({
                     data: {
                         uid: user_model.uid, user_name: user_model.user_name, jwt_token: jwt_token,
                     }
                 })
             }
-            await UserService.add_user_act_ip_info({req, resp, act_info: UserActModel.login_fail_pwd_err})
+            await UserService.add_user_act_ip_info({ req, resp, act_info: UserActModel.login_fail_pwd_err })
         }
-        return new base_api_model({code: -1, msg: '密码错误或账号不存在', data: null})
+        return new base_api_model({ code: -1, msg: '密码错误或账号不存在', data: null })
     }
 
-    static async refresh_token({uid, req, resp}) {
-        let user_model = new UserModel({uid: uid});
+    static async refresh_token({ uid, req, resp }) {
+        let user_model = new UserModel({ uid: uid });
         await user_model.get_uname_uid_pwd();
         if (user_model.parsed_pwd) {
             let jwt_token = createToken({
                 user_name: user_model.user_name, uid: user_model.uid, level: user_model.level
             });
             await Promise.all([
-                UserService.add_user_act_ip_info({req, resp, act_info: UserActModel.refresh_token}),
+                UserService.add_user_act_ip_info({ req, resp, act_info: UserActModel.refresh_token }),
                 // user_redis_dao.add_black_list_jwt_signature({
                 //     signature: req.headers.authorization.split('.').pop(),
                 //     ttl: Math.ceil(req.auth.exp - Date.now() / 1000)
@@ -108,7 +108,7 @@ class UserService {
                 msg: '刷新成功！'
             })
         }
-        return new base_api_model({code: -1, msg: '账号不存在', data: null})
+        return new base_api_model({ code: -1, msg: '账号不存在', data: null })
     }
 
     /**
@@ -128,7 +128,7 @@ class UserService {
      * @param resp
      * @return {Promise<base_api_model>}
      */
-    static async register({user_name, pwd, req, resp}) {
+    static async register({ user_name, pwd, req, resp }) {
         let is_user_name_exist = await UserModel.is_exists_by_user_name(user_name);
         if (is_user_name_exist) {
             return new base_api_model({
@@ -152,7 +152,7 @@ class UserService {
                     transaction: t
                 })
                 created_instance.reg_ip_info_id = reg_ip_info.pk;
-                await created_instance.save({transaction: t});
+                await created_instance.save({ transaction: t });
                 return new base_api_model({
                     msg: "注册成功！",
                 })
@@ -167,8 +167,8 @@ class UserService {
     //endregion
 
     //region 用户信息相关
-    static async get_user_vip({uid}) {
-        let user = new UserModel({uid})
+    static async get_user_vip({ uid }) {
+        let user = new UserModel({ uid })
         return new base_api_model({
             data: await user.get_user_vip()
         })
@@ -197,10 +197,74 @@ class UserService {
      *         }
      * }|null>} 用户信息对象，包含以下属性：
      */
-    static async get_user_detail_info({uid, is_own_uid} = {is_own_uid: false}) {
+    /**
+     * 获取用户详细信息
+     * @param {Object} params - 参数对象
+     * @param {string} params.uid - 用户ID
+     * @param {boolean} [params.is_own_uid=false] - 是否为当前用户自己的UID，用于控制用户名脱敏
+     * @returns {Promise<Object|null>} 返回用户详细信息对象或null（用户不存在时）
+     * @returns {string} uid - 用户ID
+     * @returns {string} user_name - 用户名（注册时默认名字，不能修改）
+     * @returns {string} pwd - 用户密码（已加密）
+     * @returns {string} role - 用户角色（如："level0"）
+     * @returns {number} reg_ip_info_id - 注册IP信息ID
+     * @returns {Object} info - 用户详细信息
+     * @returns {string} info.mid - 用户MID
+     * @returns {string} info.avatar - 用户头像URL
+     * @returns {string} info.uname - 用户昵称（可修改）
+     * @returns {string} info.sign - 用户个性签名
+     * @returns {string} info.sex - 用户性别（如："保密"）
+     * @returns {string} info.birthday - 用户生日（ISO格式）
+     * @returns {string} info.email - 用户邮箱
+     * @returns {Object} info.level_info - 用户等级信息
+     * @returns {string} info.level_info.mid - 用户MID
+     * @returns {string} info.level_info.current_exp - 当前经验值
+     * @returns {string} info.level_info.current_level - 当前等级
+     * @returns {string} info.level_info.current_min - 当前等级最低经验值
+     * @returns {Object} info.vip - 用户VIP信息
+     * @returns {string} info.vip.mid - 用户MID
+     * @returns {number} info.vip.vip_due_date - VIP到期时间戳
+     * @returns {number} info.vip.vip_pay_type - VIP支付类型
+     * @returns {number} info.vip.vip_status - VIP状态
+     * @returns {number} info.vip.vip_type - VIP类型
+     * 
+     * @example
+     * // 返回示例：
+     * {
+     *   uid: "1",
+     *   user_name: "sbd",
+     *   pwd: "qcm5li652bl",
+     *   role: "level0",
+     *   reg_ip_info_id: 1,
+     *   info: {
+     *     mid: "1",
+     *     avatar: "https://gitee.com/assets/no_portrait.png",
+     *     uname: "星瞳",
+     *     sign: "",
+     *     sex: "保密",
+     *     birthday: "1970-01-05T16:00:00.000Z",
+     *     email: "1944637830@qq.com",
+     *     level_info: {
+     *       mid: "1",
+     *       current_exp: "9999900000",
+     *       current_level: "0",
+     *       current_min: "0",
+     *     },
+     *     vip: {
+     *       mid: "1",
+     *       vip_due_date: 0,
+     *       vip_pay_type: 0,
+     *       vip_status: 0,
+     *       vip_type: 0,
+     *     },
+     *   },
+     * }
+     */
+    static async get_user_detail_info({ uid, is_own_uid } = { is_own_uid: false }) {
+
         let user_info = await TUserInfo.findOne({
             attributes: {
-                include: ['user_name']
+                include: ['user_name', 'role']
             },
             where: {
                 uid: uid
@@ -229,11 +293,13 @@ class UserService {
     }
 
     static generate_user_detail_info(user_info, is_own_uid = false) {
+        // uname 是昵称.能改
+        // user_name是注册时的默认名字,不能改
         let keyMap = {
             TUserVip: "vip", TUserLevel: "level_info"
         }
         let user_info_json = user_info.toJSON();
-        let user_detail_json = user_info_json.TUserDetail ?? (new TUserDetail({mid: user_info.uid})).toJSON();
+        let user_detail_json = user_info_json.TUserDetail ?? (new TUserDetail({ mid: user_info.uid })).toJSON();
         let middle_user_name = user_info_json.user_name.slice(1, -1)
         let mock_user_name = is_own_uid ? user_info_json.user_name : user_info_json.user_name.replaceAll(middle_user_name, '*'.repeat(middle_user_name.length));
         user_detail_json.uname = user_detail_json.uname || mock_user_name
@@ -251,8 +317,12 @@ class UserService {
             t.delete_attr_from_obj(empty_vip)
             ret_object.vip = empty_vip;
         }
-        return ret_object
+        user_info_json.info = ret_object
+        delete user_info_json.TUserDetail
+        t.delete_attr_from_obj(user_info_json)
+        return user_info_json
     }
+
 
     /**
      * 一口气获取所有的用户信息
@@ -260,7 +330,7 @@ class UserService {
      * @param own_uid
      * @return {Promise<{[p: string]: any}[]>}
      */
-    static async get_all_user_detail_infos({uid_arr, own_uid}) {
+    static async get_all_user_detail_infos({ uid_arr, own_uid }) {
 
         let user_infos = await TUserInfo.findAll({
             attributes: {
@@ -303,7 +373,7 @@ class UserService {
      * @param transaction
      * @return {Promise<*>}
      */
-    static async add_user_act_ip_info({req, resp, act_info, transaction = undefined}) {
+    static async add_user_act_ip_info({ req, resp, act_info, transaction = undefined }) {
         return await TUserActInfoLog.create({
             mid: req?.auth?.uid ?? null,
             ip: req_tool.get_ip(req, resp),
@@ -315,7 +385,7 @@ class UserService {
     }
 
 
-    static async get_user_info({uid}) {
+    static async get_user_info({ uid }) {
         let user_info = await TUserInfo.findOne({
             attributes: ['uid'],
             where: {
@@ -348,12 +418,12 @@ class UserService {
     }
 
     static async set_user_info({
-                                   uid,
-                                   uname,
-                                   usersign,
-                                   sex,
-                                   birthday
-                               }) {
+        uid,
+        uname,
+        usersign,
+        sex,
+        birthday
+    }) {
         let is_exist = await TUserDetail.findOne(
             {
                 where: {
@@ -380,13 +450,13 @@ class UserService {
                 sign: usersign,
                 sex,
                 birthday
-            }, {transaction: t})
+            }, { transaction: t })
             if (origin_user_detail && origin_user_detail.uname !== uname) {
                 //更新了昵称的情况
                 await TUserNameRecord.create({
                     mid: uid,
                     prev_uname: uname
-                }, {transaction: t})
+                }, { transaction: t })
             }
         });
         return new base_api_model({
@@ -400,7 +470,7 @@ class UserService {
      * @param resp
      * @return {Promise<base_api_model>}
      */
-    static async logout({req, resp}) {
+    static async logout({ req, resp }) {
         try {
             let uid = req.auth?.uid;
             if (!uid) {
@@ -453,8 +523,8 @@ class UserService {
      * @param resp
      * @return {Promise<base_api_model>}
      */
-    static async check_login_without_password({user_name, req, resp}) {
-        let user_model = new UserModel({user_name: user_name});
+    static async check_login_without_password({ user_name, req, resp }) {
+        let user_model = new UserModel({ user_name: user_name });
         await user_model.get_uname_uid_pwd();
         if (user_model.parsed_pwd) {
             req.auth = {
@@ -464,7 +534,7 @@ class UserService {
                 user_name: user_model.user_name, uid: user_model.uid, level: user_model.level
             });
 
-            await UserService.add_user_act_ip_info({req, resp, act_info: UserActModel.login_succ})
+            await UserService.add_user_act_ip_info({ req, resp, act_info: UserActModel.login_succ })
             return new base_api_model({
                 data: {
                     uid: user_model.uid, user_name: user_model.user_name, jwt_token: jwt_token,
@@ -472,10 +542,10 @@ class UserService {
                 }
             })
         }
-        return new base_api_model({code: -1, msg: '用户不存在', data: null})
+        return new base_api_model({ code: -1, msg: '用户不存在', data: null })
     }
 
-    static async is_user_exists({user_name}) {
+    static async is_user_exists({ user_name }) {
         let is_user_name_exist = await UserModel.is_exists_by_user_name(user_name);
         return is_user_name_exist
     }
@@ -483,4 +553,4 @@ class UserService {
     //endregion
 }
 
-module.exports = {UserService}
+module.exports = { UserService }
