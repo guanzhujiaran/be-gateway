@@ -33,14 +33,10 @@ const FeedbackContentRouter = require("./routes/feedback_content");
 const PingRouter = require("./routes/ping");
 const { bullRouter } = require("./routes/queues");
 const ProxyEndPort = require("./routes/proxy");
-
 // 导入服务
 const {
   system_mq_task_manager,
 } = require("./Service/background_task_module/system_mq_task_service");
-
-const port = run_env_args["port"] || 9923;
-const hostname = "0.0.0.0";
 
 const app = express();
 

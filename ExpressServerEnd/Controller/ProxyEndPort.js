@@ -95,6 +95,8 @@ router.use(
     pathRewrite: { "^/": "/api/v1/rpa/" },
     on: {
       proxyReq: (proxyReq, req, res) => {
+        req.clearTimeout();
+        req.setTimeout(180000);
         // 以同步方式设置用户信息到 header
         setUserHeaders(proxyReq, req);
         fixRequestBody(proxyReq, req);
@@ -103,7 +105,7 @@ router.use(
     },
     changeOrigin: true,
     ws: true,
-  })
+  }),
 );
 router.use('/api/v1/casdoor/backend', // 配置在前端的.env 文件里面  
   createProxyMiddleware({
