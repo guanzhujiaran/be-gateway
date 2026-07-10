@@ -120,4 +120,22 @@ router.use('/api/v1/casdoor/backend', // 配置在前端的.env 文件里面
   })
 );
 
+router.use( // notify-service 反向代理（前端 / 其它微服务统一经此转发到 NotifyService）
+  "/api/v1/notify",
+  jwtAuthOptional, // 可登录也可不登陆，解析 JWT 以识别用户
+  userInfoPreFetchMiddleware(), // 预查询用户信息，供 setUserHeaders 注入 x-bili-* 头
+  createProxyMiddleware({
+    target: utils.NOTIFY.base_url,
+    changeOrigin: true,
+    on: {
+      proxyReq: (proxyReq, req, res) => {
+        // 把触发推送的用户信息以 x-bili-* 头透传给 notify-service
+        setUserHeaders(proxyReq, req);
+        fixRequestBody(proxyReq, req);
+      },
+      error: proxyErrorHandler
+    },
+  })
+);
+
 module.exports = router;

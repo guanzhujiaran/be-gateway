@@ -1238,7 +1238,12 @@ const utils = {
     },
     RPA: {
         base_url: run_env_args['env'] === 'prod' ? process.env.FASTAPI_RPA_URI : process.env.FASTAPI_RPA_DEV_URI,
-    }
+    },
+    NOTIFY: {
+        base_url: run_env_args['env'] === 'prod'
+            ? (process.env.NOTIFY_SERVICE_URI || 'http://notify-service:18739')
+            : (process.env.NOTIFY_SERVICE_URI || 'http://localhost:18739'),
+    },
 }
 const pptr_op = {
     /**
