@@ -40,9 +40,7 @@ class CasdoorService {
    * @returns {Promise<Object>} 包含access_token
    */
   static async getOAuthToken(code) {
-    const response = await casdoorSDK.getAuthToken(code);
-    console.log("获取到OAuth令牌:", JSON.stringify(response, null, 2));
-    return response;
+    return await casdoorSDK.getAuthToken(code);
   }
 
   /**
@@ -66,7 +64,7 @@ class CasdoorService {
   static async handleCasdoorCallback({ code, req, resp }) {
     // 1. 获取OAuth令牌
     const oauthToken = await CasdoorService.getOAuthToken(code);
-    console.log("获取到OAuth令牌:", JSON.stringify(oauthToken, null, 2));
+    console.log("获取到OAuth令牌:", JSON.stringify(oauthToken));
 
     // 2. 获取用户详细信息
     const casdoorUserInfo = await CasdoorService.getUserInfo(

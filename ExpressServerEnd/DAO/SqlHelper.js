@@ -8,7 +8,7 @@
  */
 const {Sequelize} = require("sequelize");
 const run_env_args = require("@/ExpressServerEnd/config/run_arg");
-const DB = run_env_args['env'] === 'prod' ? process.env.DB : process.env.DEV_DB;
+const DB = process.env.DB;
 const sequelize = new Sequelize(DB, {dialect: "postgres",
     logging: run_env_args['env'] === 'prod'?false:console.log});
 sequelize

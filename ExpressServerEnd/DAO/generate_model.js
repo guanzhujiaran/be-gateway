@@ -13,7 +13,7 @@ const database = {
   // [required] * 数据库地址
   host: 'localhost',
   // [required] * 数据库名称
-  database: 'DEV_PPTR_Bili_Lot',
+  database: 'PPTR_Bili_Lot',
   // 数据库用户名
   user: 'postgres',
   // 数据库密码

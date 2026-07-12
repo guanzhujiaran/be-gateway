@@ -9,7 +9,7 @@ class SystemMqTaskManager extends BaseTasks {
         const system_pushme_worker = new Worker(
             this.SystemQueueName.system_pushme_queue,
             async job => {
-                console.debug(`system pushme worker start:`, job);
+                // console.debug(`system pushme worker start:`, job);
                 await t.push_plus(job.data);
             },
             {

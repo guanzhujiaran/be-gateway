@@ -1,0 +1,8 @@
+const path = require('path');
+
+module.exports = {
+  'config': path.resolve('ExpressServerEnd/config/migrations.js'),
+  'migrations-path': path.resolve('ExpressServerEnd/migrations'),
+  'seeders-path': path.resolve('ExpressServerEnd/seeders'),
+  'models-path': path.resolve('ExpressServerEnd/DAO/dbModel'),
+};

@@ -1241,8 +1241,13 @@ const utils = {
     },
     NOTIFY: {
         base_url: run_env_args['env'] === 'prod'
-            ? (process.env.NOTIFY_SERVICE_URI || 'http://notify-service:18739')
-            : (process.env.NOTIFY_SERVICE_URI || 'http://localhost:18739'),
+            ? (process.env.MESSAGE_SERVICE_URI || 'http://notify-service:18739')
+            : (process.env.MESSAGE_SERVICE_URI || 'http://localhost:18739'),
+    },
+    MESSAGE: {
+        base_url: run_env_args['env'] === 'prod'
+            ? (process.env.MESSAGE_SERVICE_URI || 'http://message-service:18739')
+            : (process.env.MESSAGE_SERVICE_URI || 'http://localhost:18739'),
     },
 }
 const pptr_op = {

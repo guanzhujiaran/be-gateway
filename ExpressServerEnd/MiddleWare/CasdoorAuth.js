@@ -35,7 +35,8 @@ const casdoorAuth = async (req, res, next) => {
         next();
     } catch (error) {
         console.error("Casdoor认证失败:", error);
-        return res.status(401).json({
+        // 认证失败属于业务问题：HTTP 状态码保持 200，通过 body.code 区分
+        return res.status(200).json({
             code: -1,
             msg: "Casdoor认证失败",
             data: null,
