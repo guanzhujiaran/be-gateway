@@ -1094,7 +1094,7 @@ const utils = {
     ,
 
     MYAPI: {
-        base_url: run_env_args['env'] === 'prod' ? process.env.FASTAPI_URI : process.env.FASTAPI_DEV_URI,
+        base_url:  process.env.FASTAPI_URI,
         /**
          * API发送请求
          * @param {String} url
@@ -1237,7 +1237,7 @@ const utils = {
         }
     },
     RPA: {
-        base_url: run_env_args['env'] === 'prod' ? process.env.FASTAPI_RPA_URI : process.env.FASTAPI_RPA_DEV_URI,
+        base_url: process.env.FASTAPI_RPA_URI,
     },
     NOTIFY: {
         base_url: run_env_args['env'] === 'prod'
