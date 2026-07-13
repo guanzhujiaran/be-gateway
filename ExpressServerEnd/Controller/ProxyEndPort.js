@@ -1,4 +1,5 @@
 const express = require("express");
+const axios = require("axios");
 const router = express.Router();
 const { utils } = require("@/ExpressServerEnd/BiliPPTR/utils/utils");
 const {
@@ -42,9 +43,49 @@ function mapProxyErrorToStatus(err) {
   }
 }
 
-function proxyErrorHandler(err, req, res) {
+/**
+ * 转发路由（代理）报错时发送系统级推送通知（best-effort，失败不影响原错误响应）。
+ * 复用 utils.my_send_notify 中配置的系统推送 key（pushme / push_plus）。
+ * @param {Error} err
+ * @param {Object} req
+ */
+async function sendProxyErrorPush(err, req) {
+  const sysKey = (utils && utils.my_send_notify && utils.my_send_notify.__push_key) || {};
+  const title = `[转发路由报错] ${req.method || ""} ${req.path || ""}`;
+  const msg =
+    `来源 Host: ${req.headers && req.headers.host ? req.headers.host : "未知"}\n` +
+    `请求路径: ${req.originalUrl || req.path || "未知"}\n` +
+    `错误码: ${err && err.code ? err.code : "未知"}\n` +
+    `错误信息: ${err && err.message ? err.message : String(err)}\n` +
+    `时间: ${new Date().toLocaleString("zh-CN")}`;
+
+  // pushme 优先，失败兜底 push_plus，均为 best-effort
+  try {
+    await axios.post("https://push.i-i.me", {
+      push_key: sysKey.pushme,
+      title,
+      content: msg,
+    });
+  } catch (e) {
+    console.warn("转发路由报错推送(pushme)失败：", e && e.message ? e.message : e);
+    try {
+      await axios.post("http://www.pushplus.plus/send", {
+        token: sysKey.push_plus,
+        title,
+        content: msg,
+        template: "txt",
+      });
+    } catch (e2) {
+      console.warn("转发路由报错推送(push_plus)兜底失败：", e2 && e2.message ? e2.message : e2);
+    }
+  }
+}
+
+async function proxyErrorHandler(err, req, res) {
   // 将代理错误传递给 Express 的错误处理中间件
   console.error(`代理错误 (${req.path}):`, err);
+  // 转发路由报错时发送系统级推送通知（await 确保推送完成后再返回响应）
+  await sendProxyErrorPush(err, req);
   // 响应已开始（流式/分块传输）时无法再设置状态码，只能断开连接
   if (res.headersSent || res.writableEnded) {
     return res.destroy();
