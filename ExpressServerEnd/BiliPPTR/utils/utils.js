@@ -1144,16 +1144,6 @@ const utils = {
                 let url = utils.MYAPI.base_url + "/v1/post/RmFollowingList";
                 return await utils.MYAPI.ajax(url, "post", following_list);
             },
-        /**
-         *
-         * @param {boolean}get_all
-         * @return {Promise<LiveAnchorType[]|LiveRedPackType[]|LiveGoldBoxType[]>}
-         */
-        get_live_lottery:
-            async ({ get_all } = { get_all: false }) => {
-                let url = utils.MYAPI.base_url + "/v1/get/live_lots";
-                return await utils.MYAPI.ajax(url, "get", { get_all: get_all });
-            },
         get_text_select_pos:
             async (pic_url) => {
                 let url = utils.MYAPI.base_url + "/api/v1/GeetestDet/GetTextSelectPos";
@@ -1169,72 +1159,6 @@ const utils = {
                 round_num: 2
             });
         },
-        get_topic_lottery_by_page: async ({ page_num, page_size } = { page_num: 0, page_size: 0 }) => {
-            let url = utils.MYAPI.base_url + "/api/v1/lottery_database/bili/GetTopicLottery";
-            return await utils.MYAPI.ajax(url, "get", { page_num, page_size });
-        },
-        get_live_lottery_by_page: async ({ page_num, page_size } = { page_num: 0, page_size: 0 }) => {
-            let url = utils.MYAPI.base_url + "/api/v1/lottery_database/bili/GetLiveLottery";
-            return await utils.MYAPI.ajax(url, "get", { page_num, page_size });
-        },
-        get_official_lottery_by_page: async ({
-            limit_time,
-            page_num,
-            page_size
-        } = {
-                limit_time: 3 * 3600 * 24,
-                page_num: 0,
-                page_size: 0
-            }) => {
-            let url = utils.MYAPI.base_url + "/api/v1/lottery_database/bili/GetOfficialLottery";
-            return await utils.MYAPI.ajax(url, "get", { limit_time, page_num, page_size });
-        },
-        get_charge_lottery_by_page: async ({
-            limit_time,
-            page_num,
-            page_size
-        } = {
-                limit_time: 3 * 3600 * 24,
-                page_num: 0,
-                page_size: 0
-            }) => {
-            let url = utils.MYAPI.base_url + "/api/v1/lottery_database/bili/GetChargeLottery";
-            return await utils.MYAPI.ajax(url, "get", { limit_time, page_num, page_size });
-        },
-        get_reserve_lottery_by_page: async ({
-            limit_time,
-            page_num,
-            page_size
-        } = {
-                limit_time: 3 * 3600 * 24,
-                page_num: 0,
-                page_size: 0
-            }) => {
-            let url = utils.MYAPI.base_url + "/api/v1/lottery_database/bili/GetReserveLottery";
-            return await utils.MYAPI.ajax(url, "get", { limit_time, page_num, page_size });
-        },
-        add_dynamic_lottery: async ({
-            dynamic_id_or_url
-        }) => {
-            let url = utils.MYAPI.base_url + "/api/v1/lottery_database/bili/AddDynamicLottery";
-            return await utils.MYAPI.ajax(url, "post", { dynamic_id_or_url });
-        },
-        get_all_scrapy_status: async () => {
-            let url = utils.MYAPI.base_url + "/api/v1/background_service/GetAllLotScrapyStatus";
-            return await utils.MYAPI.ajax(url, "get");
-        },
-        get_lottery_rank: async ({ date, lot_type, rank_type, offset, limit }) => {
-            let url = utils.MYAPI.base_url + `/api/v1/lottery_database/bili/lottery_hof/${lot_type}`
-            return await utils.MYAPI.ajax(url, "get", { date, rank_type, offset, limit })
-        },
-        get_lottery_result: async ({ date, uid, lot_type, rank_type, offset, limit }) => {
-            let url = utils.MYAPI.base_url + `/api/v1/lottery_database/bili/lottery_result`
-            return await utils.MYAPI.ajax(url, "get", { date, uid, lot_type, rank_type, offset, limit })
-        },
-        search_lottery_by_keyword: async ({ keyword }) => {
-            let url = utils.MYAPI.base_url + `/api/v1/lottery_database/bili/SearchLotteryByKeyword`
-            return await utils.MYAPI.ajax(url, "get", { keyword })
-        }
     },
     RPA: {
         base_url: process.env.RPA_SERVICE_URI,
