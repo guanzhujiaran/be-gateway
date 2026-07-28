@@ -56,40 +56,6 @@ function isAllowedFrontend(origin) {
 }
 
 /**
- * 从请求中推导「前端来源」。优先级：
- *   1. 环境变量 FRONTEND_URL（运维显式指定，最可靠）
- *   2. 登录发起时写入的 cookie（casdoor_rf）
- *   3. 请求 Origin（XHR/fetch 类请求会带，顶层跳转不带）
- *   4. 请求 Referer 的 origin
- *   5. 兜底：后端自身 host（即当前错误行为，仅作为最后手段）
- * @param {Object} req
- * @returns {string|null}
- */
-function resolveFrontendUrl(req) {
-  if (process.env.FRONTEND_URL) return process.env.FRONTEND_URL;
-
-  const cookies = parseCookies(req.headers.cookie || "");
-  if (cookies[FE_COOKIE] && isAllowedFrontend(cookies[FE_COOKIE])) {
-    return cookies[FE_COOKIE];
-  }
-
-  if (req.headers.origin && isAllowedFrontend(req.headers.origin)) {
-    return req.headers.origin;
-  }
-
-  if (req.headers.referer) {
-    try {
-      const refOrigin = new URL(req.headers.referer).origin;
-      if (isAllowedFrontend(refOrigin)) return refOrigin;
-    } catch {
-      /* ignore */
-    }
-  }
-
-  return null; // 调用方自行兜底到后端 host
-}
-
-/**
  * Casdoor 登录发起端点
  * 前端登录按钮应指向此处（而不是直接拼接 Casdoor 登录地址）。
  * 这里能拿到前端的 Origin，记录到 cookie 后 302 跳转 Casdoor 授权页。
@@ -105,21 +71,13 @@ router.get("/login", (req, res) => {
 
   if (!isAllowedFrontend(feOrigin)) {
     // 不在白名单（且白名单已配置）时，回退到 FRONTEND_URL 或后端自身地址
-    feOrigin = process.env.FRONTEND_URL || `${req.protocol}://${req.get("host")}`;
+    feOrigin =
+      process.env.FRONTEND_URL || `${req.protocol}://${req.get("host")}`;
   }
-
-  // 将前端来源写入短期 HttpOnly cookie，供回调使用
-  res.cookie(FE_COOKIE, feOrigin, {
-    httpOnly: true,
-    sameSite: "lax",
-    maxAge: 10 * 60 * 1000, // 10 分钟足够完成一次 OAuth 握手
-    path: "/",
-  });
 
   // 构造 Casdoor 授权地址
   const redirectUri =
-    process.env.CASDOOR_REDIRECT_URI ||
-    `${req.protocol}://${req.get("host")}/api/v1/casdoor/callback`;
+    process.env.CASDOOR_REDIRECT_URI || `/api/v1/casdoor/callback`;
   const state = crypto.randomBytes(16).toString("hex");
 
   const signinUrl =
@@ -166,24 +124,17 @@ router.get("/callback", async (req, res) => {
     res,
   });
 
-  // 优先用环境变量 FRONTEND_URL；其次用登录发起时记录的 cookie；
-  // 再尝试从请求 Origin/Referer 推导；最后兜底到后端自身 host。
-  const frontendUrl =
-    resolveFrontendUrl(req) || `${req.protocol}://${req.get("host")}`;
-
   if (result.code === 0 && result.data?.jwt_token) {
     // 登录成功，重定向到前端并带上 token，同时清除来源 cookie
-    res.clearCookie(FE_COOKIE, { path: "/" });
-    return res.redirect(
-      `${frontendUrl}/app/casdoor-callback?token=${encodeURIComponent(
-        result.data.jwt_token
+    return res.redirect(// 实际测试下来好像不加也能重定向到前端来源
+      `${process.env.FRONTEND_URL || ""}/app/casdoor-callback?token=${encodeURIComponent(
+        result.data.jwt_token,
       )}&uid=${result.data.uid}&user_name=${encodeURIComponent(
-        result.data.user_name
-      )}`
+        result.data.user_name,
+      )}`,
     );
   } else {
     // 登录失败，直接返回错误信息
-    res.clearCookie(FE_COOKIE, { path: "/" });
     return res.status(400).json({
       code: result.code || -1,
       msg: result.msg || "登录失败",
