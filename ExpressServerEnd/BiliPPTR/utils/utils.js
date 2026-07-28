@@ -1163,11 +1163,6 @@ const utils = {
     RPA: {
         base_url: process.env.RPA_SERVICE_URI,
     },
-    NOTIFY: {
-        base_url: run_env_args['env'] === 'prod'
-            ? (process.env.MESSAGE_SERVICE_URI || 'http://notify-service:18739')
-            : (process.env.MESSAGE_SERVICE_URI || 'http://localhost:18739'),
-    },
     MESSAGE: {
         base_url: run_env_args['env'] === 'prod'
             ? (process.env.MESSAGE_SERVICE_URI || 'http://message-service:18739')

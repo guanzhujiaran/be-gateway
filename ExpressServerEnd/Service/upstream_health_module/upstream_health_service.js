@@ -29,9 +29,9 @@ function getUpstreamTargets() {
       target: process.env.CASDOOR_ENDPOINT,
     },
     {
-      name: "be-message-service (notify)",
-      route: "/api/v1/notify",
-      target: utils.NOTIFY.base_url,
+      name: "be-message-service (message)",
+      route: "/api/v1/message",
+      target: utils.MESSAGE.base_url,
     },
   ];
 }
