@@ -95,6 +95,24 @@ const t = {
 
         // 调用辅助函数处理传入的对象
         return recursiveRename(obj);
+    },
+    /**
+     * 对邮箱地址进行脱敏：保留 @ 前部分的「前 3 位」与完整域名，中间用 * 填充。
+     * 例如：1944637830@qq.com -> 194*****qq.com
+     * @param {string} email
+     * @return {string}
+     */
+    mask_email: (email) => {
+        if (!email || typeof email !== 'string' || !email.includes('@')) {
+            return email || '';
+        }
+        const [local, domain] = email.split('@');
+        if (local.length <= 3) {
+            return `${local.slice(0, 1)}***${domain}`;
+        }
+        // 保留前 3 位，去掉尾部 2 位，中间用 * 填充（至少 3 个）
+        const starCount = Math.max(3, local.length - 5);
+        return `${local.slice(0, 3)}${'*'.repeat(starCount)}${domain}`;
     }
     //endregion
 }

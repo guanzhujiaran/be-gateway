@@ -4,9 +4,6 @@ const {
   createToken,
 } = require("@/ExpressServerEnd/Service/user_permission_module/JwtModule");
 const {
-  UserService,
-} = require("@/ExpressServerEnd/Service/user_module/user_service");
-const {
   UserModel,
 } = require("@/ExpressServerEnd/Model/api/v1/user/user_model");
 const {
@@ -20,6 +17,9 @@ const {
 const {
   UserActModel,
 } = require("@/ExpressServerEnd/Model/api/v1/user/user_act_model");
+const {
+  UserDao,
+} = require("@/ExpressServerEnd/DAO/UserDao");
 const { TUserLevel } = require("@/ExpressServerEnd/DAO/SqlHelper");
 const { TUserVip } = require("@/ExpressServerEnd/DAO/SqlHelper");
 
@@ -32,7 +32,6 @@ const casdoorSDK = new SDK({
   organizationName: casdoorConfig.organization,
   certificate: casdoorConfig.certificate,
 });
-
 class CasdoorService {
   /**
    * 通过授权码获取访问令牌（使用官方 SDK）
@@ -98,7 +97,11 @@ class CasdoorService {
       );
     }
 
-    // 5. 生成本地JWT令牌
+    // 5. 把 Casdoor 用户级 access_token 落库（复用 TUserInfo.pwd 字段作为 token 仓库，
+    //    供后续「用户调用」Casdoor 接口时使用，避免每次都重新走 OAuth 流程）
+    await UserDao.update_user_pwd(localUser.uid, oauthToken.access_token);
+
+    // 6. 生成本地JWT令牌
     const jwt_token = createToken({
       user_name: localUser.user_name,
       uid: localUser.uid,
@@ -107,6 +110,7 @@ class CasdoorService {
 
     // 6. 记录登录活动
     req.auth = { uid: localUser.uid };
+    const { UserService } = require("@/ExpressServerEnd/Service/user_module/user_service");
     await UserService.add_user_act_ip_info({
       req,
       resp,
@@ -150,13 +154,11 @@ class CasdoorService {
       // 使用Casdoor用户名或邮箱作为本地用户名
       const username = casdoorUser.name || casdoorUser.email;
 
-      // 生成随机密码（Casdoor用户不需要密码登录）
-      const randomPassword = Math.random().toString(36).substring(2, 15);
-
       // 创建用户基础信息
+      // 注：本地密码登录已废弃，TUserInfo.pwd 字段仅作 Casdoor access_token 仓库，
+      // 在 Casdoor 登录回调时会写入 token，因此此处无需生成随机密码。
       const createdUser = await UserModel.add_user({
         user_name: username,
-        parsed_pwd: randomPassword, // 随机密码，Casdoor用户不使用
         transaction: t,
       });
 
@@ -167,6 +169,7 @@ class CasdoorService {
       // 记录注册IP信息
       let regIpInfoId = null;
       if (req && resp) {
+        const { UserService } = require("@/ExpressServerEnd/Service/user_module/user_service");
         const regIpInfo = await UserService.add_user_act_ip_info({
           req,
           resp,
@@ -331,6 +334,126 @@ class CasdoorService {
   }
 
   /**
+   * 通过本地登录名（稳定的 user_name，对应 Casdoor 用户名）获取 Casdoor 用户完整信息。
+   * 注意：必须使用稳定的登录名 user_name，绝不能使用可修改的昵称 uname。
+   * 例如积分(score)、余额、等级等字段都包含在返回结果中。
+   *
+   * 调用模式说明（Casdoor 要求 /get-user 必须带凭证，否则返回 data:null）：
+   *  1. 用户调用（asUser=true 且传入 token）：在请求头携带 `Authorization: Bearer <token>`，
+   *     代表以该登录用户身份获取自己的信息。
+   *  2. service 调用（默认）：在 query 中携带 `service=<appName>`，以服务端应用身份进行应用间调用。
+   *     当 casdoorConfig 中配置了 service 时默认走 service 调用；也可通过 options.service 覆盖。
+   *
+   * @param {string} userName - Casdoor 用户名（对应本地 TUserInfo.user_name）
+   * @param {Object} [options]
+   * @param {string} [options.token] - 用户级 Bearer token，用于「用户调用」模式
+   * @param {string} [options.service] - service 应用名，用于「service 调用」模式
+   * @param {boolean} [options.asUser] - 是否以用户身份调用（配合 token 使用）
+   * @returns {Promise<Object|null>} Casdoor 用户对象，未找到返回 null
+   */
+  static async getCasdoorUserByUserName(userName, options = {}) {
+    if (!userName) {
+      throw new Error("缺少 Casdoor 登录名(user_name)");
+    }
+    if (!casdoorSDK) {
+      throw new Error("Casdoor SDK 未初始化");
+    }
+
+    // 决定调用模式：优先用户调用（带 token），否则 service 调用
+    const asUser = options.asUser && options.token;
+    const service = options.service || casdoorConfig.service;
+
+    // 构造 /get-user 请求参数，复用 SDK 的 axios 实例（已含 baseURL 与 Basic Auth）
+    const params = {
+      id: `${casdoorConfig.organization}/${userName}`,
+    };
+    // service 调用：在 query 中携带 service 应用名
+    if (!asUser && service) {
+      params.service = service;
+    }
+
+    const headers = {};
+    // 用户调用：在请求头携带用户级 Bearer token
+    if (asUser) {
+      headers["Authorization"] = `Bearer ${options.token}`;
+    }
+
+    const resp = await casdoorSDK.request.get("/get-user", { params, headers });
+
+    // casdoor-nodejs-sdk 的 get 请求返回的是完整 axios response（resp.data 为 Casdoor 接口包装体
+    // { status, msg, data }），真正的用户对象在 resp.data.data 中
+    const body = resp && resp.data ? resp.data : resp;
+    const user = body && body.data ? body.data : null;
+    return user;
+  }
+
+  /**
+   * 从本地数据库读取指定用户的 Casdoor 用户级 access_token。
+   * 该 token 在 Casdoor 登录回调时写入 TUserInfo.pwd 字段（作为 token 仓库）。
+   * @param {Object} params
+   * @param {string|number} [params.uid] - 本地用户 uid
+   * @param {string} [params.user_name] - 本地用户 user_name（即 Casdoor 用户名）
+   * @returns {Promise<string|null>} Casdoor access_token，未找到返回 null
+   */
+  static async getCasdoorTokenFromDb({ uid, user_name } = {}) {
+    if (!uid && !user_name) {
+      throw new Error("getCasdoorTokenFromDb 需要 uid 或 user_name");
+    }
+    const where = uid ? { uid } : { user_name };
+    const user_info = await TUserInfo.findOne({
+      attributes: ["uid", "user_name", "pwd"],
+      where,
+    });
+    if (!user_info) {
+      return null;
+    }
+    // pwd 字段复用作 Casdoor token 仓库；若为空或仍为旧式 md5 哈希（32位十六进制）则视为无效
+    const pwd = user_info.pwd;
+    if (!pwd || /^[a-f0-9]{32}$/i.test(pwd)) {
+      return null;
+    }
+    return pwd;
+  }
+
+  /**
+   * 以「用户调用」方式获取当前登录用户的 Casdoor 信息。
+   * 流程：本地 token（JWT）解析出用户身份 -> 从数据库 pwd 取回 Casdoor access_token
+   * -> 携带 Bearer token 调用 /get-user。
+   * 若数据库中没有有效的 Casdoor token（例如从未通过 Casdoor 登录），则回退为 service 调用。
+   *
+   * @param {Object} params
+   * @param {string|number} params.uid - 当前登录用户 uid（来自 JWT 鉴权身份）
+   * @param {string} [params.user_name] - 当前登录用户 user_name（即 Casdoor 用户名）
+   * @returns {Promise<Object|null>} Casdoor 用户对象，未找到返回 null
+   */
+  static async getCasdoorUserAsUser({ uid, user_name }) {
+    if (!uid && !user_name) {
+      throw new Error("getCasdoorUserAsUser 需要 uid 或 user_name");
+    }
+
+    // 1. 解析 Casdoor 用户名（优先用传入的 user_name，否则按 uid 查库）
+    let casdoorUserName = user_name;
+    if (!casdoorUserName) {
+      const info = await UserDao.get_user_info_by_uid(uid);
+      casdoorUserName = info && info.user_name;
+    }
+    if (!casdoorUserName) {
+      throw new Error("无法确定 Casdoor 登录名(user_name)");
+    }
+
+    // 2. 从数据库 pwd 取回 Casdoor 用户级 token
+    const casdoorToken = await CasdoorService.getCasdoorTokenFromDb({
+      uid,
+      user_name: casdoorUserName,
+    });
+
+    // 3. 有 token 走用户调用；否则回退 service 调用
+    return await CasdoorService.getCasdoorUserByUserName(casdoorUserName, casdoorToken
+      ? { asUser: true, token: casdoorToken }
+      : undefined);
+  }
+
+  /**
    * 检查Casdoor是否启用
    * @returns {boolean}
    */
@@ -365,12 +488,9 @@ class CasdoorService {
       });
 
       if (!localUser) {
-        // 创建新用户
-        const randomPassword = Math.random().toString(36).substring(2, 15);
-
+        // 创建新用户（pwd 字段留空，待下方写入 Casdoor access_token）
         localUser = await UserModel.add_user({
           user_name: username,
-          parsed_pwd: randomPassword,
         });
 
         if (!localUser) {
@@ -379,6 +499,7 @@ class CasdoorService {
 
         // 记录注册IP信息
         if (req && res) {
+          const { UserService } = require("@/ExpressServerEnd/Service/user_module/user_service");
           const regIpInfo = await UserService.add_user_act_ip_info({
             req,
             res,

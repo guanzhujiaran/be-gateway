@@ -9,6 +9,36 @@ const {
 } = require("@/ExpressServerEnd/Model/base_model/base_model");
 const config = require("@/ExpressServerEnd/config/index");
 const { Op } = require("sequelize");
+const { levelToRole, isRoot, getRoleDescription } = require("@/ExpressServerEnd/Service/user_module/user_role_const");
+const { t } = require("@/ExpressServerEnd/Tool/Utl");
+
+/**
+ * 升级时自动同步用户的成长等级角色：
+ * 当经验值提升导致等级上升，且当前角色不是 root（管理员角色不会被升级逻辑覆盖）时，
+ * 将 TUserInfo.role 更新为对应的 level{n}。
+ * @param {string|number} mid - 用户ID
+ * @param {number} new_level - 升级后的等级
+ * @param {object} t - sequelize 事务
+ * @return {Promise<boolean>} 是否发生了角色更新
+ */
+async function syncRoleOnLevelUp(mid, new_level, t) {
+  const current = await TUserInfo.findOne({
+    attributes: ['uid', 'role'],
+    where: { uid: mid },
+    transaction: t,
+    lock: true,
+  });
+  if (!current) return false;
+  // root 是独立的管理员角色，升级逻辑不得覆盖
+  if (isRoot(current.role)) return false;
+  const targetRole = levelToRole(new_level);
+  if (current.role === targetRole) return false;
+  await TUserInfo.update(
+    { role: targetRole },
+    { where: { uid: mid }, transaction: t }
+  );
+  return true;
+}
 
 class UserLevelService {
   /**
@@ -134,6 +164,12 @@ class UserLevelService {
 
       await level_info.save({ transaction: t });
 
+      // 升级时自动同步成长等级角色（不覆盖 root）
+      let role_updated = false;
+      if (new_level > old_level) {
+        role_updated = await syncRoleOnLevelUp(mid, Number(new_level), t);
+      }
+
       return new base_api_model({
         data: {
           old_exp: String(old_exp),
@@ -141,6 +177,7 @@ class UserLevelService {
           old_level: Number(old_level),
           new_level: Number(new_level),
           leveled_up: new_level > old_level,
+          role_updated,
         },
         msg: new_level > old_level ? "升级了！" : "经验值增加成功",
       });
@@ -228,6 +265,12 @@ class UserLevelService {
 
       await level_info.save({ transaction: t });
 
+      // 升级时自动同步成长等级角色（不覆盖 root）
+      let role_updated = false;
+      if (new_level > old_level) {
+        role_updated = await syncRoleOnLevelUp(mid, Number(new_level), t);
+      }
+
       return new base_api_model({
         data: {
           can_add_exp: true,
@@ -236,6 +279,7 @@ class UserLevelService {
           old_level: Number(old_level),
           new_level: Number(new_level),
           leveled_up: new_level > old_level,
+          role_updated,
           current_level: Number(new_level),
           current_exp: String(new_exp),
         },
@@ -339,14 +383,19 @@ class UserLevelService {
       });
     }
 
+    const roleInfo = getRoleDescription(user_data.role);
     return new base_api_model({
       data: {
         uid: user_data.uid,
         user_name: user_data.TUserDetail?.uname || user_data.user_name,
-        level: user_data.role,
+        role_info: {
+          role: user_data.role,
+          role_name: roleInfo.name,
+          role_description: roleInfo.description,
+        },
         face: user_data.TUserDetail?.avatar || "",
         level_info: this.level_calc(user_data.TUserDetail?.TUserLevel),
-        email: user_data.TUserDetail?.email || "",
+        email: t.mask_email(user_data.TUserDetail?.email || ""),
       },
       msg: "获取成功",
     });

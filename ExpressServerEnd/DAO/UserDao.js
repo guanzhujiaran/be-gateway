@@ -139,6 +139,19 @@ class UserDao {
             transaction: transaction
         })
     };
+
+    /**
+     * 更新用户的pwd字段（此处被复用为：保存Casdoor用户级access_token）
+     * @param {string|number} uid
+     * @param {string} pwd - 新的pwd值，或Casdoor access_token
+     * @return {Promise<number>} 受影响行数
+     */
+    static async update_user_pwd(uid, pwd) {
+        return await TUserInfo.update(
+            { pwd: pwd },
+            { where: { uid: uid } }
+        );
+    };
     //#endregion
 
     static get_user_vip = async ({ uid }) => {
