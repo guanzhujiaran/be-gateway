@@ -42,6 +42,21 @@ const t = {
         SeqBitLength: 4,
         TopOverCostCount: 200
     }),
+    // 用户 mid 生成器（雪花漂移算法）：替代原来的数据库自增。
+    // 需求：初始数值与步进都特别小 —— 相比评论 rpid（shift=9，约 17 位数）小约 5 个数量级。
+    //   · WorkerIdBitLength=1：机器码仅占 1 位（worker id 只能取 0/1，与 config.snow_flake_worker_id 对齐），
+    //     若未来需要多实例并发生成 mid，请调大此值（会使 mid 变大）。
+    //   · SeqBitLength=3：序列位取算法允许的最小值 3（每毫秒每机器可生成 3 个：seq 5~7）。
+    //   · 时间戳左移位数 = WorkerIdBitLength + SeqBitLength = 4，即每毫秒 mid 仅递增 16（步进极小）。
+    // BaseTime 沿用项目既有的过去基准时间，保证时间差恒为正、且生成值远大于历史自增 uid，避免主键冲突。
+    // 生成结果恒为普通 Number（远小于 2^53），可安全写入 BIGINT 主键。
+    user_mid_snowflake_gen: new GenId({
+        WorkerId: config?.common_config?.snow_flake_worker_id ?? 1,
+        BaseTime: 1732849832635,
+        WorkerIdBitLength: 1,
+        SeqBitLength: 3,
+        TopOverCostCount: 50
+    }),
     now_s: () => {
         return Math.round(Date.now() / 1e3)
     },

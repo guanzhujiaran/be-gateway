@@ -26,10 +26,7 @@ const { restrictToLocalhost } = require("./MiddleWare/Limiter");
 // 导入路由
 const UserRouter = require("./routes/user");
 const CasdoorRouter = require("./routes/casdoor");
-const AccountRouter = require("./routes/account");
 const DoLotteryRouter = require("./routes/do_lottery");
-const FeedbackCommentRouter = require("./routes/feedback_comment");
-const FeedbackContentRouter = require("./routes/feedback_content");
 const PingRouter = require("./routes/ping");
 const { bullRouter } = require("./routes/queues");
 const ProxyEndPort = require("./routes/proxy");
@@ -120,10 +117,7 @@ app.use(jwtAuth);
 // 路由注册
 app.use("/api/v1/casdoor", CasdoorRouter);
 app.use("/api/v1/user", UserRouter);
-app.use("/api/v1/account", AccountRouter);
 app.use("/api/v1/do_lottery", DoLotteryRouter);
-app.use("/api/v1/feedback/comment", FeedbackCommentRouter);
-app.use("/api/v1/feedback/content", FeedbackContentRouter);
 app.use("/api/v1/ping", PingRouter);
 app.use("/api/admin/queues", restrictToLocalhost, bullRouter);
 app.use("", ProxyEndPort);

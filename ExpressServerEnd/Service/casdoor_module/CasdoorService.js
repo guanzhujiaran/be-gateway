@@ -10,18 +10,13 @@ const {
   base_api_model,
 } = require("@/ExpressServerEnd/Model/base_model/base_model");
 const {
-  TUserInfo,
-  TUserDetail,
-  sequelize,
-} = require("@/ExpressServerEnd/DAO/SqlHelper");
-const {
   UserActModel,
 } = require("@/ExpressServerEnd/Model/api/v1/user/user_act_model");
 const {
   UserDao,
 } = require("@/ExpressServerEnd/DAO/UserDao");
-const { TUserLevel } = require("@/ExpressServerEnd/DAO/SqlHelper");
-const { TUserVip } = require("@/ExpressServerEnd/DAO/SqlHelper");
+// pptr 用户读写全部走 be-message RPC，不再维护本地 sequelize 用户表
+const { callRpc } = require("@/ExpressServerEnd/Service/mq/rpc_client");
 
 // 创建 Casdoor SDK 实例
 const casdoorSDK = new SDK({
@@ -74,38 +69,35 @@ class CasdoorService {
     //   JSON.stringify(casdoorUserInfo, null, 2)
     // );
 
-    // 3. 检查用户是否已存在于本地数据库
+    // 3. 检查用户是否已存在于 pptr（走 be-message RPC，不查本地表）
     const username = casdoorUserInfo.name || casdoorUserInfo.email;
-    let localUser = await TUserInfo.findOne({ 
-      where: {
-        user_name: username,
-      },
-    });
+    const existResp = await callRpc("get_user_info", { user_name: username });
+    let localUser = existResp && existResp.code === 0 ? existResp.data : null;
 
-    // 4. 如果用户不存在，自动创建；如果存在，同步更新用户信息
+    // 4. 如果用户不存在，自动创建（创建时就把完整的 OAuth token JSON 写入 TUserInfo.pwd）；
+    //    如果存在，仅需更新 token，无需同步用户信息（create_user 已在创建时建好各扩展表）
     if (!localUser) {
       localUser = await CasdoorService.createLocalUserFromCasdoor(
         casdoorUserInfo,
+        oauthToken,  // 传入完整 OAuth token 对象，内部序列化为 JSON 存储
         req,
         resp
       );
-    } else {
-      // 用户已存在，同步更新Casdoor信息到本地
-      await CasdoorService.syncCasdoorUserInfoToDatabase(
-        localUser,
-        casdoorUserInfo
-      );
     }
 
-    // 5. 把 Casdoor 用户级 access_token 落库（复用 TUserInfo.pwd 字段作为 token 仓库，
-    //    供后续「用户调用」Casdoor 接口时使用，避免每次都重新走 OAuth 流程）
-    await UserDao.update_user_pwd(localUser.uid, oauthToken.access_token);
+    // 5. 不管是否新用户，只要用 Casdoor 登录，就把完整的 OAuth token 对象落库到 TUserInfo.pwd
+    //    （复用 pwd 字段作为 token 仓库，存储 JSON 包含 access_token + refresh_token，
+    //     供后续「用户调用」Casdoor 接口以及 token 刷新时使用）
+    const tokenJson = JSON.stringify(oauthToken);
+    await UserDao.update_user_pwd(localUser.uid, tokenJson);
 
-    // 6. 生成本地JWT令牌
+    // 6. 生成本地JWT令牌（将 role 也放入 payload，供 PrefetchUserInfo 中间件
+    //    直接从 req.auth 取值构造 x-bili-* 头，避免额外 RPC 查询）
     const jwt_token = createToken({
       user_name: localUser.user_name,
       uid: localUser.uid,
       level: localUser.level || "0",
+      role: localUser.role || "0",
     });
 
     // 6. 记录登录活动
@@ -141,146 +133,52 @@ class CasdoorService {
   /**
    * 从Casdoor用户信息创建本地用户
    * @param {Object} casdoorUser - Casdoor用户信息
+   * @param {Object|string} oauthToken - Casdoor OAuth token 对象（含 access_token, refresh_token），
+   *   或已序列化的 JSON 字符串；内部自动序列化为 JSON 后写入 TUserInfo.pwd
    * @param {Object} req - 请求对象（可选）
    * @param {Object} resp - 响应对象（可选）
    * @returns {Promise<Object>} 本地用户对象
    */
   static async createLocalUserFromCasdoor(
     casdoorUser,
+    oauthToken = "",
     req = null,
     resp = null
   ) {
-    return await sequelize.transaction(async (t) => {
-      // 使用Casdoor用户名或邮箱作为本地用户名
-      const username = casdoorUser.name || casdoorUser.email;
+    // 使用Casdoor用户名或邮箱作为本地用户名
+    const username = casdoorUser.name || casdoorUser.email;
 
-      // 创建用户基础信息
-      // 注：本地密码登录已废弃，TUserInfo.pwd 字段仅作 Casdoor access_token 仓库，
-      // 在 Casdoor 登录回调时会写入 token，因此此处无需生成随机密码。
-      const createdUser = await UserModel.add_user({
-        user_name: username,
-        transaction: t,
-      });
+    // 将 oauthToken 序列化为 JSON 字符串存储
+    const tokenStr = typeof oauthToken === "object" ? JSON.stringify(oauthToken) : oauthToken;
 
-      if (!createdUser) {
-        throw new Error("创建本地用户失败");
-      }
-
-      // 记录注册IP信息
-      let regIpInfoId = null;
-      if (req && resp) {
-        const { UserService } = require("@/ExpressServerEnd/Service/user_module/user_service");
-        const regIpInfo = await UserService.add_user_act_ip_info({
-          req,
-          resp,
-          act_info: UserActModel.reg,
-          transaction: t,
-        });
-        regIpInfoId = regIpInfo.pk;
-        await createdUser.update(
-          { reg_ip_info_id: regIpInfoId },
-          { transaction: t }
-        );
-      }
-
-      // 同步Casdoor用户详细信息到TUserDetail表
-      await CasdoorService.syncCasdoorUserInfoToDatabase(
-        createdUser,
-        casdoorUser,
-        t
-      );
-
-      console.log(`成功创建Casdoor用户: ${username}, uid: ${createdUser.uid}`);
-
-      return createdUser;
+    // 创建用户（走 be-message RPC，一次性建 TUserInfo + TUserDetail + TUserLevel + TUserVip，uid 服务端自增）。
+    // TUserInfo.pwd 字段复用作 Casdoor token 仓库：把完整的 token JSON 一并传给 create_user RPC，
+    // 用户创建的同时 token 即写入 pwd，无需再单独同步。
+    const createdUser = await UserModel.add_user({
+      user_name: username,
+      parsed_pwd: tokenStr,
     });
-  }
 
-  /**
-   * 将 Casdoor 用户信息同步到本地数据库
-   * @param {Object} localUser - 本地用户对象
-   * @param {Object} casdoorUser - Casdoor 用户信息
-   * @param {Object} transaction - Sequelize 事务对象（可选）
-   * @returns {Promise<void>}
-   */
-  static async syncCasdoorUserInfoToDatabase(
-    localUser,
-    casdoorUser,
-    transaction = null
-  ) {
-    try {
-      // 准备用户详细信息
-      const userDetailData = {
-        mid: localUser.uid,
-        // 使用显示名称作为昵称，如果没有则使用用户名
-        uname:
-          casdoorUser.displayName || casdoorUser.name || localUser.user_name,
-        // 头像 URL
-        avatar: casdoorUser.avatar || "",
-        // 个人简介/签名
-        sign: casdoorUser.homepage || casdoorUser.bio || "",
-        // 性别（Casdoor 可能不提供这个信息，默认为"保密"）
-        sex: "保密",
-        // 邮箱地址
-        email: casdoorUser.email || "",
-      };
-
-      // 尝试从 Casdoor 属性中提取更多信息
-      if (casdoorUser.attributes) {
-        // 提取生日信息
-        if (casdoorUser.attributes.birthday) {
-          userDetailData.birthday = new Date(casdoorUser.attributes.birthday);
-        }
-        // 提取性别信息
-        if (casdoorUser.attributes.gender) {
-          const genderMap = {
-            male: "男",
-            female: "女",
-          };
-          userDetailData.sex =
-            genderMap[casdoorUser.attributes.gender.toLowerCase()] || "保密";
-        }
-        // 提取签名
-        if (casdoorUser.attributes.signature) {
-          userDetailData.sign = casdoorUser.attributes.signature;
-        }
-      }
-
-      // upsert 用户详细信息（存在则更新，不存在则创建）
-      await TUserDetail.upsert(userDetailData, {
-        transaction: transaction,
-      });
-
-      // 创建或初始化用户等级信息
-      await TUserLevel.findOrCreate({
-        where: { mid: localUser.uid },
-        defaults: {
-          mid: localUser.uid,
-          current_level: 0,
-          current_exp: 0,
-          current_min: 0,
-        },
-        transaction: transaction,
-      });
-
-      // 创建或初始化用户VIP信息
-      await TUserVip.findOrCreate({
-        where: { mid: localUser.uid },
-        defaults: {
-          mid: localUser.uid,
-          vip_status: 0,
-          vip_type: 0,
-          vip_pay_type: 0,
-          vip_due_date: 0,
-        },
-        transaction: transaction,
-      });
-
-      console.log(`成功同步Casdoor用户信息到数据库: ${localUser.user_name}`);
-    } catch (error) {
-      console.error("同步Casdoor用户信息到数据库失败:", error);
-      throw error;
+    if (!createdUser) {
+      throw new Error("创建本地用户失败");
     }
+
+    // 记录注册IP信息（reg_ip 更新走 RPC）
+    let regIpInfoId = null;
+    if (req && resp) {
+      const { UserService } = require("@/ExpressServerEnd/Service/user_module/user_service");
+      const regIpInfo = await UserService.add_user_act_ip_info({
+        req,
+        resp,
+        act_info: UserActModel.reg,
+      });
+      regIpInfoId = regIpInfo.pk;
+      await createdUser.update({ reg_ip_info_id: regIpInfoId });
+    }
+
+    console.log(`成功创建Casdoor用户: ${username}, uid: ${createdUser.uid}`);
+
+    return createdUser;
   }
 
   /**
@@ -300,24 +198,16 @@ class CasdoorService {
 
       const username = casdoorUser.name || casdoorUser.email;
 
-      let localUser = await TUserInfo.findOne({
-        where: {
-          user_name: username,
-        },
-      });
+      const existResp = await callRpc("get_user_info", { user_name: username });
+      let localUser = existResp && existResp.code === 0 ? existResp.data : null;
 
       if (!localUser) {
-        // 用户不存在，创建新用户
+        // 用户不存在，创建新用户（创建时写入 casdoor token 到 TUserInfo.pwd）
         localUser = await CasdoorService.createLocalUserFromCasdoor(
           casdoorUser,
+          casdoorToken,
           req,
           resp
-        );
-      } else {
-        // 用户已存在，同步更新Casdoor信息到本地
-        await CasdoorService.syncCasdoorUserInfoToDatabase(
-          localUser,
-          casdoorUser
         );
       }
 
@@ -389,7 +279,8 @@ class CasdoorService {
 
   /**
    * 从本地数据库读取指定用户的 Casdoor 用户级 access_token。
-   * 该 token 在 Casdoor 登录回调时写入 TUserInfo.pwd 字段（作为 token 仓库）。
+   * 该 token 在 Casdoor 登录回调时以完整 OAuth token JSON 写入 TUserInfo.pwd 字段（作为 token 仓库）。
+   * 兼容旧格式：直接存储的 access_token 字符串（明文 / 32 位 md5 旧密码）。
    * @param {Object} params
    * @param {string|number} [params.uid] - 本地用户 uid
    * @param {string} [params.user_name] - 本地用户 user_name（即 Casdoor 用户名）
@@ -399,20 +290,85 @@ class CasdoorService {
     if (!uid && !user_name) {
       throw new Error("getCasdoorTokenFromDb 需要 uid 或 user_name");
     }
-    const where = uid ? { uid } : { user_name };
-    const user_info = await TUserInfo.findOne({
-      attributes: ["uid", "user_name", "pwd"],
-      where,
+    const resp = await callRpc("get_user_info", {
+      uid: uid || 0,
+      user_name: user_name || "",
     });
+    const user_info = resp && resp.code === 0 ? resp.data : null;
     if (!user_info) {
       return null;
     }
-    // pwd 字段复用作 Casdoor token 仓库；若为空或仍为旧式 md5 哈希（32位十六进制）则视为无效
+    // pwd 字段复用作 Casdoor token 仓库
     const pwd = user_info.pwd;
     if (!pwd || /^[a-f0-9]{32}$/i.test(pwd)) {
+      // 为空或仍为旧式 md5 哈希（32位十六进制）则视为无效
       return null;
     }
+    // 尝试解析为 JSON（新格式：{ access_token, refresh_token }）
+    try {
+      const parsed = JSON.parse(pwd);
+      if (parsed.access_token) {
+        return parsed.access_token;
+      }
+    } catch {
+      // 不是 JSON，说明是旧格式（纯 access_token 字符串），直接返回
+    }
     return pwd;
+  }
+
+  /**
+   * 从本地数据库读取指定用户的 Casdoor refresh_token。
+   * @param {Object} params
+   * @param {string|number} params.uid - 本地用户 uid
+   * @returns {Promise<string|null>} Casdoor refresh_token，未找到返回 null
+   */
+  static async getCasdoorRefreshTokenFromDb({ uid }) {
+    if (!uid) {
+      throw new Error("getCasdoorRefreshTokenFromDb 需要 uid");
+    }
+    const resp = await callRpc("get_user_info", { uid: uid || 0 });
+    const user_info = resp && resp.code === 0 ? resp.data : null;
+    if (!user_info) {
+      return null;
+    }
+    const pwd = user_info.pwd;
+    if (!pwd) return null;
+    try {
+      const parsed = JSON.parse(pwd);
+      return parsed.refresh_token || null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * 刷新指定用户的 Casdoor OAuth token（使用存储的 refresh_token），
+   * 并将新的 token JSON 更新到 TUserInfo.pwd。
+   * @param {string|number} uid - 本地用户 uid
+   * @returns {Promise<string|null>} 新的 access_token，刷新失败返回 null
+   */
+  static async refreshCasdoorToken(uid) {
+    try {
+      const refreshToken = await CasdoorService.getCasdoorRefreshTokenFromDb({ uid });
+      if (!refreshToken) {
+        console.log(`[Casdoor] 用户 ${uid} 没有 refresh_token，跳过 Casdoor token 刷新`);
+        return null;
+      }
+
+      const newToken = await casdoorSDK.refreshToken(refreshToken);
+      if (!newToken || !newToken.access_token) {
+        console.warn(`[Casdoor] 用户 ${uid} 的 Casdoor token 刷新失败`);
+        return null;
+      }
+
+      const tokenJson = JSON.stringify(newToken);
+      await UserDao.update_user_pwd(uid, tokenJson);
+      console.log(`[Casdoor] 用户 ${uid} 的 Casdoor token 刷新成功`);
+      return newToken.access_token;
+    } catch (error) {
+      console.error(`[Casdoor] 用户 ${uid} 的 Casdoor token 刷新失败:`, error.message);
+      return null;
+    }
   }
 
   /**
@@ -441,16 +397,36 @@ class CasdoorService {
       throw new Error("无法确定 Casdoor 登录名(user_name)");
     }
 
-    // 2. 从数据库 pwd 取回 Casdoor 用户级 token
+    // 2. 从数据库 pwd 取回 Casdoor 用户级 token（登录回调时写入）。
+    //    该 token 即「用户自己的凭证」，后续访问 Casdoor 一律携带它做「用户调用」。
     const casdoorToken = await CasdoorService.getCasdoorTokenFromDb({
       uid,
       user_name: casdoorUserName,
     });
 
-    // 3. 有 token 走用户调用；否则回退 service 调用
-    return await CasdoorService.getCasdoorUserByUserName(casdoorUserName, casdoorToken
-      ? { asUser: true, token: casdoorToken }
-      : undefined);
+    // 3. 优先以「用户调用」(Bearer 携带用户自己的 token) 查询；
+    //    仅当用户库中确实没有有效 token（如从未通过 Casdoor 登录）时，
+    //    才回退为「service 调用」。
+    if (casdoorToken) {
+      return await CasdoorService.getCasdoorUserByUserName(casdoorUserName, {
+        asUser: true,
+        token: casdoorToken,
+      });
+    }
+
+    // 没有用户自己的凭证：回退 service 调用，让用户仍能看到 Casdoor 信息
+    const svcUser = await CasdoorService.getCasdoorUserByUserName(
+      casdoorUserName,
+      { service: casdoorConfig.service }
+    );
+    if (svcUser) {
+      return svcUser;
+    }
+
+    // 既无用户凭证、service 调用也未找到：抛出明确错误，提示重新登录以绑定凭证
+    throw new Error(
+      `用户 ${casdoorUserName} 尚未绑定 Casdoor 凭证（请重新通过 Casdoor 登录一次）`
+    );
   }
 
   /**
@@ -480,12 +456,9 @@ class CasdoorService {
     } = oauthData;
 
     try {
-      // 检查用户是否已存在于本地数据库
-      let localUser = await TUserInfo.findOne({
-        where: {
-          user_name: username,
-        },
-      });
+      // 检查用户是否已存在于 pptr（走 RPC）
+      const existResp = await callRpc("get_user_info", { user_name: username });
+      let localUser = existResp && existResp.code === 0 ? existResp.data : null;
 
       if (!localUser) {
         // 创建新用户（pwd 字段留空，待下方写入 Casdoor access_token）
@@ -513,39 +486,18 @@ class CasdoorService {
         );
       }
 
-      // 同步用户详细信息到 TUserDetail 表
-      const userDetailData = {
-        mid: localUser.uid,
+      // 同步用户详细信息到 TUserDetail / TUserLevel / TUserVip（走 RPC upsert）
+      await callRpc("create_user", {
+        user_name: username,
         uname: displayName || username,
-        avatar: avatar || "",
+        face: avatar || "",
         sign: `${provider}用户`,
         sex: "保密",
-        email: email || "", // 保存邮箱地址
-      };
-
-      await TUserDetail.upsert(userDetailData);
-
-      // 创建或初始化用户等级信息
-      await TUserLevel.findOrCreate({
-        where: { mid: localUser.uid },
-        defaults: {
-          mid: localUser.uid,
-          current_level: 0,
-          current_exp: 0,
-          current_min: 0,
-        },
-      });
-
-      // 创建或初始化用户VIP信息
-      await TUserVip.findOrCreate({
-        where: { mid: localUser.uid },
-        defaults: {
-          mid: localUser.uid,
-          vip_status: 0,
-          vip_type: 0,
-          vip_pay_type: 0,
-          vip_due_date: 0,
-        },
+        email: email || "",
+        current_level: 0,
+        vip_type: 0,
+        vip_due_date: 0,
+        vip_status: 0,
       });
 
       return localUser;

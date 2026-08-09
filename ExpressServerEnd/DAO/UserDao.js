@@ -1,6 +1,6 @@
-const { TUserInfo, TUserVip, TUserLevel, TUserDetail } = require("@/ExpressServerEnd/DAO/SqlHelper");
-
-const { Op, literal } = require("sequelize");
+const { t } = require("@/ExpressServerEnd/Tool/Utl");
+// pptr 用户读写全部走 be-message RPC，不再维护本地 sequelize 用户表
+const { callRpc } = require("@/ExpressServerEnd/Service/mq/rpc_client");
 
 class UserDao {
     constructor() {
@@ -29,15 +29,8 @@ class UserDao {
      }
      */
     static get_user_info_by_uid = async (uid) => {
-        let user_info = await TUserInfo.findOne({
-            attributes: {
-                exclude: ['createdAt', 'updatedAt', 'deletedAt']
-            },
-            where: {
-                uid: uid,
-            },
-        });
-        return user_info?.toJSON();
+        const resp = await callRpc("get_user_info", { uid });
+        return resp && resp.code === 0 ? resp.data : undefined;
     };
 
     /**
@@ -50,15 +43,8 @@ class UserDao {
      * }>}
      */
     static async get_user_info_by_user_name(user_name) {
-        let user_info = await TUserInfo.findOne({
-            attributes: {
-                exclude: ['createdAt', 'updatedAt', 'deletedAt']
-            },
-            where: {
-                user_name: user_name,
-            },
-        });
-        return user_info?.toJSON();
+        const resp = await callRpc("get_user_info", { user_name });
+        return resp && resp.code === 0 ? resp.data : undefined;
     };
 
     /**
@@ -68,129 +54,68 @@ class UserDao {
      * @return {Promise<*>}
      */
     static async get_whole_user_info({ user_name, uid }) {
-        return await TUserInfo.findOne({
-            attributes: {
-                exclude: ['createdAt', 'updatedAt', 'deletedAt']
+        const resp = await callRpc("get_user_info", {
+            uid: uid || 0,
+            user_name: user_name || "",
+        });
+        const data = resp && resp.code === 0 ? resp.data : null;
+        if (!data) return null;
+        // 兼容旧调用方的嵌套结构（TUserDetail.TUserLevel / TUserVip）
+        return {
+            uid: data.uid,
+            user_name: data.user_name,
+            pwd: data.pwd,
+            role: data.role,
+            TUserDetail: {
+                uname: data.uname,
+                avatar: data.face,
+                TUserLevel: { current_level: data.current_level },
+                TUserVip: {
+                    vip_type: data.vip_type,
+                    vip_due_date: data.vip_due_date,
+                    vip_status: data.vip_status,
+                },
             },
-            where:
-                Object.fromEntries(Object.entries(arguments[0]).filter((el) => el[1]))
-            ,
-            include:
-                [
-                    {
-                        model: TUserDetail,
-                        as: "TUserDetail",
-                        required: false,
-                        attributes:
-                            [
-                                [literal(`COALESCE("TUserDetail"."mid", "uid")`), 'mid'],
-                                [literal('COALESCE("TUserDetail"."avatar", \'\')'), 'avatar'],
-                                [literal(`COALESCE("TUserDetail"."uname",'bili_'|| REGEXP_REPLACE("user_name",'^(.)(.{0,2})(.*)$', '\\1**\\3', 'g'))`), 'uname'],
-                                [literal('COALESCE("TUserDetail"."sign", \'\')'), 'sign'],
-                                [literal('COALESCE("TUserDetail"."sex", \'\')'), 'sex']
-                            ],
-                        include: [
-                            {
-                                model: TUserVip,
-                                as: "TUserVip",
-                                attributes: {
-                                    include: [
-                                        [literal(`COALESCE("TUserDetail->TUserVip"."mid", "uid")`), 'mid'],
-                                        [literal(`COALESCE("TUserDetail->TUserVip"."vip_due_date", 0)`), 'vip_due_date'],
-                                        [literal('COALESCE("TUserDetail->TUserVip"."vip_pay_type", 0)'), 'vip_pay_type'],
-                                        [literal('COALESCE("TUserDetail->TUserVip"."vip_status",0)'), 'vip_status'],
-                                        [literal('COALESCE("TUserDetail->TUserVip"."vip_type", 0)'), 'vip_type'],
-                                    ],
-                                    exclude: ['createdAt', 'ip_info_id', 'updatedAt', 'deletedAt', 'mid']
-                                },
-                                required: false,
-                            },
-                            {
-                                model: TUserLevel,
-                                as: "TUserLevel",
-                                attributes: {
-                                    include: [
-                                        [literal(`COALESCE("TUserDetail->TUserLevel"."mid", "uid")`), 'mid'],
-                                        [literal(`COALESCE("TUserDetail->TUserLevel"."current_level", 0)`), 'current_level'],
-                                        [literal('COALESCE("TUserDetail->TUserLevel"."current_exp", 0)'), 'current_exp'],
-                                        [literal('COALESCE("TUserDetail->TUserLevel"."current_min",0)'), 'current_min'],
-                                    ],
-                                    exclude: ['createdAt', 'updatedAt', 'ip_info_id', 'deletedAt', 'mid']
-                                },
-                                required: false,
-                            },
-                        ]
-                    },
-                ]
-        })
+        };
     }
-
-    /**
-     *
-     * @param user_name
-     * @param pwd
-     * @return {Promise<TUserInfo>}
-     */
-    static add_user_info = async (user_name, pwd, transaction) => {
-        return await TUserInfo.create({
-            pwd: pwd,
-            user_name: user_name,
-        }, {
-            transaction: transaction
-        })
-    };
 
     /**
      * 更新用户的pwd字段（此处被复用为：保存Casdoor用户级access_token）
      * @param {string|number} uid
      * @param {string} pwd - 新的pwd值，或Casdoor access_token
      * @return {Promise<number>} 受影响行数
+     * @throws {Error} 服务端返回业务错误时抛出（上游登录流程依赖抛错以中止）
      */
     static async update_user_pwd(uid, pwd) {
-        return await TUserInfo.update(
-            { pwd: pwd },
-            { where: { uid: uid } }
-        );
+        const resp = await callRpc("update_user_info", { uid, pwd });
+        if (!resp || resp.code !== 0) {
+            const msg = resp && resp.msg ? resp.msg : JSON.stringify(resp);
+            throw new Error(`pptr RPC update_user_info 失败: ${msg} (uid=${uid})`);
+        }
+        return 1;
     };
     //#endregion
 
-    static get_user_vip = async ({ uid }) => {
-        return (await TUserVip.findOne({
-            attributes: {
-                exclude: ['createdAt', 'updatedAt', 'deletedAt']
-            },
-            where: {
-                mid: uid
-            }
-        }))?.toJSON();
-    };
-
     static get_user_whole_info = async ({ uid }) => {
-        return (await TUserInfo.findOne({
-            where: { uid },
-            attributes: ["uid", "user_name", "role"],
-            include: [
-                {
-                    model: TUserDetail,
-                    as: "TUserDetail",
-                    required: false,
-                    include: [
-                        {
-                            model: TUserLevel,
-                            as: "TUserLevel",
-                            required: false,
-                        },
-                        {
-                            model: TUserVip,
-                            as: "TUserVip",
-                            required: false,
-                        }
-                    ],
+        const resp = await callRpc("get_user_info", { uid });
+        const data = resp && resp.code === 0 ? resp.data : null;
+        if (!data) return undefined;
+        return {
+            uid: data.uid,
+            user_name: data.user_name,
+            role: data.role,
+            TUserDetail: {
+                uname: data.uname,
+                avatar: data.face,
+                TUserLevel: { current_level: data.current_level },
+                TUserVip: {
+                    vip_type: data.vip_type,
+                    vip_due_date: data.vip_due_date,
+                    vip_status: data.vip_status,
                 },
-
-            ],
-        })).toJSON();
-    }
+            },
+        };
+    };
 }
 
 module.exports = {

@@ -1,4 +1,6 @@
 const {UserDao} = require("@/ExpressServerEnd/DAO/UserDao");
+// pptr 用户读写全部走 be-message RPC，不再维护本地 sequelize 用户表
+const { callRpc } = require("@/ExpressServerEnd/Service/mq/rpc_client");
 
 
 exports.UserModel = class UserModel {
@@ -17,45 +19,77 @@ exports.UserModel = class UserModel {
     }
 
     async get_uname_uid_pwd() {
-        let user_info = await UserDao.get_whole_user_info({
-            user_name: this.user_name,
-            uid: this.uid
-        })
+        const resp = await callRpc("get_user_info", {
+            uid: this.uid || 0,
+            user_name: this.user_name || "",
+        });
+        // 服务端返回 StandardResponse { code, msg, data }
+        const user_info = resp && resp.code === 0 ? resp.data : null;
         this.TUserInfo = user_info;
         if (user_info) {
             this.uid = user_info.uid;
             this.parsed_pwd = user_info.pwd; // 现为 Casdoor token（可能为 null）
             this.user_name = user_info.user_name;
-            this.level = user_info.TUserDetail.TUserLevel.current_level;
+            this.level = user_info.current_level;
             this.role = user_info.role;
         }
+        return this;
     }
 
     /**
-     * 创建本地用户（Casdoor 登录流程使用）。
-     * 不再传入密码：pwd 字段留空，待 Casdoor 登录回调时写入 access_token。
+     * 创建用户（走 be-message RPC，不再维护本地 sequelize 用户表）。
+     * uid 由服务端自增生成；返回 { uid, user_name, level, role } 兼容对象。
      * @param user_name
      * @param parsed_pwd - 可选，已废弃密码逻辑，一般留空（由 Casdoor token 填充）
-     * @param transaction
-     * @return {Promise<TUserInfo>}
+     * @param transaction - 已废弃（RPC 自管事务），保留签名兼容
+     * @return {Promise<{uid:number, user_name:string, level:string, role:string}>}
      */
     static async add_user({user_name, parsed_pwd, transaction = undefined}) {
-        return await UserDao.add_user_info(user_name, parsed_pwd, transaction)
+        const resp = await callRpc("create_user", {
+            uid: 0, // 服务端自增
+            user_name,
+            pwd: parsed_pwd || "",
+        });
+        if (!resp || resp.code !== 0) {
+            return null;
+        }
+        const data = resp.data || {};
+        return {
+            uid: data.uid,
+            user_name,
+            level: "0",
+            role: "level0",
+            // 兼容 sequelize 实例的 update/reg_ip 写法（实际走 RPC）
+            async update(patch) {
+                const upd = await callRpc("update_user_info", {
+                    uid: data.uid,
+                    pwd: patch.pwd !== undefined ? patch.pwd : "",
+                    reg_ip_info_id: patch.reg_ip_info_id || 0,
+                });
+                return upd && upd.code === 0;
+            },
+        };
     }
 
     static async is_exists_by_user_name(user_name) {
-        let result = await UserDao.get_user_info_by_user_name(user_name);
-        return !!result;
+        const resp = await callRpc("get_user_info", { user_name });
+        return !!(resp && resp.code === 0 && resp.data);
     }
 
     async get_user_vip() {
         if (!this.TUserInfo) {
-            this.TUserInfo = await UserDao.get_whole_user_info({
-                user_name: this.user_name,
-                uid: this.uid
+            const resp = await callRpc("get_user_info", {
+                uid: this.uid || 0,
+                user_name: this.user_name || "",
             });
+            this.TUserInfo = resp && resp.code === 0 ? resp.data : null;
         }
-        return this.TUserInfo.TUserDetail.TUserVip
+        const info = this.TUserInfo;
+        return {
+            vip_type: info ? info.vip_type : 0,
+            vip_due_date: info ? info.vip_due_date : 0,
+            vip_status: info ? info.vip_status : 0,
+        };
     }
 
 

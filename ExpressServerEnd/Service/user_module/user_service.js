@@ -1,41 +1,24 @@
 const {
   UserModel,
 } = require("@/ExpressServerEnd/Model/api/v1/user/user_model");
+// pptr 用户读写全部走 be-message RPC，不再维护本地 sequelize 用户表
+const { callRpc } = require("@/ExpressServerEnd/Service/mq/rpc_client");
 const {
   createToken,
-  jwtAuth,
 } = require("@/ExpressServerEnd/Service/user_permission_module/JwtModule");
 const {
   base_api_model,
 } = require("@/ExpressServerEnd/Model/base_model/base_model");
-const config = require("@/ExpressServerEnd/config/index");
-const {
-  TUserDetail,
-  TUserLevel,
-  TUserVip,
-  TUserInfo,
-  TUserActInfoLog,
-  sequelize,
-  TUserNameRecord,
-} = require("@/ExpressServerEnd/DAO/SqlHelper");
 const { t, req_tool } = require("@/ExpressServerEnd/Tool/Utl");
-const { Op, literal } = require("sequelize");
 const {
   UserActModel,
 } = require("@/ExpressServerEnd/Model/api/v1/user/user_act_model");
 const { user_redis_dao } = require("@/ExpressServerEnd/DAO/UserRedisDao");
 const {
-  UserLevelService,
-} = require("@/ExpressServerEnd/Service/user_module/user_level_service");
-const {
-  VALID_ROLES,
-  isRoot,
-  ROLE_ROOT,
-  getRoleDescription,
-} = require("@/ExpressServerEnd/Service/user_module/user_role_const");
-const {
   CasdoorService,
 } = require("@/ExpressServerEnd/Service/casdoor_module/CasdoorService");
+// 用户主表已下沉 be-message（RPC），仅 TUserActInfoLog（登录IP记录）仍由 pptr 本地维护
+const { TUserActInfoLog } = require("@/ExpressServerEnd/DAO/SqlHelper");
 
 class UserService {
   //region 用户令牌刷新（本地密码登录已废弃，pwd 字段仅作 Casdoor token 仓库）
@@ -49,6 +32,7 @@ class UserService {
       user_name: user_model.user_name,
       uid: user_model.uid,
       level: user_model.level,
+      role: user_model.role || "0",
     });
     await Promise.all([
       UserService.add_user_act_ip_info({
@@ -56,10 +40,11 @@ class UserService {
         resp,
         act_info: UserActModel.refresh_token,
       }),
-      // user_redis_dao.add_black_list_jwt_signature({
-      //     signature: req.headers.authorization.split('.').pop(),
-      //     ttl: Math.ceil(req.auth.exp - Date.now() / 1000)
-      // })
+      // 同步刷新 Casdoor OAuth token 并更新 TUserInfo.pwd，与登录时的逻辑保持一致
+      (async () => {
+        const { CasdoorService } = require("@/ExpressServerEnd/Service/casdoor_module/CasdoorService");
+        await CasdoorService.refreshCasdoorToken(uid);
+      })(),
     ]);
 
     return new base_api_model({
@@ -70,15 +55,6 @@ class UserService {
       },
       msg: "刷新成功！",
     });
-  }
-
-  /**
-   * 获取用户登录信息
-   * @param uid
-   * @return {Promise<base_api_model>}
-   */
-  static async get_user_nav(uid) {
-    return await UserLevelService.get_user_nav_with_level(uid);
   }
 
   //endregion
@@ -180,43 +156,37 @@ class UserService {
   static async get_user_detail_info(
     { uid, is_own_uid } = { is_own_uid: false },
   ) {
-    let user_info = await TUserInfo.findOne({
-      attributes: {
-        include: ["user_name", "role"],
-      },
-      where: {
-        uid: uid,
-      },
-      include: [
-        {
-          model: TUserDetail,
-          as: "TUserDetail",
-          required: false,
-          attributes: {
-            exclude: ["createdAt", "updatedAt", "deletedAt"],
+    const resp = await callRpc("get_user_info", { uid });
+    const data = resp && resp.code === 0 ? resp.data : null;
+    if (!data) return null;
+    // 构造与旧 sequelize 嵌套结构兼容的对象，供 generate_user_detail_info 复用
+    const user_info = {
+      uid: data.uid,
+      user_name: data.user_name,
+      role: data.role,
+      toJSON() {
+        return {
+          uid: data.uid,
+          user_name: data.user_name,
+          role: data.role,
+          TUserDetail: {
+            mid: data.uid,
+            uname: data.uname,
+            avatar: data.face,
+            sign: "",
+            sex: "",
+            email: "",
+            TUserLevel: { mid: data.uid, current_level: data.current_level },
+            TUserVip: {
+              mid: data.uid,
+              vip_type: data.vip_type,
+              vip_due_date: data.vip_due_date,
+              vip_status: data.vip_status,
+            },
           },
-          include: [
-            {
-              model: TUserLevel,
-              as: "TUserLevel",
-              required: false,
-              attributes: {
-                exclude: ["createdAt", "updatedAt", "deletedAt"],
-              },
-            },
-            {
-              model: TUserVip,
-              as: "TUserVip",
-              required: false,
-              attributes: {
-                exclude: ["createdAt", "updatedAt", "deletedAt"],
-              },
-            },
-          ],
-        },
-      ],
-    });
-    if (!user_info) return null;
+        };
+      },
+    };
     return UserService.generate_user_detail_info(user_info, is_own_uid);
   }
 
@@ -230,7 +200,7 @@ class UserService {
     let user_info_json = user_info.toJSON();
     let user_detail_json =
       user_info_json.TUserDetail ??
-      new TUserDetail({ mid: user_info.uid }).toJSON();
+      { mid: user_info.uid, uname: null, avatar: null, sign: null, sex: null, email: null };
     let middle_user_name = user_info_json.user_name.slice(1, -1);
     let mock_user_name = is_own_uid
       ? user_info_json.user_name
@@ -247,13 +217,13 @@ class UserService {
       ]),
     );
     if (!ret_object.level_info) {
-      let empty_level_info = new TUserLevel({}).toJSON();
+      let empty_level_info = { mid: null, current_level: null, current_exp: null, current_min: null };
       t.delete_attr_from_obj(empty_level_info);
       t.delete_attr_from_obj(empty_level_info, ["mid"]);
       ret_object.level_info = empty_level_info;
     }
     if (!ret_object.vip) {
-      let empty_vip = new TUserVip({}).toJSON();
+      let empty_vip = { mid: null, vip_due_date: null, vip_pay_type: null, vip_status: null, vip_type: null };
       delete empty_vip.mid;
       t.delete_attr_from_obj(empty_vip);
       ret_object.vip = empty_vip;
@@ -271,45 +241,42 @@ class UserService {
    * @return {Promise<{[p: string]: any}[]>}
    */
   static async get_all_user_detail_infos({ uid_arr, own_uid }) {
-    let user_infos = await TUserInfo.findAll({
-      attributes: {
-        include: ["user_name"],
-      },
-      where: {
-        uid: {
-          [Op.in]: uid_arr,
-        },
-      },
-      include: [
-        {
-          model: TUserDetail,
-          as: "TUserDetail",
-          required: false,
-          attributes: {
-            exclude: ["createdAt", "updatedAt", "deletedAt"],
+    const results = await Promise.all(
+      (uid_arr || []).map(async (uid) => {
+        const resp = await callRpc("get_user_info", { uid });
+        const data = resp && resp.code === 0 ? resp.data : null;
+        if (!data) return null;
+        return {
+          uid: data.uid,
+          user_name: data.user_name,
+          role: data.role,
+          toJSON() {
+            return {
+              uid: data.uid,
+              user_name: data.user_name,
+              role: data.role,
+              TUserDetail: {
+                mid: data.uid,
+                uname: data.uname,
+                avatar: data.face,
+                sign: "",
+                sex: "",
+                email: "",
+                TUserLevel: { mid: data.uid, current_level: data.current_level },
+                TUserVip: {
+                  mid: data.uid,
+                  vip_type: data.vip_type,
+                  vip_due_date: data.vip_due_date,
+                  vip_status: data.vip_status,
+                },
+              },
+            };
           },
-          include: [
-            {
-              model: TUserLevel,
-              as: "TUserLevel",
-              required: false,
-              attributes: {
-                exclude: ["createdAt", "updatedAt", "deletedAt"],
-              },
-            },
-            {
-              model: TUserVip,
-              as: "TUserVip",
-              required: false,
-              attributes: {
-                exclude: ["createdAt", "updatedAt", "deletedAt"],
-              },
-            },
-          ],
-        },
-      ],
-    });
-    if (!user_infos) return null;
+        };
+      }),
+    );
+    const user_infos = results.filter(Boolean);
+    if (!user_infos.length) return null;
     return user_infos.map((user_info) =>
       UserService.generate_user_detail_info(
         user_info,
@@ -347,44 +314,20 @@ class UserService {
   }
 
   static async get_user_info({ uid }) {
-    let user_info = await TUserInfo.findOne({
-      attributes: ["uid"],
-      where: {
-        uid: uid,
-      },
-      include: [
-        {
-          attributes: {
-            include: [
-              [
-                literal(`COALESCE("TUserDetail"."mid", "TUserInfo"."uid")`),
-                "mid",
-              ],
-              [literal(`COALESCE("TUserInfo"."user_name")`), "userid"],
-              [
-                literal(
-                  `COALESCE("TUserDetail"."uname","TUserInfo"."user_name")`,
-                ),
-                "uname",
-              ],
-              [literal('COALESCE("TUserDetail"."sign", \'\')'), "usersign"],
-              [literal('COALESCE("TUserDetail"."sex", \'保密\')'), "sex"],
-              [
-                literal(
-                  'COALESCE("TUserDetail"."birthday", \'1970-01-01 00:00:00+08\'::date)',
-                ),
-                "birthday",
-              ],
-            ],
-            exclude: ["createdAt", "updatedAt", "deletedAt", "avatar", "sign"],
-          },
-          as: "TUserDetail",
-          model: TUserDetail,
-          required: false,
-        },
-      ],
-    });
-    const detail = user_info.toJSON().TUserDetail;
+    const resp = await callRpc("get_user_info", { uid });
+    const data = resp && resp.code === 0 ? resp.data : null;
+    if (!data) {
+      return new base_api_model({ code: 0, data: null, msg: "" });
+    }
+    const detail = {
+      uid: data.uid,
+      userid: data.user_name,
+      uname: data.uname,
+      usersign: "",
+      sex: "",
+      birthday: "",
+      email: data.email || "",
+    };
     // 邮箱脱敏：保留首字符 + @ 后缀，中间打码
     if (detail && detail.email) {
       detail.email = t.mask_email(detail.email);
@@ -393,52 +336,6 @@ class UserService {
       code: 0,
       data: detail,
       msg: "",
-    });
-  }
-
-  static async set_user_info({ uid, uname, usersign, sex, birthday }) {
-    let is_exist = await TUserDetail.findOne({
-      where: {
-        uname: uname,
-        [Op.not]: {
-          mid: uid,
-        },
-      },
-    });
-    if (is_exist)
-      return new base_api_model({
-        code: 40014,
-        msg: "该昵称已存在",
-      });
-    let origin_user_detail = await TUserDetail.findOne({
-      where: {
-        mid: uid,
-      },
-    });
-    await sequelize.transaction(async (t) => {
-      await TUserDetail.upsert(
-        {
-          mid: uid,
-          uname,
-          sign: usersign,
-          sex,
-          birthday,
-        },
-        { transaction: t },
-      );
-      if (origin_user_detail && origin_user_detail.uname !== uname) {
-        //更新了昵称的情况
-        await TUserNameRecord.create(
-          {
-            mid: uid,
-            prev_uname: uname,
-          },
-          { transaction: t },
-        );
-      }
-    });
-    return new base_api_model({
-      msg: "0",
     });
   }
 
@@ -518,6 +415,7 @@ class UserService {
       user_name: user_model.user_name,
       uid: user_model.uid,
       level: user_model.level,
+      role: user_model.role || "0",
     });
 
     await UserService.add_user_act_ip_info({
@@ -539,76 +437,6 @@ class UserService {
   static async is_user_exists({ user_name }) {
     let is_user_name_exist = await UserModel.is_exists_by_user_name(user_name);
     return is_user_name_exist;
-  }
-
-  /**
-   * 设置（调整）用户的角色
-   * 权限要求：只有当前操作者自身为 root（系统管理员）才能调用本接口。
-   * - 管理员可以把任意普通用户提升为 root（赋予管理员权限），也可以把 root 降为某个等级角色。
-   * - 普通用户无法修改任何人的角色（包括自己）。
-   *
-   * @param {Object} params
-   * @param {string|number} params.operator_uid - 当前操作者 UID（来自 JWT）
-   * @param {string|number} params.target_uid - 目标用户 UID
-   * @param {string} params.role - 目标角色，取值见 VALID_ROLES（level0~level6 或 root）
-   * @return {Promise<base_api_model>}
-   */
-  static async set_user_role({ operator_uid, target_uid, role }) {
-    // 1. 校验目标角色合法
-    if (!VALID_ROLES.includes(role)) {
-      return new base_api_model({
-        code: 400,
-        msg: `非法的角色值：${role}`,
-      });
-    }
-
-    // 2. 查询操作者角色，只有 root 才能赋予/调整角色
-    const operator_info = await TUserInfo.findOne({
-      attributes: ["uid", "user_name", "role"],
-      where: { uid: operator_uid },
-    });
-    if (!operator_info) {
-      return new base_api_model({ code: -1, msg: "操作者账号不存在" });
-    }
-    if (!isRoot(operator_info.role)) {
-      return new base_api_model({
-        code: -403,
-        msg: "权限不足：只有系统管理员（root）才能设置用户角色",
-      });
-    }
-
-    // 3. 不能操作自己（防止管理员误把自己降级导致系统无管理员）
-    if (String(operator_uid) === String(target_uid)) {
-      return new base_api_model({
-        code: 400,
-        msg: "不能修改自己的角色",
-      });
-    }
-
-    // 4. 查询目标用户
-    const target_info = await TUserInfo.findOne({
-      attributes: ["uid", "user_name", "role"],
-      where: { uid: target_uid },
-    });
-    if (!target_info) {
-      return new base_api_model({ code: 400, msg: "目标用户不存在" });
-    }
-
-    // 5. 更新目标用户角色
-    await TUserInfo.update({ role: role }, { where: { uid: target_uid } });
-
-    const target_desc = getRoleDescription(role);
-    return new base_api_model({
-      code: 0,
-      msg: `已将用户【${target_info.user_name}】的角色设置为【${target_desc.name}】`,
-      data: {
-        target_uid: String(target_uid),
-        target_user_name: target_info.user_name,
-        role: role,
-        role_name: target_desc.name,
-        role_description: target_desc.description,
-      },
-    });
   }
 
   //region 获取 Casdoor 用户信息（积分等）
@@ -638,11 +466,9 @@ class UserService {
       });
     }
 
-    // 1. 查询本地用户，拿到用于匹配 Casdoor 的 user_name（仅以鉴权身份为准）
-    const local_user = await TUserInfo.findOne({
-      attributes: ["uid", "user_name"],
-      where: { uid: auth_uid },
-    });
+    // 1. 查询本地用户，拿到用于匹配 Casdoor 的 user_name（仅以鉴权身份为准，走 RPC）
+    const localResp = await callRpc("get_user_info", { uid: auth_uid });
+    const local_user = localResp && localResp.code === 0 ? localResp.data : null;
     if (!local_user) {
       return new base_api_model({ code: -1, msg: "用户不存在" });
     }
@@ -659,12 +485,27 @@ class UserService {
     // 3. 用稳定的登录名 user_name（非可修改的 uname 昵称）去 Casdoor 拉取详情。
     // getCasdoorUserAsUser 会自动：
     //   - 从本地 token(JWT) 解析用户身份
-    //   - 从数据库 pwd 字段取回 Casdoor access_token
-    //   - 以「用户调用」(Bearer) 查询；若库中无 token 则回退「service 调用」
-    // 故意不使用 try/catch，便于在 casdoor SDK 调用出错时直接抛出真实堆栈
-    const casdoor_user = await CasdoorService.getCasdoorUserAsUser({
-      uid: auth_uid,
-    });
+    //   - 从数据库 pwd 字段取回 Casdoor access_token（登录回调时已写入）
+    //   - 以「用户调用」(Bearer 携带用户自己的凭证) 查询；
+    //     仅当库中无 token 时回退「service 调用」；
+    //     若两者都找不到则抛出明确错误（提示重新登录以绑定凭证）。
+    let casdoor_user;
+    try {
+      casdoor_user = await CasdoorService.getCasdoorUserAsUser({
+        uid: auth_uid,
+      });
+    } catch (e) {
+      // 仅捕获「凭证未绑定 / 用户不存在」这类业务错误，转为 -3 返回；
+      // Casdoor SDK 自身的调用异常（网络/鉴权）仍向上抛出以便排查。
+      if (e && /尚未绑定 Casdoor 凭证|未找到对应的 Casdoor 用户/.test(e.message)) {
+        return new base_api_model({
+          code: -3,
+          msg: e.message,
+          data: null,
+        });
+      }
+      throw e;
+    }
     console.log("[casdoor_info] 原始 Casdoor 用户数据:", casdoor_user);
     if (!casdoor_user) {
       return new base_api_model({

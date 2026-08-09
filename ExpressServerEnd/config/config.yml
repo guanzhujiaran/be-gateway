@@ -19,3 +19,11 @@ common_config:
 
 cron_config:
     daily_task: "0 4 * * *" # 每日任务执行时间
+
+# pptr 用户 RPC 客户端连接（be-message 为 RPC 服务端）
+# 用户读写全部走 message.pptr.rpc.* ，pptr 不再维护本地 sequelize 用户表
+mq_config:
+    rabbitmq_url: "amqp://admin:114514@localhost:5672/"  # 与 be-message RABBITMQ_URL 一致（docker-compose RABBITMQ_USER/RABBITMQ_PASSWORD）
+    # 调用 RPC 的超时时间（毫秒）。超时 / 连接失败等通信异常会直接 reject 抛出，
+    # 绝不会按「查无此人」处理；只有服务端正常返回 code=0 且无 data 才视为查无此人。
+    rpc_timeout_ms: 5000

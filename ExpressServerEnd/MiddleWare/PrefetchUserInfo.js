@@ -1,58 +1,30 @@
-const { UserLevelService } = require("../Service/user_module/user_level_service");
-
 /**
- * 前置中间件：查询用户详细信息并挂载到 req.userInfoForHeader
+ * 前置中间件：从 JWT payload 中提取 uid 并挂载到 req.userInfoForHeader，
+ * 用于 setUserHeaders 注入 x-bili-* 鉴权头到上游 be-message。
+ *
+ * be-message 的 /nav 等接口仅依赖 x-bili-mid 做身份识别，其余字段
+ * （level / role / uname / sign 等）均由 be-message 自行查库获取，
+ * 故 pptr 侧无需通过 RabbitMQ RPC 预取用户信息。
+ *
  * @returns {Function} Express middleware function
  */
 function userInfoPreFetchMiddleware() {
-  return async (req, res, next) => {
-    try {
-      const uid = req.auth?.uid || "";
+  return (req, _res, next) => {
+    const uid = req.auth?.uid || "";
 
-      if (uid) {
-        // 调用已有的 UserService 获取用户详细信息
-        const userWholeInfo = await UserLevelService.get_user_whole_info(uid);
-        req.userInfoForHeader = {
-          user_name: userWholeInfo?.user_name || "",
-          role: userWholeInfo?.role || "",
-          level: String(userWholeInfo?.level_info?.current_level ?? "0"),
-          mid: String(userWholeInfo?.uid || ""),
-          uname: userWholeInfo?.TUserDetail?.uname || "",
-          sign: userWholeInfo?.TUserDetail?.sign || "",
-          sex: userWholeInfo?.TUserDetail?.sex || "",
-          email: userWholeInfo?.TUserDetail?.email || "", // 添加邮箱字段
-          vip_status: String(userWholeInfo?.TUserDetail?.TUserVip?.vip_status ?? "0"),
-          vip_type: String(userWholeInfo?.TUserDetail?.TUserVip?.vip_type ?? "0")
-        };
-      } else {
-        // 无用户信息时设置默认值
-        req.userInfoForHeader = {
-          user_name: "",
-          level: "",
-          mid: "",
-          uname: "",
-          sign: "",
-          sex: "",
-          email: "", // 添加邮箱字段默认值
-          vip_status: "",
-          vip_type: ""
-        };
-      }
-    } catch (error) {
-      console.error(`查询用户信息失败:`, error);
-      // 查询失败时设置默认值保证代理功能可用
-      req.userInfoForHeader = {
-        user_name: "",
-        level: "",
-        mid: "",
-        uname: "",
-        sign: "",
-        sex: "",
-        email: "", // 添加邮箱字段默认值
-        vip_status: "",
-        vip_type: ""
-      };
-    }
+    req.userInfoForHeader = {
+      mid: String(uid),
+      // be-message 自己查库获取完整用户信息，此处仅需提供可信 mid
+      user_name: req.auth?.user_name ?? "",
+      level: req.auth?.level != null ? String(req.auth.level) : "",
+      role: req.auth?.role ?? "",
+      uname: "",
+      sign: "",
+      sex: "",
+      email: "",
+      vip_status: "",
+      vip_type: "",
+    };
 
     next();
   };

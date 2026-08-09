@@ -1,9 +1,6 @@
 const express = require("express");
 const crypto = require("crypto");
 const router = express.Router();
-const {
-  CasdoorService,
-} = require("@/ExpressServerEnd/Service/casdoor_module/CasdoorService");
 const casdoorConfig = require("@/ExpressServerEnd/config/casdoor_config");
 
 // 用于在登录发起时记录「前端来源」，回调时据此重定向回前端。
@@ -107,40 +104,13 @@ function safeOrigin(value) {
 }
 
 /**
- * Casdoor OAuth2 回调端点
- * GET /api/v1/casdoor/callback?code=xxx&state=xxx
+ * Casdoor OAuth2 回调端点 — 已迁移到 be-message。
+ * 本路由仅作为占位符，实际请求会被 pptr 代理到 be-message。
+ * 保持此路由存在是为了让 Express 不直接返回 404（可由 ProxyEndPort 捕获）。
  */
-router.get("/callback", async (req, res) => {
-  const { code, state } = req.query;
-
-  if (!code) {
-    return res.status(400).send("缺少授权码");
-  }
-
-  // 处理 Casdoor 登录
-  const result = await CasdoorService.handleCasdoorCallback({
-    code,
-    req,
-    res,
-  });
-
-  if (result.code === 0 && result.data?.jwt_token) {
-    // 登录成功，重定向到前端并带上 token，同时清除来源 cookie
-    return res.redirect(// 实际测试下来好像不加也能重定向到前端来源
-      `${process.env.FRONTEND_URL || ""}/app/casdoor-callback?token=${encodeURIComponent(
-        result.data.jwt_token,
-      )}&uid=${result.data.uid}&user_name=${encodeURIComponent(
-        result.data.user_name,
-      )}`,
-    );
-  } else {
-    // 登录失败，直接返回错误信息
-    return res.status(400).json({
-      code: result.code || -1,
-      msg: result.msg || "登录失败",
-      data: null,
-    });
-  }
+router.all("/callback", (req, res, next) => {
+  // 透传给下一个中间件（ProxyEndPort），由代理转发到 be-message
+  next();
 });
 
 module.exports = router;
