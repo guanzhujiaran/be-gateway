@@ -1,7 +1,6 @@
 const fs = require("fs");
 const QueryWbiEnc = require("@/lib/helper/encbiliWbiQuery");
 const superagent = require("superagent");
-const { AccountService } = require("@/ExpressServerEnd/Service/account_module/account_service");
 const axios = require("axios");
 const { BiliElementMap } = require("@/ExpressServerEnd/BiliPPTR/utils/element_map");
 const run_env_args = require("@/ExpressServerEnd/config/run_arg");
@@ -145,17 +144,6 @@ const utils = {
                 let minutes = ("0" + date.getMinutes()).slice(-2);
                 let seconds = ("0" + date.getSeconds()).slice(-2);
                 return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
-            },
-        /**
-         * 获取抽奖设置
-         * @param account_name
-         * @param uid
-         * @return {Promise<AccountLotterySettingModel|null>}
-         */
-        get_lottery_setting:
-            async (account_name, uid) => {
-                let lottery_setting_resp = await AccountService.get_lottery_setting_by_account_name_and_uid(account_name, uid);
-                return lottery_setting_resp.info.settings.lottery_setting;
             },
         /**
          * 检查是否在时间段内，加上一点随机数[doge]

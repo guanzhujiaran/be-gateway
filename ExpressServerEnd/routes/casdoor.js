@@ -103,14 +103,4 @@ function safeOrigin(value) {
   }
 }
 
-/**
- * Casdoor OAuth2 回调端点 — 已迁移到 be-message。
- * 本路由仅作为占位符，实际请求会被 pptr 代理到 be-message。
- * 保持此路由存在是为了让 Express 不直接返回 404（可由 ProxyEndPort 捕获）。
- */
-router.all("/callback", (req, res, next) => {
-  // 透传给下一个中间件（ProxyEndPort），由代理转发到 be-message
-  next();
-});
-
 module.exports = router;

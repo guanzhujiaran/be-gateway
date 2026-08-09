@@ -26,14 +26,9 @@ const { restrictToLocalhost } = require("./MiddleWare/Limiter");
 // 导入路由
 const UserRouter = require("./routes/user");
 const CasdoorRouter = require("./routes/casdoor");
-const DoLotteryRouter = require("./routes/do_lottery");
 const PingRouter = require("./routes/ping");
-const { bullRouter } = require("./routes/queues");
 const ProxyEndPort = require("./routes/proxy");
 // 导入服务
-const {
-  system_mq_task_manager,
-} = require("./Service/background_task_module/system_mq_task_service");
 
 const app = express();
 
@@ -117,9 +112,7 @@ app.use(jwtAuth);
 // 路由注册
 app.use("/api/v1/casdoor", CasdoorRouter);
 app.use("/api/v1/user", UserRouter);
-app.use("/api/v1/do_lottery", DoLotteryRouter);
-app.use("/api/v1/ping", PingRouter);
-app.use("/api/admin/queues", restrictToLocalhost, bullRouter);
+app.use("/api/v1", PingRouter);
 app.use("", ProxyEndPort);
 
 // 错误处理中间件
@@ -179,16 +172,8 @@ app.use((err, req, resp, next) => {
 
   console.error(err.stack);
   if (run_env_args["env"] === "prod") {
-    system_mq_task_manager
-      .add_system_pushme_task({
-        title: "nodejs服务器错误！",
-        msg: `${req.url}
-${JSON.stringify(req.body)}
-${JSON.stringify(req.headers)}
-${err.message}
-${err.stack}`,
-      })
-      .then((r) => { });
+    // 系统推送已移除，保留日志
+    console.error(`[PROD ERROR] ${req.url}`, err.message);
   }
   return resp.status(500).json({
     code: RESPONSE_CODES.ERRORS.UNKNOWN_ERROR.code,

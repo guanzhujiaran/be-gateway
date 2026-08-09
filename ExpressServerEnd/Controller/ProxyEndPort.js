@@ -92,13 +92,15 @@ router.use(
 );
 
 // Casdoor OAuth2 回调（已迁移到 be-message，由 pptr 代理转发）
+// 注意：router.use("/api/v1/casdoor/callback", ...) 会剥离该前缀，
+// req.url 变为 /?code=xxx&state=xxx，因此 pathRewrite 应以 ^/ 匹配。
 router.use(
   "/api/v1/casdoor/callback",
   createProxyMiddleware({
     target: utils.MESSAGE.base_url,
     proxyTimeout: 30000,
     pathRewrite: {
-      "^/api/v1/casdoor/callback": "/api/v1/user/casdoor/callback",
+      "^/": "/api/v1/user/casdoor/callback",
     },
     changeOrigin: true,
     on: {

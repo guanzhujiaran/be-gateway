@@ -9,9 +9,9 @@
  *    属网关职责。
  *
  * 身份传递与 /api/v1/message、/api/v1/rpa 等既有代理完全一致：
- * app.js 的全局 jwtAuth 已完成验签并产出 req.auth.uid，这里再经
- * userInfoPreFetchMiddleware 预取用户信息，由 setUserHeaders 注入可信的
- * x-bili-* 头（并清除客户端伪造值）供上游 be-message 鉴权使用。
+ * userInfoPreFetchMiddleware 调用 be-message /identify 解析 JWT 获取用户身份，
+ * 由 setUserHeaders 注入可信的 x-bili-* 头（并清除客户端伪造值）供上游鉴权使用。
+ * JWT 验签已下沉到 be-message，中间件不再依赖 req.auth。
  *
  * 路由顺序说明：
  *  - UserLocalRouter 放在前面，先处理 /logout（本地实现）；
