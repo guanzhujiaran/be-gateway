@@ -133,8 +133,16 @@ const t = {
 }
 const req_tool = {
     get_ip: (req, res) => {
-        if (run_env_args['env'] === 'dev') return '127.0.0.1'
-        let ip_addr = req.headers['x-bili-ip'];
+        // 统一返回真实 IP：优先取 x-bili-ip 头，回退到 socket 真实地址（兼容反代未透传头的情况）。
+        // dev 环境不再强制 127.0.0.1，确保所有环境记录到真实来源 IP。
+        let ip_addr = req?.headers?.['x-bili-ip']
+            || (req?.socket?.remoteAddress)
+            || (req?.connection?.remoteAddress)
+            || '';
+        // 去掉 IPv6 映射的 IPv4 前缀（::ffff:1.2.3.4 -> 1.2.3.4）
+        if (ip_addr.startsWith('::ffff:')) {
+            ip_addr = ip_addr.slice('::ffff:'.length);
+        }
         if (ip.isV6Format(ip_addr)) {
             return ip_addr.split(':').splice(0, 4).join(":");
         }

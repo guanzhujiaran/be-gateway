@@ -44,11 +44,13 @@ exports.UserModel = class UserModel {
      * @param transaction - 已废弃（RPC 自管事务），保留签名兼容
      * @return {Promise<{uid:number, user_name:string, level:string, role:string}>}
      */
-    static async add_user({user_name, parsed_pwd, transaction = undefined}) {
+    static async add_user({user_name, parsed_pwd, ip = null, ua = null, transaction = undefined}) {
         const resp = await callRpc("create_user", {
             uid: 0, // 服务端自增
             user_name,
             pwd: parsed_pwd || "",
+            ip: ip || undefined,
+            ua: ua || undefined,
         });
         if (!resp || resp.code !== 0) {
             return null;

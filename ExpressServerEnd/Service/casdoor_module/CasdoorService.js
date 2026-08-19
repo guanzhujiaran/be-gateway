@@ -17,6 +17,7 @@ const {
 } = require("@/ExpressServerEnd/DAO/UserDao");
 // pptr 用户读写全部走 be-message RPC，不再维护本地 sequelize 用户表
 const { callRpc } = require("@/ExpressServerEnd/Service/mq/rpc_client");
+const { req_tool } = require("@/ExpressServerEnd/Tool/Utl");
 
 // 创建 Casdoor SDK 实例
 const casdoorSDK = new SDK({
@@ -154,26 +155,16 @@ class CasdoorService {
     // 创建用户（走 be-message RPC，一次性建 TUserInfo + TUserDetail + TUserLevel + TUserVip，uid 服务端自增）。
     // TUserInfo.pwd 字段复用作 Casdoor token 仓库：把完整的 token JSON 一并传给 create_user RPC，
     // 用户创建的同时 token 即写入 pwd，无需再单独同步。
+    // 注册 IP 信息随创建用户原子写入（reg_ip 由 be-message 在 create_user 事务内一并处理）。
     const createdUser = await UserModel.add_user({
       user_name: username,
       parsed_pwd: tokenStr,
+      ip: req && resp ? req_tool.get_ip(req, resp) : null,
+      ua: req && resp ? req_tool.get_ua(req, resp) : null,
     });
 
     if (!createdUser) {
       throw new Error("创建本地用户失败");
-    }
-
-    // 记录注册IP信息（reg_ip 更新走 RPC）
-    let regIpInfoId = null;
-    if (req && resp) {
-      const { UserService } = require("@/ExpressServerEnd/Service/user_module/user_service");
-      const regIpInfo = await UserService.add_user_act_ip_info({
-        req,
-        resp,
-        act_info: UserActModel.reg,
-      });
-      regIpInfoId = regIpInfo.pk;
-      await createdUser.update({ reg_ip_info_id: regIpInfoId });
     }
 
     console.log(`成功创建Casdoor用户: ${username}, uid: ${createdUser.uid}`);
@@ -462,23 +453,15 @@ class CasdoorService {
 
       if (!localUser) {
         // 创建新用户（pwd 字段留空，待下方写入 Casdoor access_token）
+        // 注册 IP 信息随创建用户原子写入（reg_ip 由 be-message 在 create_user 事务内一并处理）。
         localUser = await UserModel.add_user({
           user_name: username,
+          ip: req && res ? req_tool.get_ip(req, res) : null,
+          ua: req && res ? req_tool.get_ua(req, res) : null,
         });
 
         if (!localUser) {
           throw new Error("创建本地用户失败");
-        }
-
-        // 记录注册IP信息
-        if (req && res) {
-          const { UserService } = require("@/ExpressServerEnd/Service/user_module/user_service");
-          const regIpInfo = await UserService.add_user_act_ip_info({
-            req,
-            res,
-            act_info: UserActModel.reg,
-          });
-          await localUser.update({ reg_ip_info_id: regIpInfo.pk });
         }
 
         console.log(

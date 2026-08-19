@@ -178,4 +178,44 @@ router.use(
   }),
 );
 
+router.use(
+  // moment-service 反向代理（动态模块，与 message-service 同进程 be-message-service）
+  "/api/v1/moment",
+  jwtAuthOptional, // 可登录也可不登陆，列表/详情可读，发动态/审核由上游校验登录态
+  userInfoPreFetchMiddleware(), // 预查询用户信息，供 setUserHeaders 注入 x-bili-* 头
+  createProxyMiddleware({
+    target: utils.MESSAGE.base_url,
+    pathRewrite: { "^/": "/api/v1/moment/" },
+    changeOrigin: true,
+    proxyTimeout: 30000,
+    on: {
+      proxyReq: (proxyReq, req, res) => {
+        setUserHeaders(proxyReq, req);
+        fixRequestBody(proxyReq, req);
+      },
+      error: proxyErrorHandler,
+    },
+  }),
+);
+
+router.use(
+  // favorite-service 反向代理（动态收藏夹系统，与 message-service 同进程 be-message-service）
+  "/api/v1/favorite",
+  jwtAuthOptional, // 可登录也可不登陆；写入由上游 RequiredUser 校验，公开读（user/folders、user/dynamics）无需登录
+  userInfoPreFetchMiddleware(), // 预查询用户信息，供 setUserHeaders 注入 x-bili-* 头
+  createProxyMiddleware({
+    target: utils.MESSAGE.base_url,
+    pathRewrite: { "^/": "/api/v1/favorite/" },
+    changeOrigin: true,
+    proxyTimeout: 30000,
+    on: {
+      proxyReq: (proxyReq, req, res) => {
+        setUserHeaders(proxyReq, req);
+        fixRequestBody(proxyReq, req);
+      },
+      error: proxyErrorHandler,
+    },
+  }),
+);
+
 module.exports = router;

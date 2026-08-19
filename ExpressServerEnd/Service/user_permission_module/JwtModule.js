@@ -55,6 +55,28 @@ const jwtAuth = expressJwt
       { url: /api\/v1\/samsClub\/.*/ },
       { url: /api\/v1\/casdoor\/.*/ },
       { url: /api\/v1\/lottery_database\/bili\/.*/ },
+      // 动态 Feed / 详情对未登录用户同样可读（be-message-service 侧不强制登录，
+      // viewer_mid 缺失时仅不展示点赞态）；写接口仍由上游 RequiredUser 校验。
+      { url: /\/api\/v1\/moment\/feed\/all/ },
+      { url: /\/api\/v1\/moment\/feed\/space\/.*/ },
+      { url: /\/api\/v1\/moment\/detail\/.*/ },
+      { url: /\/api\/v1\/moment\/details/ },
+      // 动态点赞明细 / 转发列表：公开可读，对齐 detail 接口策略
+      { url: /\/api\/v1\/moment\/.*\/likers/ },
+      { url: /\/api\/v1\/moment\/.*\/forwards/ },
+      // 评论读接口（列表 / 详情 / 楼中楼）对未登录用户同样可读：be-message-service
+      // 侧 resolve_optional_viewer 已允许匿名，匿名时后端强制最多 10 条并返回
+      // viewer_is_anonymous 标记，前端渲染登录引导蒙层（对标 B 站）。
+      // 评论写接口（add / reply / delete / audit 等）不在白名单，仍走 jwtAuth + 上游 RequiredUser。
+      { url: /\/api\/v1\/comment\/main/ },
+      { url: /\/api\/v1\/comment\/detail\/.*/ },
+      { url: /\/api\/v1\/comment\/sub/ },
+      // 收藏公开读接口：访客查看他人主页收藏（无需登录，受主人 showFavorites 控制）
+      { url: /\/api\/v1\/favorite\/user\/folders/ },
+      { url: /\/api\/v1\/favorite\/user\/dynamics/ },
+      // 用户空间信息：公开可读（对标 B 站 /x/space/wbi/acc/info）。
+      // 匿名返回公开资料；登录时上游结合 x-bili-mid 做黑名单互访拒绝（403）。
+      { url: /\/api\/v1\/user\/space\/info/ },
     ], //不需要校验的路径
   });
 
