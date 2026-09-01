@@ -136,80 +136,23 @@ router.use(
 );
 
 router.use(
-  // message-service 反向代理（前端经 hey-api 生成的 SDK 调用 /api/v1/message 前缀）
-  "/api/v1/message",
+  // be-message-service 统一反向代理（2.41.0 合并精简：message/comment/community/
+  // favorite/report 等全部业务域均由 be-message 单进程承载，共用一个转发即可）。
+  // 放最后：/api/v1/user 由 routes/user（UserGatewayProxy）先注册处理，
+  // /api/v1/casdoor、/api/v1/rpa、/api/admin/rpa 等专属代理在前已匹配，不会误伤。
+  // 注意：Express 5 挂载路径不能带尾斜杠（/api/v1/ 无法匹配子路径），故用 /api/v1；
+  // pathRewrite ^/ → /api/v1/ 补回前缀，be-message 各 APIRouter 自带完整路径。
+  "/api/v1",
   jwtAuthOptional, // 可登录也可不登陆，解析 JWT 以识别用户
   userInfoPreFetchMiddleware(), // 预查询用户信息，供 setUserHeaders 注入 x-bili-* 头
   createProxyMiddleware({
     target: utils.MESSAGE.base_url,
-    pathRewrite: { "^/": "/api/v1/message/" },
+    pathRewrite: { "^/": "/api/v1/" },
     changeOrigin: true,
     proxyTimeout: 30000,
     on: {
       proxyReq: (proxyReq, req, res) => {
-        // 把触发推送的用户信息以 x-bili-* 头透传给 message-service
-        setUserHeaders(proxyReq, req);
-        fixRequestBody(proxyReq, req);
-      },
-      error: proxyErrorHandler,
-    },
-  }),
-);
-
-router.use(
-  // comment-service 反向代理（新评论系统，与 message-service 同进程 be-message-service）
-  // 前端抽奖卡片评论区调用 /api/v1/comment 前缀
-  "/api/v1/comment",
-  jwtAuthOptional, // 可登录也可不登陆，列表/详情可读，发评/删除由上游校验登录态
-  userInfoPreFetchMiddleware(), // 预查询用户信息，供 setUserHeaders 注入 x-bili-* 头
-  createProxyMiddleware({
-    target: utils.MESSAGE.base_url,
-    pathRewrite: { "^/": "/api/v1/comment/" },
-    changeOrigin: true,
-    proxyTimeout: 30000,
-    on: {
-      proxyReq: (proxyReq, req, res) => {
-        // 把触发操作/评论的用户信息以 x-bili-* 头透传给 comment-service
-        setUserHeaders(proxyReq, req);
-        fixRequestBody(proxyReq, req);
-      },
-      error: proxyErrorHandler,
-    },
-  }),
-);
-
-router.use(
-  // moment-service 反向代理（动态模块，与 message-service 同进程 be-message-service）
-  "/api/v1/moment",
-  jwtAuthOptional, // 可登录也可不登陆，列表/详情可读，发动态/审核由上游校验登录态
-  userInfoPreFetchMiddleware(), // 预查询用户信息，供 setUserHeaders 注入 x-bili-* 头
-  createProxyMiddleware({
-    target: utils.MESSAGE.base_url,
-    pathRewrite: { "^/": "/api/v1/moment/" },
-    changeOrigin: true,
-    proxyTimeout: 30000,
-    on: {
-      proxyReq: (proxyReq, req, res) => {
-        setUserHeaders(proxyReq, req);
-        fixRequestBody(proxyReq, req);
-      },
-      error: proxyErrorHandler,
-    },
-  }),
-);
-
-router.use(
-  // favorite-service 反向代理（动态收藏夹系统，与 message-service 同进程 be-message-service）
-  "/api/v1/favorite",
-  jwtAuthOptional, // 可登录也可不登陆；写入由上游 RequiredUser 校验，公开读（user/folders、user/dynamics）无需登录
-  userInfoPreFetchMiddleware(), // 预查询用户信息，供 setUserHeaders 注入 x-bili-* 头
-  createProxyMiddleware({
-    target: utils.MESSAGE.base_url,
-    pathRewrite: { "^/": "/api/v1/favorite/" },
-    changeOrigin: true,
-    proxyTimeout: 30000,
-    on: {
-      proxyReq: (proxyReq, req, res) => {
+        // 把触发操作/推送的用户信息以 x-bili-* 头透传给 be-message-service
         setUserHeaders(proxyReq, req);
         fixRequestBody(proxyReq, req);
       },

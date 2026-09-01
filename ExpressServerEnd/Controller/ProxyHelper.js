@@ -100,7 +100,7 @@ async function proxyErrorHandler(err, req, res) {
   return res.status(status).json({
     code: status,
     data: null,
-    msg: `代理请求上游失败：${err.message || err.code || "未知错误"}`,
+    msg: `代理请求上游失败`,
     ttl: 1,
   });
 }

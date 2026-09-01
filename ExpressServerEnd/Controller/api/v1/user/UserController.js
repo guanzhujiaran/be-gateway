@@ -13,9 +13,12 @@ const router = express.Router();
 const {
   UserService,
 } = require("@/ExpressServerEnd/Service/user_module/user_service");
+const { clearJwtCookie } = require("@/ExpressServerEnd/Service/user_permission_module/JwtModule");
 
 router.post("/logout", async (req, resp, next) => {
   try {
+    // 清除 HttpOnly JWT Cookie（前端不再使用 localStorage）
+    clearJwtCookie(resp);
     let result = await UserService.logout({
       req,
       resp,

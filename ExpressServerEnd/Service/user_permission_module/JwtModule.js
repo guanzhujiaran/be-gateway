@@ -12,6 +12,54 @@ const secretKey = config.common_config.salt.jwt_secret;
 const jwt = require("jsonwebtoken");
 const expressJwt = require("express-jwt");
 const { user_redis_dao } = require("@/ExpressServerEnd/DAO/UserRedisDao");
+
+// JWT 存储：浏览器直连的服务端写入 HttpOnly + Secure Cookie，
+// 替代前端 localStorage（防 XSS 窃取）。Cookie 名固定为 bili_jwt。
+const COOKIE_NAME = "bili_jwt";
+
+// 从 HttpOnly Cookie 或 Authorization 头提取 JWT（前端不再使用 localStorage）
+function getToken(req) {
+  const cookieHeader = req.headers.cookie;
+  if (cookieHeader) {
+    const m = cookieHeader.match(/(?:^|;\s*)bili_jwt=([^;]+)/);
+    if (m) {
+      const v = decodeURIComponent(m[1]);
+      if (v) return v;
+    }
+  }
+  // const auth = req.headers.authorization;
+  // if (auth && auth.startsWith("Bearer ")) return auth.slice(7);
+  // return auth || undefined;
+}
+
+// Cookie secure 开关：缺省按环境（production=true / development=false），
+// 可用 JWT_COOKIE_SECURE 环境变量强制覆盖（开发环境 HTTP 下置 false）。
+function cookieSecure() {
+  const env = process.env.JWT_COOKIE_SECURE;
+  if (env !== undefined) return env === "true";
+  return process.env.NODE_ENV === "production";
+}
+
+function setJwtCookie(res, token) {
+  res.cookie(COOKIE_NAME, token, {
+    httpOnly: true,
+    secure: cookieSecure(),
+    sameSite: "lax",
+    path: "/",
+    maxAge: 15 * 24 * 3600 * 1000,
+  });
+}
+
+function clearJwtCookie(res) {
+  res.cookie(COOKIE_NAME, "", {
+    httpOnly: true,
+    secure: cookieSecure(),
+    sameSite: "lax",
+    path: "/",
+    maxAge: 0,
+  });
+}
+
 const on_expired = async (req, err) => {
   throw err;
 };
@@ -40,6 +88,8 @@ const jwtAuth = expressJwt
     secret: secretKey,
     algorithms: ["HS256"],
     credentialsRequired: true, // true：必须校验
+    requestProperty: "auth", // 全站（含 express-jwt-permissions、UserService.logout）均按 req.auth 取身份
+    getToken: getToken, // 优先从 HttpOnly Cookie 读取（前端不再使用 localStorage）
     onExpired: on_expired,
     isRevoked: is_revoked,
   })
@@ -57,13 +107,13 @@ const jwtAuth = expressJwt
       { url: /api\/v1\/lottery_database\/bili\/.*/ },
       // 动态 Feed / 详情对未登录用户同样可读（be-message-service 侧不强制登录，
       // viewer_mid 缺失时仅不展示点赞态）；写接口仍由上游 RequiredUser 校验。
-      { url: /\/api\/v1\/moment\/feed\/all/ },
-      { url: /\/api\/v1\/moment\/feed\/space\/.*/ },
-      { url: /\/api\/v1\/moment\/detail\/.*/ },
-      { url: /\/api\/v1\/moment\/details/ },
+      { url: /\/api\/v1\/community\/feed\/all/ },
+      { url: /\/api\/v1\/community\/feed\/space\/.*/ },
+      { url: /\/api\/v1\/community\/detail\/.*/ },
+      { url: /\/api\/v1\/community\/details/ },
       // 动态点赞明细 / 转发列表：公开可读，对齐 detail 接口策略
-      { url: /\/api\/v1\/moment\/.*\/likers/ },
-      { url: /\/api\/v1\/moment\/.*\/forwards/ },
+      { url: /\/api\/v1\/community\/.*\/likers/ },
+      { url: /\/api\/v1\/community\/.*\/forwards/ },
       // 评论读接口（列表 / 详情 / 楼中楼）对未登录用户同样可读：be-message-service
       // 侧 resolve_optional_viewer 已允许匿名，匿名时后端强制最多 10 条并返回
       // viewer_is_anonymous 标记，前端渲染登录引导蒙层（对标 B 站）。
@@ -85,6 +135,8 @@ const jwtAuthOptional = expressJwt.expressjwt({
   secret: secretKey,
   algorithms: ["HS256"],
   credentialsRequired: false, // false：可选校验，有token就解析，没有也不报错
+  requestProperty: "auth", // 全站（含 express-jwt-permissions、UserService.logout）均按 req.auth 取身份
+  getToken: getToken, // 优先从 HttpOnly Cookie 读取（前端不再使用 localStorage）
   onExpired: on_expired,
   isRevoked: is_revoked,
 });
@@ -93,10 +145,12 @@ const jwtAuthGenerator = ({ credentialsRequired = true }) => {
     secret: secretKey,
     algorithms: ["HS256"],
     credentialsRequired: credentialsRequired, //  false：不校验
+    requestProperty: "auth", // 全站（含 express-jwt-permissions、UserService.logout）均按 req.auth 取身份
+    getToken: getToken, // 优先从 HttpOnly Cookie 读取（前端不再使用 localStorage）
     onExpired: on_expired,
     isRevoked: is_revoked,
   });
 };
 
-module.exports = { jwtAuth, createToken, jwtAuthGenerator, jwtAuthOptional };
+module.exports = { jwtAuth, createToken, jwtAuthGenerator, jwtAuthOptional, getToken, setJwtCookie, clearJwtCookie };
 

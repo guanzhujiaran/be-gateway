@@ -102,7 +102,8 @@ app.use(
     },
   })
 );
-app.use(cors()); // 解决跨域问题
+// 解决跨域问题；allowCredentials 使浏览器在跨域时也能携带 HttpOnly JWT Cookie
+app.use(cors({ credentials: true, origin: true }));
 
 // 解析中间件
 app.use(bodyParser.json());

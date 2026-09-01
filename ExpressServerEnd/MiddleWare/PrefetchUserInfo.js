@@ -74,11 +74,19 @@ function decodeJwtLocal(token) {
 
 function userInfoPreFetchMiddleware() {
   return async (req, _res, next) => {
-    const authHeader = req.headers.authorization;
-    const token =
-      authHeader && authHeader.startsWith("Bearer ")
-        ? authHeader.substring(7)
-        : null;
+    // 优先从 HttpOnly Cookie 读取 JWT（前端不再使用 localStorage），兼容 Authorization 头
+    let token = null;
+    const cookieHeader = req.headers.cookie;
+    if (cookieHeader) {
+      const m = cookieHeader.match(/(?:^|;\s*)bili_jwt=([^;]+)/);
+      if (m) token = decodeURIComponent(m[1]);
+    }
+    if (!token) {
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith("Bearer ")) {
+        token = authHeader.substring(7);
+      }
+    }
 
     // 无 JWT → 匿名访问
     if (!token) {

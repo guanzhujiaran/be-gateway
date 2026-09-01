@@ -41,9 +41,17 @@ router.use(
         setUserHeaders(proxyReq, req);
 
         // 透传原始 JWT 给 be-message（供 JWT 续期判断）
-        const authHeader = req.headers.authorization;
-        if (authHeader && authHeader.startsWith("Bearer ")) {
-          proxyReq.setHeader("x-bili-jwt", authHeader.substring(7));
+        // 优先从 HttpOnly Cookie 读取（前端不再使用 localStorage），兼容 Authorization 头
+        let rawToken = req.headers.authorization;
+        if (!rawToken || !rawToken.startsWith("Bearer ")) {
+          const cookieHeader = req.headers.cookie;
+          if (cookieHeader) {
+            const m = cookieHeader.match(/(?:^|;\s*)bili_jwt=([^;]+)/);
+            if (m) rawToken = `Bearer ${decodeURIComponent(m[1])}`;
+          }
+        }
+        if (rawToken && rawToken.startsWith("Bearer ")) {
+          proxyReq.setHeader("x-bili-jwt", rawToken.substring(7));
         }
 
         fixRequestBody(proxyReq, req);
