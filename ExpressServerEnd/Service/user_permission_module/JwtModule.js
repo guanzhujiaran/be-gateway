@@ -111,6 +111,10 @@ const jwtAuth = expressJwt
       { url: /\/api\/v1\/community\/feed\/space\/.*/ },
       { url: /\/api\/v1\/community\/detail\/.*/ },
       { url: /\/api\/v1\/community\/details/ },
+      // 话题广场 / 热门话题：公开可读（对标 B 站话题广场，匿名可浏览发现流）；
+      // 后端 /topic/square、/topic/hot-search 已改用 OptionalUser，匿名时上游拿空 mid 不报错。
+      { url: /\/api\/v1\/community\/topic\/square/ },
+      { url: /\/api\/v1\/community\/topic\/hot-search/ },
       // 动态点赞明细 / 转发列表：公开可读，对齐 detail 接口策略
       { url: /\/api\/v1\/community\/.*\/likers/ },
       { url: /\/api\/v1\/community\/.*\/forwards/ },
