@@ -111,6 +111,44 @@ async function proxyErrorHandler(err, req, res) {
  * @param {Object} proxyReq - Proxy request object
  * @param {Object} req - Original request object
  */
+/**
+ * 解析客户端真实 IP（供上游展示「谁在看」）。
+ *
+ * 客户端真实地址由**前置 nginx**写入 `X-Real-IP` 或 `X-Forwarded-For`
+ * （nginx 的 proxy_set_header 会覆盖 / 追加，客户端自带的值在代理层即被替换，
+ * 因此这两个头可信）。
+ *
+ * 取值优先级：
+ *   1. `X-Real-IP` —— nginx 常见配置，单个地址，最干净；
+ *   2. `X-Forwarded-For` 的**最左值** —— 标准链路中它代表原始客户端；
+ *   3. socket 地址 —— 无代理部署时即真实客户端；有代理时是代理自身。
+ *
+ * ⚠️ 前提是网关不直接暴露公网。若绕过 nginx 直连网关，前两个头可被伪造，
+ * 此时应改为只信任 socket 地址。
+ *
+ * @param {Object} req
+ * @returns {string} 客户端 IP，解析失败返回空串
+ */
+function resolveClientIp(req) {
+  const headers = req.headers || {};
+  const pick = (value) => {
+    const v = Array.isArray(value) ? value[0] : value;
+    return typeof v === "string" && v.trim() ? v.trim() : "";
+  };
+
+  const realIp = pick(headers["x-real-ip"]);
+  if (realIp) return realIp;
+
+  // XFF 形如 "客户端, 代理1, 代理2"：最左为原始客户端
+  const forwarded = pick(headers["x-forwarded-for"]);
+  if (forwarded) {
+    const first = forwarded.split(",")[0].trim();
+    if (first) return first;
+  }
+
+  return pick(req.socket && req.socket.remoteAddress);
+}
+
 function setUserHeaders(proxyReq, req) {
   // 先清空用户可能传入的不可信头信息
   const headersToRemove = [
@@ -124,6 +162,8 @@ function setUserHeaders(proxyReq, req) {
     "x-bili-email",
     "x-bili-vip-status",
     "x-bili-vip-type",
+    // 客户端 IP 属可信头：必须清掉客户端伪造值，否则观看者列表会显示假 IP
+    "x-bili-client-ip",
   ];
 
   headersToRemove.forEach((header) => {
@@ -146,6 +186,11 @@ function setUserHeaders(proxyReq, req) {
   proxyReq.setHeader("x-bili-email", encodeURIComponent(userInfo.email || ""));
   proxyReq.setHeader("x-bili-vip-status", userInfo.vip_status || "");
   proxyReq.setHeader("x-bili-vip-type", userInfo.vip_type || "");
+
+  // 客户端真实 IP：上游（RPA）看到的连接来源是网关自己，拿不到真实地址，
+  // 必须由网关从 nginx 的 X-Real-IP / X-Forwarded-For 解析后注入，
+  // 供「观看者列表」展示是谁在看（见 docs/rpa-多观看者并发直播计划书.md §2.7）。
+  proxyReq.setHeader("x-bili-client-ip", resolveClientIp(req));
 }
 
 module.exports = {
@@ -153,4 +198,5 @@ module.exports = {
   sendProxyErrorPush,
   proxyErrorHandler,
   setUserHeaders,
+  resolveClientIp,
 };

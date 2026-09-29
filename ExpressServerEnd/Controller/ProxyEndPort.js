@@ -21,6 +21,14 @@ const {
   proxyErrorHandler,
 } = require("@/ExpressServerEnd/Controller/ProxyHelper");
 
+// SSE（text/event-stream）长连接判定：目前只有 RPA 的会话状态事件流
+// `/api/v1/rpa/browser/control/events`。用于在 RPA 代理里跳过 connect-timeout 的
+// 一次性计时（详见下方 /api/v1/rpa 的 proxyReq 注释）。
+function isSseRequest(req) {
+  const url = req.originalUrl || req.url || "";
+  return url.includes("/browser/control/events");
+}
+
 router.use(
   // fastapi 的数据库反向代理
   "/api/v1/lottery_database/bili/",
@@ -64,8 +72,15 @@ router.use(
     pathRewrite: { "^/": "/api/v1/rpa/" },
     on: {
       proxyReq: (proxyReq, req, res) => {
+        // 全局 connect-timeout 是一次性 setTimeout（见 app.js 的 timeout("30s")），
+        // **不会随数据流重置**，所以这里必须把它清掉。
         req.clearTimeout();
-        req.setTimeout(180000);
+        // 但 SSE（会话状态事件流）不能再重新计时：否则 180s 到点会被强制中断，
+        // 表现为「事件流正常收了几分钟，然后突然断」。SSE 路径干脆不设该超时；
+        // 上游空闲由上面的 proxyTimeout 兜底（那是真实 socket 超时，会被 15s 心跳重置）。
+        if (!isSseRequest(req)) {
+          req.setTimeout(180000);
+        }
         // 以同步方式设置用户信息到 header
         setUserHeaders(proxyReq, req);
         fixRequestBody(proxyReq, req);
