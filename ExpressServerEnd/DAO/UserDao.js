@@ -2,6 +2,23 @@ const { t } = require("@/ExpressServerEnd/Tool/Utl");
 // pptr 用户读写全部走 be-message RPC，不再维护本地 sequelize 用户表
 const { callRpc } = require("@/ExpressServerEnd/Service/mq/rpc_client");
 
+/**
+ * be-message RPC 出参的雪花 ID 口径（bili_common.models.auto_str）：
+ *   - `uid`   : int 数值（JS Number 会丢精度，**禁止消费**）
+ *   - `uidStr`: 字符串版（由后端 @auto_str 派生），唯一安全数据源
+ * Node 侧统一在这里收敛一次，内部后续逻辑继续用字符串 uid。
+ */
+const mapRpcUid = (data) => {
+    if (!data) return undefined;
+    const uidStr = data.uidStr;
+    return uidStr != null ? String(uidStr) : (data.uid != null ? String(data.uid) : undefined);
+};
+
+const mapRpcUser = (data) => {
+    if (!data) return data;
+    return { ...data, uid: mapRpcUid(data) };
+};
+
 class UserDao {
     constructor() {
     }
@@ -30,7 +47,7 @@ class UserDao {
      */
     static get_user_info_by_uid = async (uid) => {
         const resp = await callRpc("get_user_info", { uid });
-        return resp && resp.code === 0 ? resp.data : undefined;
+        return resp && resp.code === 0 ? mapRpcUser(resp.data) : undefined;
     };
 
     /**
@@ -44,7 +61,7 @@ class UserDao {
      */
     static async get_user_info_by_user_name(user_name) {
         const resp = await callRpc("get_user_info", { user_name });
-        return resp && resp.code === 0 ? resp.data : undefined;
+        return resp && resp.code === 0 ? mapRpcUser(resp.data) : undefined;
     };
 
     /**
@@ -62,7 +79,7 @@ class UserDao {
         if (!data) return null;
         // 兼容旧调用方的嵌套结构（TUserDetail.TUserLevel / TUserVip）
         return {
-            uid: data.uid,
+            uid: mapRpcUid(data),
             user_name: data.user_name,
             pwd: data.pwd,
             role: data.role,
@@ -101,7 +118,7 @@ class UserDao {
         const data = resp && resp.code === 0 ? resp.data : null;
         if (!data) return undefined;
         return {
-            uid: data.uid,
+            uid: mapRpcUid(data),
             user_name: data.user_name,
             role: data.role,
             TUserDetail: {

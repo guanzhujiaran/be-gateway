@@ -5,6 +5,7 @@ const {
 const { callRpc } = require("@/ExpressServerEnd/Service/mq/rpc_client");
 const {
   createToken,
+  getToken,
 } = require("@/ExpressServerEnd/Service/user_permission_module/JwtModule");
 const {
   base_api_model,
@@ -356,9 +357,11 @@ class UserService {
       }
 
       // 将当前JWT token加入黑名单
-      const authHeader = req.headers.authorization;
-      if (authHeader && authHeader.startsWith("Bearer ")) {
-        const token = authHeader.substring(7);
+      // 注意：JWT 已改为存 HttpOnly Cookie（bili_jwt），浏览器不会再发 Authorization 头，
+      // 这里必须走 getToken(req) 统一取（Cookie 优先、兼容 Authorization），
+      // 否则整段会被静默跳过，退出登录后旧 token 在有效期内仍可继续使用。
+      const token = getToken(req);
+      if (token) {
         // 从token中获取过期时间
         const payload = JSON.parse(
           Buffer.from(token.split(".")[1], "base64").toString(),
@@ -373,12 +376,17 @@ class UserService {
         }
       }
 
-      // 记录退出日志
-      await UserService.add_user_act_ip_info({
-        req,
-        resp,
-        act_info: UserActModel.logout,
-      });
+      // 记录退出日志（辅助信息，写库失败不应让退出登录整体失败：
+      // 客户端此时只等一个「成功」响应来确认 HttpOnly Cookie 已被清除）
+      try {
+        await UserService.add_user_act_ip_info({
+          req,
+          resp,
+          act_info: UserActModel.logout,
+        });
+      } catch (actErr) {
+        console.error("记录退出日志失败（忽略）:", actErr?.message ?? actErr);
+      }
 
       return new base_api_model({
         code: 0,

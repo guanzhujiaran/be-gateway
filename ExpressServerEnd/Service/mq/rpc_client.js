@@ -52,7 +52,7 @@ async function _ensure() {
                 _pending.delete(cid);
                 try {
                     const payload = JSON.parse(msg.content.toString('utf8'));
-                    handler.resolve(payload);
+                    handler.resolve(normalizeRpcIds(payload));
                 } catch (e) {
                     handler.reject(e);
                 }
@@ -81,6 +81,43 @@ async function _ensure() {
         _initPromise = null; // 建连失败则允许下次重试
         throw e;
     }
+}
+
+/**
+ * 把 be-message RPC 出参里的雪花 ID 归一为字符串。
+ *
+ * 后端口径（bili_common.models.auto_str）：数值字段 `uid` 是 int（JS Number 会
+ * 静默丢精度），字符串版由 `@auto_str` 派生成同级的 `uidStr`。
+ * Node 侧是 JS，消费方遍布全站（JWT payload / req.auth.uid / 下游请求参数），
+ * 因此在**唯一的 RPC 出口**做一次归一：只要对象上出现 `<字段>Str`，就把同名字段
+ * 覆盖为字符串版本。消费方（UserDao / CasdoorService / user_service / user_model）
+ * 无需各自改造，且内部逻辑保持「uid 一直是字符串」的既有语义。
+ *
+ * 幂等：已经是字符串时不做任何事。
+ */
+const ID_SUFFIXES = ['uid', 'mid', 'target_mid', 'rpid', 'oid', 'biz_id', 'msgkey'];
+
+function normalizeIdFields(node) {
+    if (Array.isArray(node)) {
+        node.forEach(normalizeIdFields);
+        return node;
+    }
+    if (!node || typeof node !== 'object') return node;
+    ID_SUFFIXES.forEach((field) => {
+        if (node[field] == null) return;
+        // 后端两种后缀并存：camelCase 出参用 `Str`（uidStr），snake_case 出参用 `_str`（uid_str）
+        const strValue = node[`${field}Str`] != null ? node[`${field}Str`] : node[`${field}_str`];
+        if (strValue != null) {
+            node[field] = String(strValue);
+        }
+    });
+    Object.values(node).forEach(normalizeIdFields);
+    return node;
+}
+
+function normalizeRpcIds(payload) {
+    if (!payload || typeof payload !== 'object') return payload;
+    return normalizeIdFields(payload);
 }
 
 /**
