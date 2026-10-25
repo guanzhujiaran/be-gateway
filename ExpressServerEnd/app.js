@@ -22,6 +22,8 @@ const { RESPONSE_CODES } = require("./Service/response_constants");
 // 导入中间件
 const { jwtAuth } = require("./Service/user_permission_module/JwtModule");
 const { restrictToLocalhost } = require("./MiddleWare/Limiter");
+const errorReporter = require("./MiddleWare/ErrorReporter");
+const { notifyExit } = require("./MiddleWare/ExitNotifier");
 
 // 导入路由
 const UserRouter = require("./routes/user");
@@ -31,6 +33,9 @@ const ProxyEndPort = require("./routes/proxy");
 // 导入服务
 
 const app = express();
+
+// 启动错误聚合上报定时器（10s 一个窗口，聚合后推送，与请求链路完全解耦）
+errorReporter.start();
 
 // 上游/网络请求类错误码集合（无法连接上游、上游响应无效等）
 const UPSTREAM_ERROR_CODES = new Set([
@@ -63,6 +68,27 @@ function mapRequestErrorToHttpStatus(err) {
     return 502; // 网关从上游收到无效响应 / 无法连接上游
   }
   return null;
+}
+
+/**
+ * 采集网关自身产生的 5xx（全局错误中间件兜底路径）。
+ *
+ * 与代理层的 `upstream_5xx` / `proxy_error` 区分开：
+ * 这里代表「网关自己的代码/中间件出错」，不涉及上游转发结果。
+ * @param {Object} req
+ * @param {number} status
+ * @param {Error} err
+ */
+function collectGatewayError(req, status, err) {
+  errorReporter.collect({
+    kind: "gateway_5xx",
+    status,
+    method: req.method,
+    path: req.originalUrl || req.url,
+    upstream: "gateway",
+    mid: (req.userInfoForHeader && req.userInfoForHeader.mid) || "",
+    code: (err && err.code) || "",
+  });
 }
 
 // 开发环境请求日志中间件
@@ -139,6 +165,7 @@ app.use((err, req, resp, next) => {
       });
     case 503: // connect-timeout 触发的响应超时
     case 504: // 上游网关超时
+      collectGatewayError(req, 504, err);
       return resp.status(504).json({
         code: 504,
         data: null,
@@ -163,6 +190,7 @@ app.use((err, req, resp, next) => {
   // 超时 / 上游请求错误 -> 对应的 HTTP 状态码
   const requestErrorStatus = mapRequestErrorToHttpStatus(err);
   if (requestErrorStatus) {
+    collectGatewayError(req, requestErrorStatus, err);
     return resp.status(requestErrorStatus).json({
       code: requestErrorStatus,
       data: null,
@@ -176,11 +204,43 @@ app.use((err, req, resp, next) => {
     // 系统推送已移除，保留日志
     console.error(`[PROD ERROR] ${req.url}`, err.message);
   }
+  collectGatewayError(req, 500, err);
   return resp.status(500).json({
     code: RESPONSE_CODES.ERRORS.UNKNOWN_ERROR.code,
     data: null,
     msg: `${RESPONSE_CODES.ERRORS.UNKNOWN_ERROR.msg}${err.message}`,
     ttl: 1,
+  });
+});
+
+// ==================== 进程级异常与退出通知 ====================
+// 网关是唯一的上报点，进程静默死亡等价于「没有任何告警」，这里补最后一条通知。
+// 只能覆盖「进程还能执行完这几行代码」的场景；kill -9 / OOM killer / 宿主机失联
+// 覆盖不到，由最外层 OpenResty 的日志规则兜底（status>=502 且 upstream_status 为空）。
+process.on("SIGTERM", () => {
+  notifyExit("收到 SIGTERM", `进程已运行 ${process.uptime().toFixed(0)}s`);
+  process.exit(0);
+});
+process.on("SIGINT", () => {
+  notifyExit("收到 SIGINT", `进程已运行 ${process.uptime().toFixed(0)}s`);
+  process.exit(0);
+});
+process.on("uncaughtException", (err) => {
+  notifyExit("未捕获异常", (err && err.stack) || String(err));
+  console.error("未捕获异常，进程退出：", err);
+  process.exit(1);
+});
+process.on("unhandledRejection", (reason) => {
+  // 只记录不退出：避免改变现有行为（unhandledRejection 的默认处理在各 Node 版本不一致）
+  console.error("未处理的 Promise 拒绝：", reason);
+  errorReporter.collect({
+    kind: "gateway_5xx",
+    status: 500,
+    method: "-",
+    path: "unhandledRejection",
+    upstream: "gateway",
+    mid: "",
+    code: (reason && reason.code) || "",
   });
 });
 

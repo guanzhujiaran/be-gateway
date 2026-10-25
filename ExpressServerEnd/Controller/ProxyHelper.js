@@ -7,6 +7,7 @@
  */
 const axios = require("axios");
 const { utils } = require("@/ExpressServerEnd/BiliPPTR/utils/utils");
+const errorReporter = require("@/ExpressServerEnd/MiddleWare/ErrorReporter");
 
 /**
  * 代理请求错误 -> HTTP 状态码
@@ -40,6 +41,10 @@ function mapProxyErrorToStatus(err) {
 /**
  * 转发路由（代理）报错时发送系统级推送通知（best-effort，失败不影响原错误响应）。
  * 复用 utils.my_send_notify 中配置的系统推送 key（pushme / push_plus）。
+ *
+ * @deprecated 已由 `MiddleWare/ErrorReporter` 的聚合上报统一接管（见 `buildProxyHooks`）。
+ *  保留导出仅为避免外部引用断裂，新代码不要调用：
+ *  本函数无超时且每次错误各推一条，在故障风暴下既阻塞响应又会刷爆推送通道。
  * @param {Error} err
  * @param {Object} req
  */
@@ -83,15 +88,17 @@ async function sendProxyErrorPush(err, req) {
 }
 
 /**
- * 代理错误处理：记录日志 + 推送告警 + 返回 502/504。
+ * 代理错误处理：记录日志 + 返回 502/504。
+ *
+ * 注意：这里**不再**同步推送告警。推送已收口到 ErrorReporter 的聚合通道
+ * （见 buildProxyHooks），因为 pushme 是公网服务，一旦变慢或挂起，
+ * await 会把所有代理错误请求一起拖到 connect-timeout 的 30s 上限。
  * @param {Error} err
  * @param {Object} req
  * @param {Object} res
  */
 async function proxyErrorHandler(err, req, res) {
   console.error(`代理错误 (${req.host}${req.path}):`, err);
-  // 转发路由报错时发送系统级推送通知（await 确保推送完成后再返回响应）
-  await sendProxyErrorPush(err, req);
   // 响应已开始（流式/分块传输）时无法再设置状态码，只能断开连接
   if (res.headersSent || res.writableEnded) {
     return res.destroy();
@@ -103,6 +110,58 @@ async function proxyErrorHandler(err, req, res) {
     msg: `代理请求上游失败`,
     ttl: 1,
   });
+}
+
+/**
+ * 构造反向代理的统一错误采集 hook。
+ *
+ * 全部代理必须通过本函数生成 `on` 配置，避免采集口径漂移：
+ *  - `proxyRes`：上游**正常返回**但状态码为 5xx 时采集。
+ *    这是 http-proxy-middleware 的默认盲区 —— 上游 500 会直接 pipe 给客户端，
+ *    既不触发 `error`，也不经过 Express 错误中间件，不挂这个钩子就永远发现不了。
+ *    该阶段只读 statusCode，不消费响应流（消费会破坏 pipe）。
+ *  - `error`：连接层失败（上游不可达 / 超时 / 无效响应）时采集，随后走原错误处理。
+ *
+ * @param {string} upstreamName 上游服务短名（crawler / rpa / casdoor / message / gateway）
+ * @returns {{proxyRes: Function, error: Function}}
+ */
+function buildProxyHooks(upstreamName) {
+  return {
+    proxyRes: (proxyRes, req) => {
+      try {
+        const status = proxyRes && proxyRes.statusCode;
+        if (!status || status < 500) return;
+        errorReporter.collect({
+          kind: "upstream_5xx",
+          status,
+          method: req.method,
+          path: req.originalUrl || req.url,
+          upstream: upstreamName,
+          mid: (req.userInfoForHeader && req.userInfoForHeader.mid) || "",
+          code: "",
+        });
+      } catch (e) {
+        // 采集失败绝不能影响代理转发
+        console.warn("上游 5xx 采集失败：", e && e.message);
+      }
+    },
+    error: (err, req, res) => {
+      try {
+        errorReporter.collect({
+          kind: "proxy_error",
+          status: 0, // 无上游 HTTP 响应
+          method: req.method,
+          path: req.originalUrl || req.url,
+          upstream: upstreamName,
+          mid: (req.userInfoForHeader && req.userInfoForHeader.mid) || "",
+          code: (err && err.code) || "",
+        });
+      } catch (e) {
+        console.warn("代理错误采集失败：", e && e.message);
+      }
+      return proxyErrorHandler(err, req, res);
+    },
+  };
 }
 
 /**
@@ -197,6 +256,7 @@ module.exports = {
   mapProxyErrorToStatus,
   sendProxyErrorPush,
   proxyErrorHandler,
+  buildProxyHooks,
   setUserHeaders,
   resolveClientIp,
 };

@@ -10,6 +10,7 @@
 const app = require('./app');
 const run_env_args = require("./config/run_arg");
 const { checkUpstreamHealth } = require("./Service/upstream_health_module/upstream_health_service");
+const { notifyExit } = require("./MiddleWare/ExitNotifier");
 
 const port = run_env_args["port"] || 9923;
 const hostname = "0.0.0.0";
@@ -34,6 +35,8 @@ const hostname = "0.0.0.0";
         console.error("be-message-service 不可用，网关拒绝启动！");
         console.error(`  [✗] ${messageFailed.name}: ${messageFailed.reason} (${messageFailed.target})`);
         console.error("========================================");
+        // 启动失败是「静默死亡」的典型路径：控制台日志没人看，必须外部通知
+        notifyExit("启动失败：上游不可用", `be-message-service 不可用 (${messageFailed.target})`);
         process.exit(1);
     }
 

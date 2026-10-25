@@ -18,15 +18,20 @@ const {
 // 与 /api/v1/user 的网关代理共用同一份实现，避免鉴权口径漂移。
 const {
   setUserHeaders,
-  proxyErrorHandler,
+  buildProxyHooks,
 } = require("@/ExpressServerEnd/Controller/ProxyHelper");
 
-// SSE（text/event-stream）长连接判定：目前只有 RPA 的会话状态事件流
-// `/api/v1/rpa/browser/control/events`。用于在 RPA 代理里跳过 connect-timeout 的
-// 一次性计时（详见下方 /api/v1/rpa 的 proxyReq 注释）。
+// SSE（text/event-stream）长连接判定：
+//  1. RPA 会话状态事件流 `/api/v1/rpa/browser/control/events`
+//  2. 工作流运行进度事件流 `/api/v1/rpa/browser/control/workflows/runs/events`
+// 用于在 RPA 代理里跳过 connect-timeout 的一次性计时（详见下方 /api/v1/rpa 的
+// proxyReq 注释）。新增 SSE 端点时必须同步扩展这里，否则 180s 会被网关强制断开。
 function isSseRequest(req) {
   const url = req.originalUrl || req.url || "";
-  return url.includes("/browser/control/events");
+  return (
+    url.includes("/browser/control/events") ||
+    url.includes("/browser/control/workflows/runs/events")
+  );
 }
 
 router.use(
@@ -44,7 +49,8 @@ router.use(
         setUserHeaders(proxyReq, req);
         fixRequestBody(proxyReq, req);
       },
-      error: proxyErrorHandler,
+      // 上游 5xx / 连接层错误统一交给 ErrorReporter 聚合上报
+      ...buildProxyHooks("crawler"),
     },
   }),
 );
@@ -58,7 +64,7 @@ router.use(
       proxyReq: (proxyReq, req, res) => {
         fixRequestBody(proxyReq, req); // 这一行不能删，不然无法代理请求。
       },
-      error: proxyErrorHandler,
+      ...buildProxyHooks("crawler"),
     },
   }),
 );
@@ -85,7 +91,7 @@ router.use(
         setUserHeaders(proxyReq, req);
         fixRequestBody(proxyReq, req);
       },
-      error: proxyErrorHandler,
+      ...buildProxyHooks("rpa"),
     },
     changeOrigin: true,
     ws: true,
@@ -101,7 +107,7 @@ router.use(
       proxyReq: (proxyReq, req, res) => {
         fixRequestBody(proxyReq, req); // 这一行不能删，不然无法代理请求。
       },
-      error: proxyErrorHandler,
+      ...buildProxyHooks("casdoor"),
     },
   }),
 );
@@ -122,7 +128,7 @@ router.use(
       proxyReq: (proxyReq, req, res) => {
         fixRequestBody(proxyReq, req);
       },
-      error: proxyErrorHandler,
+      ...buildProxyHooks("message"),
     },
   }),
 );
@@ -144,7 +150,7 @@ router.use(
         setUserHeaders(proxyReq, req);
         fixRequestBody(proxyReq, req);
       },
-      error: proxyErrorHandler,
+      ...buildProxyHooks("rpa"),
     },
     changeOrigin: true,
   }),
@@ -171,7 +177,7 @@ router.use(
         setUserHeaders(proxyReq, req);
         fixRequestBody(proxyReq, req);
       },
-      error: proxyErrorHandler,
+      ...buildProxyHooks("message"),
     },
   }),
 );

@@ -22,7 +22,7 @@ const {
 } = require("@/ExpressServerEnd/MiddleWare/PrefetchUserInfo");
 const {
   setUserHeaders,
-  proxyErrorHandler,
+  buildProxyHooks,
 } = require("@/ExpressServerEnd/Controller/ProxyHelper");
 
 // ==================== 统一代理：所有路径走 be-message ====================
@@ -56,7 +56,8 @@ router.use(
 
         fixRequestBody(proxyReq, req);
       },
-      error: proxyErrorHandler,
+      // 上游 5xx / 连接层错误统一交给 ErrorReporter 聚合上报
+      ...buildProxyHooks("message"),
     },
   })
 );
