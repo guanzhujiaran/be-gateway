@@ -34,13 +34,52 @@ function isSseRequest(req) {
   );
 }
 
+// 抽奖库里「非查询」的接口仍然只走爬虫服务（crawler 角色）：
+//   Add* 系列      写入 / 触发抓取
+//   *ScrapyStatus  读爬虫进程内调度状态
+//   zhuanlan/*     整条是 CV 生成 + 抓取链路，不查库
+// 查询服务（crawler-query target）根本没挂这些路由，且可能连的是只读账号 / 只读副本。
+// 必须注册在下面通用的 /api/v1/lottery_database/bili/ 之前 —— Express 的 router.use
+// 按注册顺序匹配，先命中先接管。
+const CRAWLER_ONLY_PATHS = [
+  "/api/v1/lottery_database/bili/AddDynamicLottery",
+  "/api/v1/lottery_database/bili/BulkAddDynamicLottery",
+  "/api/v1/lottery_database/bili/AddTopicLottery",
+  "/api/v1/lottery_database/bili/BulkAddTopicLottery",
+  "/api/v1/lottery_database/bili/AddOthersLotDyn",
+  "/api/v1/lottery_database/bili/BulkAddOthersLotDyn",
+  "/api/v1/lottery_database/bili/GetSingleScrapyStatus",
+  "/api/v1/lottery_database/bili/GetAllLotScrapyStatus",
+  "/api/v1/lottery_database/bili/zhuanlan",
+];
+for (const crawlerOnlyPath of CRAWLER_ONLY_PATHS) {
+  router.use(
+    crawlerOnlyPath,
+    jwtAuthOptional, // 可登录也可不登陆
+    userInfoPreFetchMiddleware(), // 预查询用户信息
+    createProxyMiddleware({
+      target: utils.MYAPI.base_url,
+      proxyTimeout: 30000,
+      // mount 前缀会被剥离，这里按各自前缀还原完整路径
+      pathRewrite: { "^/": crawlerOnlyPath },
+      on: {
+        proxyReq: (proxyReq, req, res) => {
+          setUserHeaders(proxyReq, req);
+          fixRequestBody(proxyReq, req);
+        },
+        ...buildProxyHooks("crawler"),
+      },
+    }),
+  );
+}
+
 router.use(
-  // fastapi 的数据库反向代理
+  // fastapi 的数据库反向代理（只读查询：target 指向 crawler-query 服务）
   "/api/v1/lottery_database/bili/",
   jwtAuthOptional, // 可登录也可不登陆
   userInfoPreFetchMiddleware(), // 预查询用户信息
   createProxyMiddleware({
-    target: utils.MYAPI.base_url,
+    target: utils.MYAPI.query_base_url,
     proxyTimeout: 30000,
     pathRewrite: { "^/": "/api/v1/lottery_database/bili/" },
     on: {

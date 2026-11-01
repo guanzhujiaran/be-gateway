@@ -14,9 +14,14 @@ const { utils } = require("@/ExpressServerEnd/BiliPPTR/utils/utils");
 function getUpstreamTargets() {
   return [
     {
-      name: "be-bilibili-crawler (fastapi)",
-      route: "/api/v1/lottery_database/bili、/api/v1/samsClub/graphql",
+      name: "be-bilibili-crawler (fastapi, 写入/控制面)",
+      route: "/api/v1/lottery_database/bili/Add*、/api/v1/samsClub/graphql",
       target: utils.MYAPI.base_url,
+    },
+    {
+      name: "be-bilibili-crawler-query (fastapi, 只读查询)",
+      route: "/api/v1/lottery_database/bili（除 Add* 系列）",
+      target: utils.MYAPI.query_base_url,
     },
     {
       name: "rpa-browser (rpa)",

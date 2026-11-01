@@ -1083,6 +1083,9 @@ const utils = {
 
     MYAPI: {
         base_url:  process.env.BILI_CRAWLER_URI,
+        // 纯查询服务（Dockerfile.mono 的 crawler-query target，只挂只读路由）。
+        // 未配置时回落到 base_url：只起一个 crawler 容器的老部署方式行为不变。
+        query_base_url: process.env.BILI_CRAWLER_QUERY_URI || process.env.BILI_CRAWLER_URI,
         /**
          * API发送请求
          * @param {String} url
