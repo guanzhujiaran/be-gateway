@@ -76,13 +76,17 @@ if (messageFailed) {
 ### 2.5 现成推送工具已失效
 
 ```js
-// BiliPPTR/utils/utils.js: 1369-1371（现状）
+// BiliPPTR/utils/utils.js: 1372-1374（现状）
 push_me: async function (title, msg, pushme_key, push_plus_key, sys_msg = false) {
     if (!pushme_key && !sys_msg) return
     return console.log(`pushme\t${arguments[0]}\t${arguments[1]}`)
 ```
 
-`utils.my_send_notify.push_me` 已被短路为只打日志。**新模块不得复用该方法**，只复用其 `__push_key` 里的 token。
+`pptr_op.my_send_notify.push_me` 已被短路为只打日志。**新模块不得复用该方法**，只复用其 `__push_key` 里的 token。
+
+> ⚠️ 注意挂载位置：`my_send_notify` 属于 utils.js 导出的 `pptr_op`，**不在 `utils` 上**
+> （`utils` 只有 `Common/BiliAPI/BAPI/MYAPI/RPA/MESSAGE`）。写成 `utils.my_send_notify`
+> 会静默拿到 `undefined` → 永不推送。
 
 ---
 
@@ -245,11 +249,29 @@ kind | status | upstream | normalizePath(path) | code
 
 ### 5.5 推送通道
 
-复用 `utils.my_send_notify.__push_key` 中的 `pushme` / `push_plus` token，但**自建实现**（现成的 `push_me` 已短路为 `console.log`，见 §2.5）：
+复用 `pptr_op.my_send_notify.__push_key` 中的 `pushme` / `push_plus` token，但**自建实现**（现成的 `push_me` 已短路为 `console.log`，见 §2.5）：
 
-1. `POST https://push.i-i.me`，`timeout: 5000`；
-2. 失败后兜底 `POST http://www.pushplus.plus/send`，同样 5s 超时；
+1. `POST https://push.i-i.me`，`timeout: 5000`；成功时响应体是**纯文本 `success`**（不是 `{data:"success"}`），判定兼容两种形态；
+2. 失败后兜底 `POST http://www.pushplus.plus/send`，同样 5s 超时，成功判定为 `body.code === 200`；
 3. 两者都失败仅 `console.warn`，不重试（下一窗口会自然重发）。
+
+### 5.6 通道分层（主通道 = be-message，直连 = 兜底）
+
+§5.5 的直连实现**已降级为兜底通道**，主通道改走 be-message 的统一推送执行体：
+
+```
+flush → pushText()
+         ├─ 主通道：RPC `message.push.rpc.send_push_now`（同步，3s 超时，mid=null 不做免打扰拦截）
+         │    code=0 && data.success=true → 结束
+         └─ 兜底：直连 pushme → pushplus，标题加 `[降级直连]` 前缀
+```
+
+理由：
+
+- 渠道配置 / 降级顺序（19 个渠道）/ 模板 / 限流统一由 be-message 管理，服主在 message 后台改配置即可；
+- 契约 `bili_common.rpc.push` 明确把 be-gateway 列为调用方，走 RPC 而不是 HTTP 是为了绕开 `x-bili-*` 用户身份头；
+- 保留直连兜底，是因为 be-message / RabbitMQ 挂掉的时刻恰恰最需要告警，主通道不能是唯一通道；
+- 退出通知（§6）**仍用 curl 直连**：进程即将退出，RPC 的异步出网与 MQ 连接都不可靠。
 
 ---
 
@@ -301,6 +323,8 @@ status >= 502 AND upstream_status = ""
 | 5 | `ExpressServerEnd/Controller/api/v1/user/UserGatewayProxy.js` | 修改 | 同上（1 处） |
 | 6 | `ExpressServerEnd/app.js` | 修改 | `errorReporter.start()`；全局错误中间件 500 / 504 分支采集；注册 `process.on` 钩子 |
 | 7 | `ExpressServerEnd/server.js` | 修改 | `process.exit(1)` 前调用 `notifyExit` |
+| 8 | `ExpressServerEnd/Service/mq/rpc_client.js` | 修改 | `callRpc` 增加 `options.prefix` / `options.timeoutMs`，支持 `message.push.rpc` 契约；导出 `PUSH_ROUTING_PREFIX` |
+| 9 | `ExpressServerEnd/MiddleWare/ErrorReporter.js` | 修改 | 推送分层：be-message RPC 主通道 + 直连兜底（见 §5.6） |
 
 上游服务命名（用于告警归类）与 `Service/upstream_health_module/upstream_health_service.js` 的 `getUpstreamTargets()` 保持一致，取短名：`crawler` / `rpa` / `casdoor` / `message` / `gateway`。
 
@@ -349,6 +373,7 @@ status >= 502 AND upstream_status = ""
 
 ## 12. 后续可扩展（本次不做）
 
-- 接入 `be-message` 的结构化告警接口，替代 pushme 文本推送，支持告警分级 / 静默期 / 认领；
+- ~~接入 `be-message` 的结构化告警接口~~ → 已实现（§5.6，走 RPC `send_push_now`，直连仅作兜底）；
+- 告警分级 / 静默期 / 认领：需要 be-message 侧提供告警专用接口，目前仍是一条文本消息；
 - 告警内容带上 `trace_id`，与后端日志串联（需网关生成并透传 `X-Trace-Id`）；
 - 基于 `ErrorReporter` 的桶数据做网关侧熔断（同类错误超阈值时直接 503，不打下游）。

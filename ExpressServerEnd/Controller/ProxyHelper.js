@@ -6,7 +6,7 @@
  * 一旦不一致会造成上游鉴权口径不同）。
  */
 const axios = require("axios");
-const { utils } = require("@/ExpressServerEnd/BiliPPTR/utils/utils");
+const { utils, pptr_op } = require("@/ExpressServerEnd/BiliPPTR/utils/utils");
 const errorReporter = require("@/ExpressServerEnd/MiddleWare/ErrorReporter");
 
 /**
@@ -50,7 +50,9 @@ function mapProxyErrorToStatus(err) {
  */
 async function sendProxyErrorPush(err, req) {
   const sysKey =
-    (utils && utils.my_send_notify && utils.my_send_notify.__push_key) || {};
+    (pptr_op && pptr_op.my_send_notify && pptr_op.my_send_notify.__push_key) ||
+    (utils && utils.my_send_notify && utils.my_send_notify.__push_key) ||
+    {};
   const title = `[转发路由报错] ${req.method || ""} ${req.path || ""}`;
   const msg =
     `来源 Host: ${req.headers && req.headers.host ? req.headers.host : "未知"}\n` +

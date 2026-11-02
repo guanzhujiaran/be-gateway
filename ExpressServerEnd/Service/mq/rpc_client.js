@@ -1,9 +1,12 @@
 /**
- * pptr 用户 RPC 客户端（amqplib）。
+ * be-message RPC 客户端（amqplib）。
  *
  * be-message-service 作为 RPC 服务端（FastStream @broker.rpc），本模块通过
- * topic exchange `message` + routing_key `message.pptr.rpc.<method>` 调用，
+ * topic exchange `message_exchange` + routing_key `<prefix>.<method>` 调用，
  * 并使用 direct reply-to（amq.rabbitmq.reply-to）收取响应。
+ *
+ * 前缀默认 `message.pptr.rpc`（用户域）；其它契约用 `options.prefix` 传入，
+ * 例如站外推送 `message.push.rpc`（send_push_now / push_message）。
  *
  * pptr 侧用户读写全部走这里，不再维护本地 sequelize 用户表（TUserInfo 等）。
  *
@@ -20,6 +23,9 @@ const crypto = require('crypto');
 const config = require('../../config');
 
 const ROUTING_PREFIX = 'message.pptr.rpc';
+// 站外推送契约的路由前缀（bili_common.rpc.base.PUSH_RPC_ROUTING_KEY_PREFIX），
+// 供 ErrorReporter 等系统级告警使用，通过 callRpc 的 options.prefix 传入
+const PUSH_ROUTING_PREFIX = 'message.push.rpc';
 const EXCHANGE = 'message_exchange'; // 与 be-message 服务端 broker.py 中的 message_exchange 一致
 
 let _channel = null;
@@ -128,7 +134,7 @@ function normalizeRpcIds(payload) {
  */
 class RpcTimeoutError extends Error {
     constructor(methodName, timeoutMs) {
-        super(`pptr RPC 超时: ${methodName} (${timeoutMs}ms)`);
+        super(`RPC 超时: ${methodName} (${timeoutMs}ms)`);
         this.name = 'RpcTimeoutError';
         this.isRpcTimeout = true;
         this.methodName = methodName;
@@ -146,14 +152,19 @@ class RpcTransportError extends Error {
 }
 
 /**
- * 调用一次 pptr 用户 RPC。
- * @param {string} methodName 方法名（get_user_info / get_user_card / create_user）
+ * 调用一次 be-message RPC。
+ * @param {string} methodName 方法名（get_user_info / send_push_now ...）
  * @param {object} params 请求参数
+ * @param {{prefix?: string, timeoutMs?: number}} [options]
+ *  路由前缀与超时覆盖：默认 `message.pptr.rpc`（用户域），
+ *  站外推送传 `message.push.rpc`（见 PUSH_ROUTING_PREFIX）。
  * @returns {Promise<object>} 服务端返回的 StandardResponse（{ code, msg, data }）
  * @throws {RpcTimeoutError} 超时（绝不按查无此人处理，必须向上抛出）
  * @throws {RpcTransportError} 连接 / 通信异常（必须向上抛出）
  */
-async function callRpc(methodName, params) {
+async function callRpc(methodName, params, options) {
+    const opts = options || {};
+    const prefix = opts.prefix || ROUTING_PREFIX;
     let ch;
     try {
         ch = await _ensure();
@@ -162,9 +173,9 @@ async function callRpc(methodName, params) {
         throw new RpcTransportError(e);
     }
 
-    const routingKey = `${ROUTING_PREFIX}.${methodName}`;
+    const routingKey = `${prefix}.${methodName}`;
     const corrId = _newCorrId();
-    const timeoutMs = config.mq_config.rpc_timeout_ms || 5000;
+    const timeoutMs = opts.timeoutMs || config.mq_config.rpc_timeout_ms || 5000;
 
     const body = Buffer.from(JSON.stringify(params || {}));
 
@@ -172,7 +183,7 @@ async function callRpc(methodName, params) {
         const timer = setTimeout(() => {
             _pending.delete(corrId);
             // 超时：明确抛出 RpcTimeoutError，调用方必须抛出，不得按查无此人处理
-            reject(new RpcTimeoutError(methodName, timeoutMs));
+            reject(new RpcTimeoutError(routingKey, timeoutMs));
         }, timeoutMs);
         _pending.set(corrId, { resolve, reject, timer });
 
@@ -196,6 +207,7 @@ async function callRpc(methodName, params) {
 module.exports = {
     callRpc,
     ROUTING_PREFIX,
+    PUSH_ROUTING_PREFIX,
     RpcTimeoutError,
     RpcTransportError,
 };

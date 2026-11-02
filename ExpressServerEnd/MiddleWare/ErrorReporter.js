@@ -6,16 +6,29 @@
  *  2. 所有出网动作只发生在 flush 定时器里，与请求生命周期彻底解耦；
  *  3. 任何环节失败只打 console.warn，绝不向上抛、绝不影响业务响应。
  *
- * 为什么不复用 utils.my_send_notify.push_me：
+ * 推送走哪条路：
+ *  主通道 = be-message 的 RPC `message.push.rpc.send_push_now`（统一推送执行体，
+ *  渠道配置 / 降级顺序 / 模板都由 be-message 管理）；
+ *  兜底 = 直连 pushme / pushplus。之所以不是二选一：be-message 挂掉的时刻
+ *  恰恰是最需要告警的时刻，主通道不能是唯一通道。
+ *
+ * 为什么不复用 pptr_op.my_send_notify.push_me：
  *  该方法已被短路为 `return console.log(...)`（见 BiliPPTR/utils/utils.js 的 push_me），
- *  实际不会发出任何请求。因此这里只复用它的 __push_key token，推送逻辑自行实现。
+ *  实际不会发出任何请求。因此兜底通道只复用它的 __push_key token，发送自行实现。
+ *
+ * 注意 token 的挂载位置：`my_send_notify` 属于 utils.js 导出的 `pptr_op`，
+ * 不在 `utils` 上。取错会静默拿到空对象 → 永不推送（曾经踩过）。
  *
  * 为什么用进程内 Map 而不是 Redis：
  *  当前网关是单进程 app.listen（无 cluster），进程内聚合已经足够；
  *  多实例部署时每个实例各自推送，告警里带 upstream/path 也能区分来源。
  */
 const axios = require("axios");
-const { utils } = require("@/ExpressServerEnd/BiliPPTR/utils/utils");
+const {
+  utils,
+  pptr_op,
+} = require("@/ExpressServerEnd/BiliPPTR/utils/utils");
+const rpcClient = require("@/ExpressServerEnd/Service/mq/rpc_client");
 
 /** 聚合窗口（毫秒） */
 const FLUSH_INTERVAL_MS = 10 * 1000;
@@ -23,8 +36,10 @@ const FLUSH_INTERVAL_MS = 10 * 1000;
 const MAX_BUCKETS = 500;
 /** 单次推送最多展示的错误类型数（按次数降序） */
 const DETAIL_LIMIT = 20;
-/** 单次推送超时（毫秒） */
+/** 单次推送超时（毫秒），直连通道用 */
 const PUSH_TIMEOUT_MS = 5000;
+/** be-message RPC 推送超时（毫秒）：告警是旁路，不能占着 timer 太久 */
+const RPC_PUSH_TIMEOUT_MS = 3000;
 /** 未达阈值的桶最长保留时间，超时清空，避免「每次都差一点」永远不告警 */
 const SERIES_TTL_MS = 60 * 1000;
 
@@ -120,15 +135,63 @@ function collect(item) {
 }
 
 /**
- * 推送文本消息：pushme 优先，失败兜底 push_plus。
- * 两条通道都失败时仅打日志，不重试（下一个窗口会自然再发）。
+ * 主通道：走 be-message 统一推送执行体（RPC `message.push.rpc.send_push_now`）。
+ *
+ * 为什么走 RPC 而不是 HTTP `/api/v1/message/push/test`：
+ *  - RPC 契约（bili_common.rpc.push）明确把 be-gateway 列为调用方，面向服务端系统；
+ *  - HTTP 接口依赖 `x-bili-*` 请求头里的用户身份，网关内部调用要伪造身份头，不干净；
+ *  - 同步返回 `{success, sent_channels}`，能确认这次到底通没通。
+ *
+ * 渠道配置、降级顺序、模板、限流全部由 be-message 统一管理，
+ * 网关不再关心具体是 pushme 还是 pushplus。
+ * @param {string} title
+ * @param {string} content
+ * @returns {Promise<{ok: boolean, reason?: string}>}
+ */
+async function pushViaMessageService(title, content) {
+  const resp = await rpcClient.callRpc(
+    "send_push_now",
+    {
+      title,
+      content,
+      push_type: "text",
+      // 不指定 per-user 渠道配置：回落到 message-service 的全局配置（服主自己的推送设置）
+      config: null,
+      user_label: "网关告警",
+      // mid 为空：告警不是发给某个终端用户，不做用户级总开关 / 免打扰拦截
+      mid: null,
+    },
+    { prefix: rpcClient.PUSH_ROUTING_PREFIX, timeoutMs: RPC_PUSH_TIMEOUT_MS },
+  );
+
+  const data = resp && resp.data;
+  if (resp && resp.code === 0 && data && data.success === true) {
+    return { ok: true };
+  }
+  return {
+    ok: false,
+    reason:
+      (resp && resp.msg) ||
+      (data && data.message) ||
+      `未返回 success: ${JSON.stringify(resp)}`,
+  };
+}
+
+/**
+ * 兜底通道：直连 pushme → pushplus。
+ *
+ * 为什么必须保留：be-message / RabbitMQ 挂掉的时刻恰恰是最需要告警的时刻
+ * （网关全站 502 的原因就是它挂了）。主通道失败时这里仍要能发出去，
+ * 代价是渠道配置散在 Node 侧，因此只在降级时使用，并在标题标注来源。
  * @param {string} title
  * @param {string} content
  * @returns {Promise<void>}
  */
-async function pushText(title, content) {
+async function pushDirect(title, content) {
   const sysKey =
-    (utils && utils.my_send_notify && utils.my_send_notify.__push_key) || {};
+    (pptr_op && pptr_op.my_send_notify && pptr_op.my_send_notify.__push_key) ||
+    (utils && utils.my_send_notify && utils.my_send_notify.__push_key) ||
+    {};
   const post = (url, body) =>
     axios.post(url, body, { timeout: PUSH_TIMEOUT_MS });
 
@@ -139,9 +202,13 @@ async function pushText(title, content) {
         title,
         content,
       });
-      const ok = resp && resp.data && resp.data.data === "success";
+      // pushme 成功时返回**纯文本** "success"（resp.data 是字符串），
+      // 兼容个别版本返回 { data: "success" } 的结构。
+      const body = resp && resp.data;
+      const ok =
+        body === "success" || (body && body.data === "success") || body?.code === 200;
       if (ok) return;
-      console.warn("pushme 推送未返回 success：", resp && resp.data);
+      console.warn("pushme 推送未返回 success：", body);
     } catch (e) {
       console.warn("pushme 推送失败：", e && e.message);
     }
@@ -149,15 +216,39 @@ async function pushText(title, content) {
 
   if (!sysKey.push_plus) return;
   try {
-    await post(PUSH_PLUS_URL, {
+    const resp = await post(PUSH_PLUS_URL, {
       token: sysKey.push_plus,
       title,
       content,
       template: "txt",
     });
+    const body = resp && resp.data;
+    if (!body || body.code !== 200) {
+      console.warn("push_plus 兜底推送未成功：", body);
+    }
   } catch (e) {
     console.warn("push_plus 兜底推送失败：", e && e.message);
   }
+}
+
+/**
+ * 推送文本消息：be-message 主通道 → 直连 pushme / pushplus 兜底。
+ *
+ * 两条都失败时仅打日志，不重试（下一个窗口会自然再发）。
+ * 降级时标题加 `[降级直连]` 前缀：这条推送本身就是「统一推送链路故障」的信号。
+ * @param {string} title
+ * @param {string} content
+ * @returns {Promise<void>}
+ */
+async function pushText(title, content) {
+  try {
+    const result = await pushViaMessageService(title, content);
+    if (result.ok) return;
+    console.warn("be-message 统一推送未成功，降级直连：", result.reason);
+  } catch (e) {
+    console.warn("be-message 统一推送调用失败，降级直连：", e && e.message);
+  }
+  await pushDirect(`[降级直连] ${title}`, content);
 }
 
 /**
