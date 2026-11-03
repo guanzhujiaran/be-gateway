@@ -5,7 +5,7 @@
  *  1. normalizePath 归一化 / 脱敏；
  *  2. 主通道：真实走 be-message RPC `message.push.rpc.send_push_now`（需 be-message + RabbitMQ 在跑）；
  *  3. 兜底：RPC 抛错 / 返回 success=false 时降级直连 pushme，标题带 [降级直连]；
- *  4. 阈值：upstream_5xx 4 次不推、第 5 次推且内容计数 x5；
+ *  4. 节奏：首次出现即推（x1）；冷却期内同类错误只累计不推送；冷却结束后汇总推送（x4）；
  *  5. notifyExit 同步 curl 真实推送。
  *
  * 运行：node 测试/错误推送测试/test_error_push.js
@@ -48,12 +48,16 @@ function assert(cond, msg) {
   console.log(`  [PASS] ${msg}`);
 }
 
-function collectProxyError() {
+/**
+ * 采集一条 proxy_error。
+ * @param {string} suffix 路径后缀（不同后缀 = 不同系列，互不影响冷却期）
+ */
+function collectProxyError(suffix) {
   errorReporter.collect({
     kind: "proxy_error",
     status: 0,
     method: "GET",
-    path: "/api/v1/rpa/task/123?secret=zzz",
+    path: `/api/v1/rpa/task/${suffix}?secret=zzz`,
     upstream: "rpa",
     mid: "10001",
     code: "ECONNREFUSED",
@@ -70,7 +74,7 @@ async function main() {
   assert(errorReporter.normalizePath("") === "/", "空路径兜底为 /");
 
   console.log("\n=== 2. 主通道：真实 be-message RPC send_push_now ===");
-  collectProxyError();
+  collectProxyError("123");
   const beforeRpc = rpcCalls.length;
   const beforeDirect = sent.length;
   await errorReporter.flush();
@@ -86,49 +90,60 @@ async function main() {
   rpcOverride = () => {
     throw new Error("模拟 RabbitMQ 不可用");
   };
-  collectProxyError();
+  collectProxyError("124");
   const before3 = sent.length;
   await errorReporter.flush();
   assert(sent.length === before3 + 1, "RPC 异常时降级直连推送");
   assert(sent[sent.length - 1].body.title.startsWith("[降级直连]"), "降级推送标题带 [降级直连]");
 
   rpcOverride = () => ({ code: 0, data: { success: false, message: "无可用渠道" } });
-  collectProxyError();
+  collectProxyError("125");
   const before3b = sent.length;
   await errorReporter.flush();
   assert(sent.length === before3b + 1, "RPC 返回 success=false 时同样降级直连");
 
-  console.log("\n=== 4. 阈值（upstream_5xx = 5） ===");
+  console.log("\n=== 4. 推送节奏：首次即推 + 冷却期 ===");
   rpcOverride = (method, params) => ({ code: 0, data: { success: true }, _title: params.title });
-  for (let i = 0; i < 4; i += 1) {
-    errorReporter.collect({
-      kind: "upstream_5xx",
-      status: 500,
-      method: "POST",
-      path: "/api/v1/user/:id",
-      upstream: "message",
-      mid: "10002",
-      code: "",
-    });
-  }
+  const collectUpstream5xx = (times) => {
+    for (let i = 0; i < times; i += 1) {
+      errorReporter.collect({
+        kind: "upstream_5xx",
+        status: 500,
+        method: "POST",
+        path: "/api/v1/user/:id",
+        upstream: "message",
+        mid: "10002",
+        code: "",
+      });
+    }
+  };
+
+  // 首次出现即推：单次 5xx 就要告警（不再等累计阈值）
+  collectUpstream5xx(1);
   const before4 = rpcCalls.length;
   await errorReporter.flush();
-  assert(rpcCalls.length === before4, "4 次未达阈值不推送");
+  assert(rpcCalls.length === before4 + 1, "首次出现即推送 1 次");
+  assert(rpcCalls[rpcCalls.length - 1].params.content.includes("x1"), "首推计数为 x1");
 
-  errorReporter.collect({
-    kind: "upstream_5xx",
-    status: 500,
-    method: "POST",
-    path: "/api/v1/user/:id",
-    upstream: "message",
-    mid: "10002",
-    code: "",
-  });
+  // 冷却期内：同类错误只累计，不推送
+  collectUpstream5xx(4);
   const before5 = rpcCalls.length;
   await errorReporter.flush();
-  assert(rpcCalls.length === before5 + 1, "第 5 次累计达标推送一次");
+  assert(rpcCalls.length === before5, "冷却期内同类错误不推送");
+
+  // 冷却结束：汇总冷却期内累计的次数推一条
+  const realNow = Date.now;
+  const offset = errorReporter.SERIES_COOLDOWN_MS + 1;
+  Date.now = () => realNow() + offset;
+  try {
+    const before6 = rpcCalls.length;
+    await errorReporter.flush();
+    assert(rpcCalls.length === before6 + 1, "冷却结束后汇总推送一次");
+  } finally {
+    Date.now = realNow;
+  }
   const lastRpc = rpcCalls[rpcCalls.length - 1];
-  assert(lastRpc.params.content.includes("x5"), "推送内容计数为 x5");
+  assert(lastRpc.params.content.includes("x4"), "推送内容计数为冷却期内累计的 x4");
   assert(lastRpc.params.user_label === "网关告警", "来源标签为「网关告警」");
   assert(lastRpc.params.mid === null, "不传 mid，避免被用户级免打扰拦截");
 

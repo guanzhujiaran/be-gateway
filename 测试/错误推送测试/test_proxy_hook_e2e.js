@@ -50,8 +50,7 @@ function listen(app, port) {
 }
 
 async function main() {
-  // 降低阈值，避免测试时刷屏（KIND_THRESHOLD 是导出对象，可直接改）
-  errorReporter.KIND_THRESHOLD.upstream_5xx = 1;
+  // 推送节奏为「首次出现即推 + 冷却期」，同类错误首次出现就会推送，无需再调阈值
 
   const upstream = express();
   upstream.all("/*splat", (req, res) => {

@@ -22,6 +22,12 @@
  * 为什么用进程内 Map 而不是 Redis：
  *  当前网关是单进程 app.listen（无 cluster），进程内聚合已经足够；
  *  多实例部署时每个实例各自推送，告警里带 upstream/path 也能区分来源。
+ *
+ * 推送节奏（取代旧的「窗口内累计阈值」）：
+ *  - **首次出现即推**：某类错误（kind+status+upstream+path+code）第一次出现就告警，
+ *    不再要求 10s 内累计 N 次——单次 500 也是真问题，不能等到凑够 5 次；
+ *  - **推送后进入冷却期**（SERIES_COOLDOWN_MS）：冷却期内同类错误只累计不推送，
+ *    冷却结束后若仍有新错误，把期间累计的次数汇总推一条，避免刷屏。
  */
 const axios = require("axios");
 const {
@@ -40,24 +46,13 @@ const DETAIL_LIMIT = 20;
 const PUSH_TIMEOUT_MS = 5000;
 /** be-message RPC 推送超时（毫秒）：告警是旁路，不能占着 timer 太久 */
 const RPC_PUSH_TIMEOUT_MS = 3000;
-/** 未达阈值的桶最长保留时间，超时清空，避免「每次都差一点」永远不告警 */
+/** 冷却期（毫秒）：同一类错误推送后，此时长内只累计不推送 */
+const SERIES_COOLDOWN_MS = 60 * 1000;
+/** 无对应桶的冷却记录保留时长：超过即清理（同类错误再次出现时按「首次」立即推送） */
 const SERIES_TTL_MS = 60 * 1000;
 
 const PUSHME_URL = "https://push.i-i.me";
 const PUSH_PLUS_URL = "http://www.pushplus.plus/send";
-
-/**
- * 各类型告警阈值：窗口内累计达到该次数才推送。
- *  - proxy_error：连接层故障（上游不可达 / 超时），低频且严重，立即推送；
- *  - upstream_5xx：业务 5xx 存在正常抖动，需要聚合到一定量级；
- *  - gateway_5xx：网关自身异常，容忍度更低。
- * @type {Record<string, number>}
- */
-const KIND_THRESHOLD = {
-  proxy_error: 1,
-  upstream_5xx: 5,
-  gateway_5xx: 3,
-};
 
 /**
  * @typedef {Object} AlertItem
@@ -72,6 +67,8 @@ const KIND_THRESHOLD = {
 
 /** @type {Map<string, Object>} */
 const buckets = new Map();
+/** 各类错误上次推送时间（key 与 buckets 一致），用于冷却期判定 @type {Map<string, number>} */
+const lastPushAt = new Map();
 /** @type {NodeJS.Timeout|null} */
 let timer = null;
 
@@ -252,29 +249,42 @@ async function pushText(title, content) {
 }
 
 /**
- * 汇总当前窗口的桶并推送。
- * 达到阈值的桶推送后删除（下次从 0 重新累计，保证 count 语义为「自上次告警以来」）；
- * 未达阈值但存活超时的桶直接丢弃。
+ * 汇总当前桶并推送。
+ *
+ * 判定规则：
+ *  - 该系列**从未推送过** → 首次出现即推（单次 5xx 也告警）；
+ *  - 距上次推送已过 `SERIES_COOLDOWN_MS` → 冷却结束，把期间累计的次数汇总推送；
+ *  - 仍在冷却期 → 不推送，只继续累计。
+ *
+ * 推送后删除桶（count 语义 = 「自上次告警以来」的次数）；推送失败同样进入冷却，
+ * 不做重试（避免推送链路故障时反复打点）。
  * @returns {Promise<void>}
  */
 async function flush() {
-  if (buckets.size === 0) return;
-
   const now = Date.now();
-  const ready = [];
-  const expired = [];
 
-  for (const [key, bucket] of buckets) {
-    const threshold = KIND_THRESHOLD[bucket.kind] || 1;
-    if (bucket.count >= threshold) {
-      ready.push({ key, bucket });
-    } else if (now - bucket.firstAt >= SERIES_TTL_MS) {
-      expired.push(key);
+  // 先清理已无对应桶的陈旧冷却记录，避免 Map 无界增长（无桶时也要清理）
+  for (const [key, pushedAt] of lastPushAt) {
+    if (!buckets.has(key) && now - pushedAt >= SERIES_TTL_MS) {
+      lastPushAt.delete(key);
     }
   }
 
-  ready.forEach(({ key }) => buckets.delete(key));
-  expired.forEach((key) => buckets.delete(key));
+  if (buckets.size === 0) return;
+
+  const ready = [];
+
+  for (const [key, bucket] of buckets) {
+    const pushedAt = lastPushAt.get(key);
+    if (pushedAt === undefined || now - pushedAt >= SERIES_COOLDOWN_MS) {
+      ready.push({ key, bucket });
+    }
+  }
+
+  ready.forEach(({ key }) => {
+    buckets.delete(key);
+    lastPushAt.set(key, now);
+  });
 
   if (ready.length === 0) return;
 
@@ -292,12 +302,11 @@ async function flush() {
     );
   });
 
-  const title = `[网关错误聚合] ${FLUSH_INTERVAL_MS / 1000}s 内 ${total} 次 / ${
-    ready.length
-  } 类`;
+  const title = `[网关错误告警] ${ready.length} 类 / 累计 ${total} 次`;
   const content =
     `时间: ${new Date(now).toLocaleString("zh-CN")}\n` +
-    `合计: ${total} 次，${ready.length} 类（仅列前 ${DETAIL_LIMIT} 类）\n\n` +
+    `合计: ${total} 次，${ready.length} 类（仅列前 ${DETAIL_LIMIT} 类）\n` +
+    `说明: 同类错误推送后 ${SERIES_COOLDOWN_MS / 1000}s 内不再重复推送（仅累计）\n\n` +
     lines.join("\n\n");
 
   await pushText(title, content);
@@ -326,4 +335,11 @@ function stop() {
   timer = null;
 }
 
-module.exports = { collect, flush, start, stop, normalizePath, KIND_THRESHOLD };
+module.exports = {
+  collect,
+  flush,
+  start,
+  stop,
+  normalizePath,
+  SERIES_COOLDOWN_MS,
+};
