@@ -93,6 +93,10 @@ router.use(
     },
   }),
 );
+// 注意：crawler 的 `/api/v1/background_service/*`（调度启停 / 爬虫推送开关）**刻意不在这里转发**。
+// crawler 侧这些接口没有鉴权，只靠「网关不转发」保证不对公网开放；管理端需要的能力
+// （如推送开关）由 be-message 用 `AdminUser` 鉴权后再内网代理，见
+// `be-message-service/app/api/crawler_push_admin.py`。
 router.use(
   "/api/v1/samsClub/graphql",
   createProxyMiddleware({
