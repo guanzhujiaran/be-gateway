@@ -36,27 +36,79 @@ const {
 } = require("@/ExpressServerEnd/BiliPPTR/utils/utils");
 const rpcClient = require("@/ExpressServerEnd/Service/mq/rpc_client");
 
-/** 聚合窗口（毫秒） */
-const FLUSH_INTERVAL_MS = 10 * 1000;
-/** 桶数量上限，超出后丢弃新桶以保护内存 */
-const MAX_BUCKETS = 500;
-/** 单次推送最多展示的错误类型数（按次数降序） */
-const DETAIL_LIMIT = 20;
-/** 单次推送超时（毫秒），直连通道用 */
-const PUSH_TIMEOUT_MS = 5000;
-/** be-message RPC 推送超时（毫秒）：告警是旁路，不能占着 timer 太久 */
-const RPC_PUSH_TIMEOUT_MS = 3000;
-/** 冷却期（毫秒）：同一类错误推送后，此时长内只累计不推送 */
-const SERIES_COOLDOWN_MS = 60 * 1000;
+/**
+ * 读取整数环境变量，缺省 / 非法时回退默认值。
+ *
+ * 只在模块加载时读一次（进程启动即固化）：告警节奏属于部署级配置，
+ * 运行期来回变动会让「为什么这次没推」变得不可复现，改配置就重启网关。
+ * @param {string} name
+ * @param {number} fallback
+ * @param {{min?: number, max?: number}} [range]
+ * @returns {number}
+ */
+function readEnvInt(name, fallback, range = {}) {
+  const { min = 0, max = Number.MAX_SAFE_INTEGER } = range;
+  const raw = process.env[name];
+  if (raw === undefined || raw === null || String(raw).trim() === "") {
+    return fallback;
+  }
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value < min || value > max) {
+    console.warn(
+      `[ErrorReporter] 环境变量 ${name}=${raw} 非法（应为 ${min}~${max} 的整数），回退默认值 ${fallback}`,
+    );
+    return fallback;
+  }
+  return Math.floor(value);
+}
+
+/** 聚合窗口（毫秒），环境变量 GATEWAY_ALERT_FLUSH_INTERVAL_MS */
+const FLUSH_INTERVAL_MS = readEnvInt(
+  "GATEWAY_ALERT_FLUSH_INTERVAL_MS",
+  10 * 1000,
+  { min: 1000 },
+);
+/** 桶数量上限，超出后丢弃新桶以保护内存，环境变量 GATEWAY_ALERT_MAX_BUCKETS */
+const MAX_BUCKETS = readEnvInt("GATEWAY_ALERT_MAX_BUCKETS", 500, {
+  min: 1,
+  max: 100000,
+});
+/** 单次推送最多展示的错误类型数（按次数降序），环境变量 GATEWAY_ALERT_DETAIL_LIMIT */
+const DETAIL_LIMIT = readEnvInt("GATEWAY_ALERT_DETAIL_LIMIT", 20, {
+  min: 1,
+  max: 200,
+});
+/** 单次推送超时（毫秒），直连通道用，环境变量 GATEWAY_ALERT_PUSH_TIMEOUT_MS */
+const PUSH_TIMEOUT_MS = readEnvInt("GATEWAY_ALERT_PUSH_TIMEOUT_MS", 5000, {
+  min: 500,
+});
+/**
+ * be-message RPC 推送超时（毫秒），环境变量 GATEWAY_ALERT_RPC_PUSH_TIMEOUT_MS。
+ *
+ * 取 30s 而非 3s：告警是旁路，但 RPC 链路要经过 RabbitMQ 排队 + be-message
+ * 实际发送（推送渠道本身就可能要几秒），3s 很容易在链路繁忙时超时，
+ * 导致「有错误却收不到告警」。超时后 flush 只等这一个 timer tick，
+ * 下次窗口仍会继续聚合推送，不会阻塞业务请求。
+ */
+const RPC_PUSH_TIMEOUT_MS = readEnvInt(
+  "GATEWAY_ALERT_RPC_PUSH_TIMEOUT_MS",
+  30 * 1000,
+  { min: 500 },
+);
+/** 冷却期（毫秒）：同一类错误推送后，此时长内只累计不推送，环境变量 GATEWAY_ALERT_SERIES_COOLDOWN_MS */
+const SERIES_COOLDOWN_MS = readEnvInt(
+  "GATEWAY_ALERT_SERIES_COOLDOWN_MS",
+  60 * 1000,
+);
 /** 无对应桶的冷却记录保留时长：超过即清理（同类错误再次出现时按「首次」立即推送） */
-const SERIES_TTL_MS = 60 * 1000;
+const SERIES_TTL_MS = SERIES_COOLDOWN_MS > 0 ? SERIES_COOLDOWN_MS : 60 * 1000;
 
 const PUSHME_URL = "https://push.i-i.me";
 const PUSH_PLUS_URL = "http://www.pushplus.plus/send";
 
 /**
  * @typedef {Object} AlertItem
- * @property {string} kind 错误类型：upstream_5xx / proxy_error / gateway_5xx
+ * @property {string} kind 错误类型：upstream_5xx / upstream_4xx / proxy_error / gateway_5xx
  * @property {number} status HTTP 状态码，无响应时为 0
  * @property {string} method 请求方法
  * @property {string} path 原始请求路径（含 query，内部会归一化并脱敏）
@@ -341,5 +393,6 @@ module.exports = {
   start,
   stop,
   normalizePath,
+  readEnvInt,
   SERIES_COOLDOWN_MS,
 };

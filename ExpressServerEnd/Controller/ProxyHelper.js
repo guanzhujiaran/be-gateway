@@ -115,10 +115,26 @@ async function proxyErrorHandler(err, req, res) {
 }
 
 /**
+ * 上游响应触发告警的最低 HTTP 状态码。
+ *
+ * 默认 500（只采集 5xx）：4xx 多为调用方问题（405 方法不匹配、401 未登录、
+ * 404 探测请求），全量告警会刷爆推送通道。
+ * 需要观察上游 4xx（例如排查「谁在 POST 打 GET 接口」）时，把环境变量
+ * `GATEWAY_ALERT_UPSTREAM_MIN_STATUS` 调到 400 即可，无需改代码；
+ * 该值 < 500 时采集项 kind 记为 upstream_4xx，与 5xx 在推送里可区分。
+ * @type {number}
+ */
+const UPSTREAM_ALERT_MIN_STATUS = errorReporter.readEnvInt(
+  "GATEWAY_ALERT_UPSTREAM_MIN_STATUS",
+  500,
+  { min: 400, max: 599 },
+);
+
+/**
  * 构造反向代理的统一错误采集 hook。
  *
  * 全部代理必须通过本函数生成 `on` 配置，避免采集口径漂移：
- *  - `proxyRes`：上游**正常返回**但状态码为 5xx 时采集。
+ *  - `proxyRes`：上游**正常返回**但状态码达到 `UPSTREAM_ALERT_MIN_STATUS` 时采集。
  *    这是 http-proxy-middleware 的默认盲区 —— 上游 500 会直接 pipe 给客户端，
  *    既不触发 `error`，也不经过 Express 错误中间件，不挂这个钩子就永远发现不了。
  *    该阶段只读 statusCode，不消费响应流（消费会破坏 pipe）。
@@ -132,9 +148,9 @@ function buildProxyHooks(upstreamName) {
     proxyRes: (proxyRes, req) => {
       try {
         const status = proxyRes && proxyRes.statusCode;
-        if (!status || status < 500) return;
+        if (!status || status < UPSTREAM_ALERT_MIN_STATUS) return;
         errorReporter.collect({
-          kind: "upstream_5xx",
+          kind: status >= 500 ? "upstream_5xx" : "upstream_4xx",
           status,
           method: req.method,
           path: req.originalUrl || req.url,
@@ -144,7 +160,7 @@ function buildProxyHooks(upstreamName) {
         });
       } catch (e) {
         // 采集失败绝不能影响代理转发
-        console.warn("上游 5xx 采集失败：", e && e.message);
+        console.warn("上游错误采集失败：", e && e.message);
       }
     },
     error: (err, req, res) => {
@@ -261,4 +277,5 @@ module.exports = {
   buildProxyHooks,
   setUserHeaders,
   resolveClientIp,
+  UPSTREAM_ALERT_MIN_STATUS,
 };
