@@ -9,7 +9,12 @@ const { utils } = require("@/ExpressServerEnd/BiliPPTR/utils/utils");
 /**
  * 获取 gateway 反向代理的上游服务列表
  * 目标地址来源与 routes/proxy.js 中 createProxyMiddleware 的 target 保持一致
- * @returns {{name:string, route:string, target:(string|undefined)}[]}
+ *
+ * probe_path：探活路径。FastAPI 侧没有根路由，探根路径会每次打一条
+ * `404 Not Found [GET /]` 的 WARNING + 访问日志，纯属噪音，
+ * 因此 crawler 的两个角色统一改探轻量的 `/health`（不查库、不连 MQ）。
+ * 未配置 probe_path 的上游仍探根路径（行为不变）。
+ * @returns {{name:string, route:string, target:(string|undefined), probe_path?:string}[]}
  */
 function getUpstreamTargets() {
   return [
@@ -17,11 +22,13 @@ function getUpstreamTargets() {
       name: "be-bilibili-crawler (fastapi, 写入/控制面)",
       route: "/api/v1/lottery_database/bili/Add*、/api/v1/samsClub/graphql",
       target: utils.MYAPI.base_url,
+      probe_path: "/health",
     },
     {
       name: "be-bilibili-crawler-query (fastapi, 只读查询)",
       route: "/api/v1/lottery_database/bili（除 Add* 系列）",
       target: utils.MYAPI.query_base_url,
+      probe_path: "/health",
     },
     {
       name: "rpa-browser (rpa)",
@@ -42,10 +49,23 @@ function getUpstreamTargets() {
 }
 
 /**
+ * 拼出探活 URL：上游配了 probe_path 就带上（去掉 target 末尾多余的 /）
+ * @param {{target:(string|undefined), probe_path?:string}} item
+ * @returns {string}
+ */
+function buildProbeUrl(item) {
+  const base = String(item.target || "");
+  if (!item.probe_path) {
+    return base;
+  }
+  return `${base.replace(/\/+$/, "")}${item.probe_path}`;
+}
+
+/**
  * 检测单个上游服务是否可达
  * 只要上游返回任意 HTTP 响应（包括 4xx/5xx）即视为服务已启动；
  * 仅连接层面失败（拒绝连接 / DNS 解析失败 / 超时等）才视为不可用
- * @param {{name:string, route:string, target:(string|undefined)}} item
+ * @param {{name:string, route:string, target:(string|undefined), probe_path?:string}} item
  * @param {number} timeout 单次探测超时时间（毫秒）
  * @returns {Promise<Object>}
  */
@@ -62,7 +82,7 @@ async function checkOne(item, timeout) {
   const start = Date.now();
   try {
     const resp = await axios.request({
-      url: item.target,
+      url: buildProbeUrl(item),
       method: "GET",
       timeout,
       validateStatus: () => true, // 只要上游有 HTTP 响应即视为存活
@@ -107,11 +127,11 @@ async function checkUpstreamHealth({ timeout = 5000 } = {}) {
   for (const r of results) {
     if (r.ok) {
       console.log(
-        `[✓] ${r.name} 正常 -> ${r.target} (HTTP ${r.status}, ${r.cost}ms) 路由: ${r.route}`
+        `[✓] ${r.name} 正常 -> ${buildProbeUrl(r)} (HTTP ${r.status}, ${r.cost}ms) 路由: ${r.route}`
       );
     } else {
       console.error(
-        `[✗] ${r.name} 不可用 -> ${r.target || "(未配置)"} 原因: ${r.reason} 路由: ${r.route}`
+        `[✗] ${r.name} 不可用 -> ${r.target ? buildProbeUrl(r) : "(未配置)"} 原因: ${r.reason} 路由: ${r.route}`
       );
     }
   }
