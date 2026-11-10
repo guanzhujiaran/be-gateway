@@ -199,11 +199,40 @@ router.use(
   }),
 );
 
+// 管理端「LLM 连通性测试」是真实的上游 completion（crawler 45s，be-message 60s），
+// 通用 /api/v1 代理的 30s 会先把它掐成 504。单独把这条精确路径提前注册：
+//  - 注册顺序必须在本文件最后的 /api/v1 通用代理之前（router.use 先命中先接管）；
+//  - 两层超时都要放宽：proxyTimeout 是转发 socket 超时，app.js 的
+//    timeout("30s") 是一次性 connect-timeout，必须 clearTimeout + setTimeout 重设；
+//  - 超时预算统一为 网关 90s > be-message 60s > crawler 45s，不再倒挂。
+const LLM_TEST_PROXY_TIMEOUT_MS = 90000;
+router.use(
+  "/api/v1/crawler/admin/llm/config/test",
+  jwtAuthOptional,
+  userInfoPreFetchMiddleware(),
+  createProxyMiddleware({
+    target: utils.MESSAGE.base_url,
+    pathRewrite: { "^/": "/api/v1/crawler/admin/llm/config/test" },
+    changeOrigin: true,
+    proxyTimeout: LLM_TEST_PROXY_TIMEOUT_MS,
+    on: {
+      proxyReq: (proxyReq, req, res) => {
+        req.clearTimeout();
+        req.setTimeout(LLM_TEST_PROXY_TIMEOUT_MS);
+        setUserHeaders(proxyReq, req);
+        fixRequestBody(proxyReq, req);
+      },
+      ...buildProxyHooks("message"),
+    },
+  }),
+);
+
 router.use(
   // be-message-service 统一反向代理（2.41.0 合并精简：message/comment/community/
   // favorite/report 等全部业务域均由 be-message 单进程承载，共用一个转发即可）。
   // 放最后：/api/v1/user 由 routes/user（UserGatewayProxy）先注册处理，
-  // /api/v1/casdoor、/api/v1/rpa、/api/admin/rpa 等专属代理在前已匹配，不会误伤。
+  // /api/v1/casdoor、/api/v1/rpa、/api/admin/rpa、
+  // /api/v1/crawler/admin/llm/config/test 等专属代理在前已匹配，不会误伤。
   // 注意：Express 5 挂载路径不能带尾斜杠（/api/v1/ 无法匹配子路径），故用 /api/v1；
   // pathRewrite ^/ → /api/v1/ 补回前缀，be-message 各 APIRouter 自带完整路径。
   "/api/v1",
