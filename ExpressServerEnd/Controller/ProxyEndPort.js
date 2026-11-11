@@ -199,26 +199,31 @@ router.use(
   }),
 );
 
-// 管理端「LLM 连通性测试」是真实的上游 completion（crawler 45s，be-message 60s），
-// 通用 /api/v1 代理的 30s 会先把它掐成 504。单独把这条精确路径提前注册：
+// 管理端 crawler LLM 命名空间（/api/v1/crawler/admin/llm/*）整体放宽超时：
+// 其中「连通性测试」是真实的上游 completion（crawler 45s、be-message 60s），
+// 通用 /api/v1 代理的 30s 会先把它掐成 504。
+//  - **按命名空间分流，不写死业务接口名**：网关只认识这个前缀，具体路由
+//    （config / stats / config/test / config/override …）全部交给 be-message 的
+//    APIRouter 决定；以后该命名空间新增慢接口无需再改网关；
 //  - 注册顺序必须在本文件最后的 /api/v1 通用代理之前（router.use 先命中先接管）；
 //  - 两层超时都要放宽：proxyTimeout 是转发 socket 超时，app.js 的
 //    timeout("30s") 是一次性 connect-timeout，必须 clearTimeout + setTimeout 重设；
-//  - 超时预算统一为 网关 90s > be-message 60s > crawler 45s，不再倒挂。
-const LLM_TEST_PROXY_TIMEOUT_MS = 90000;
+//  - 超时预算统一为 网关 90s > be-message 60s > crawler 45s，不再倒挂；
+//  - 前端 URL 保持不变，pathRewrite 把挂载时被剥离的命名空间前缀补回去。
+const CRAWLER_ADMIN_LLM_PROXY_TIMEOUT_MS = 90000;
 router.use(
-  "/api/v1/crawler/admin/llm/config/test",
+  "/api/v1/crawler/admin/llm",
   jwtAuthOptional,
   userInfoPreFetchMiddleware(),
   createProxyMiddleware({
     target: utils.MESSAGE.base_url,
-    pathRewrite: { "^/": "/api/v1/crawler/admin/llm/config/test" },
+    pathRewrite: { "^/": "/api/v1/crawler/admin/llm/" },
     changeOrigin: true,
-    proxyTimeout: LLM_TEST_PROXY_TIMEOUT_MS,
+    proxyTimeout: CRAWLER_ADMIN_LLM_PROXY_TIMEOUT_MS,
     on: {
       proxyReq: (proxyReq, req, res) => {
         req.clearTimeout();
-        req.setTimeout(LLM_TEST_PROXY_TIMEOUT_MS);
+        req.setTimeout(CRAWLER_ADMIN_LLM_PROXY_TIMEOUT_MS);
         setUserHeaders(proxyReq, req);
         fixRequestBody(proxyReq, req);
       },
@@ -232,7 +237,7 @@ router.use(
   // favorite/report 等全部业务域均由 be-message 单进程承载，共用一个转发即可）。
   // 放最后：/api/v1/user 由 routes/user（UserGatewayProxy）先注册处理，
   // /api/v1/casdoor、/api/v1/rpa、/api/admin/rpa、
-  // /api/v1/crawler/admin/llm/config/test 等专属代理在前已匹配，不会误伤。
+  // /api/v1/crawler/admin/llm（整段命名空间）等专属代理在前已匹配，不会误伤。
   // 注意：Express 5 挂载路径不能带尾斜杠（/api/v1/ 无法匹配子路径），故用 /api/v1；
   // pathRewrite ^/ → /api/v1/ 补回前缀，be-message 各 APIRouter 自带完整路径。
   "/api/v1",
