@@ -111,6 +111,28 @@ router.use(
     },
   }),
 );
+// 报错反馈提交：游客也可提交（「出错了但还没登录」是最常见的求助场景）。
+// 必须在通用 /api/v1/rpa 之前注册并**跳过 createGuard** —— 通用段要求 level3，
+// 游客无 auth 会被 guard 直接拒绝；同时 JwtModule 的 jwtAuth 白名单已放行该路径。
+// 注意：仅放行「提交」，反馈列表 / 管理端接口仍需登录 / 管理员权限。
+router.use(
+  "/api/v1/rpa/browser/feedback/submit",
+  jwtAuthOptional,
+  userInfoPreFetchMiddleware(),
+  createProxyMiddleware({
+    target: utils.RPA.base_url,
+    proxyTimeout: 30000,
+    pathRewrite: { "^/": "/api/v1/rpa/browser/feedback/submit" },
+    changeOrigin: true,
+    on: {
+      proxyReq: (proxyReq, req, res) => {
+        setUserHeaders(proxyReq, req);
+        fixRequestBody(proxyReq, req);
+      },
+      ...buildProxyHooks("rpa"),
+    },
+  }),
+);
 router.use(
   "/api/v1/rpa",
   createGuard(),

@@ -137,6 +137,9 @@ const jwtAuth = expressJwt
       // 用户空间信息：公开可读（对标 B 站 /x/space/wbi/acc/info）。
       // 匿名返回公开资料；登录时上游结合 x-bili-mid 做黑名单互访拒绝（403）。
       { url: /\/api\/v1\/user\/space\/info/ },
+      // RPA 报错反馈提交：允许未登录游客提交（出错了但还没登录是最常见的求助场景）。
+      // RPA 侧用可选登录依赖，游客只记录联系方式；其余 /api/v1/rpa/* 仍需登录 + 等级权限。
+      { url: /\/api\/v1\/rpa\/browser\/feedback\/submit/ },
     ], //不需要校验的路径
   });
 
