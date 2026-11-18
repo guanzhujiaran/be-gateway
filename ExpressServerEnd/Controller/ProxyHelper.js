@@ -117,16 +117,14 @@ async function proxyErrorHandler(err, req, res) {
 /**
  * 上游响应触发告警的最低 HTTP 状态码。
  *
- * 默认 500（只采集 5xx）：4xx 多为调用方问题（405 方法不匹配、401 未登录、
- * 404 探测请求），全量告警会刷爆推送通道。
+ * 默认 400（只采集 4xx）
  * 需要观察上游 4xx（例如排查「谁在 POST 打 GET 接口」）时，把环境变量
  * `GATEWAY_ALERT_UPSTREAM_MIN_STATUS` 调到 400 即可，无需改代码；
- * 该值 < 500 时采集项 kind 记为 upstream_4xx，与 5xx 在推送里可区分。
  * @type {number}
  */
 const UPSTREAM_ALERT_MIN_STATUS = errorReporter.readEnvInt(
   "GATEWAY_ALERT_UPSTREAM_MIN_STATUS",
-  500,
+  400,
   { min: 400, max: 599 },
 );
 
